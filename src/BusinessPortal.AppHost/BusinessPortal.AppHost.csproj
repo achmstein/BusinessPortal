@@ -1,15 +1,22 @@
 <Project Sdk="Aspire.AppHost.Sdk/13.4.6">
 
-  <ItemGroup>
-    <ProjectReference Include="..\BusinessPortal.Web\BusinessPortal.Web.csproj" />
-  </ItemGroup>
-
   <PropertyGroup>
     <OutputType>Exe</OutputType>
     <TargetFramework>net10.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
+    <IsAspireHost>true</IsAspireHost>
     <UserSecretsId>5d9cc6fd-d807-486e-ba1d-fd02ff92146a</UserSecretsId>
   </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\BusinessPortal.Web\BusinessPortal.Web.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Aspire.Hosting.PostgreSQL" Version="13.4.6" />
+    <PackageReference Include="Aspire.Hosting.JavaScript" Version="13.4.6" />
+    <PackageReference Include="Aspire.Hosting.Docker" Version="13.4.6" />
+  </ItemGroup>
 
 </Project>
