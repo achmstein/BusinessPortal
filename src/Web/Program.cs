@@ -7,6 +7,7 @@ using BusinessPortal.Infrastructure.Identity;
 using BusinessPortal.Web.Endpoints;
 using BusinessPortal.Web.Infrastructure;
 using BusinessPortal.Web.Services;
+using Hangfire;
 using Microsoft.AspNetCore.Identity;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -57,6 +58,12 @@ app.UseCors();
 app.UseAuthentication();
 app.UseAuthorization();
 
+// Hangfire dashboard — admins only.
+app.UseHangfireDashboard("/hangfire", new DashboardOptions
+{
+    Authorization = [new HangfireDashboardAuthorizationFilter()],
+});
+
 // Built-in Identity endpoints: /api/login, /api/register, /api/refresh, etc.
 app.MapGroup("/api").MapIdentityApi<ApplicationUser>();
 
@@ -66,6 +73,7 @@ app.MapBusinessEntitiesEndpoints();
 app.MapBusinessNamesEndpoints();
 app.MapMessagesEndpoints();
 app.MapAsicRenewalsEndpoints();
+app.MapAbnLookupEndpoints();
 app.MapAdminEndpoints();
 
 app.MapDefaultEndpoints();

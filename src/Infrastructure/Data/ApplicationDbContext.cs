@@ -17,6 +17,7 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
     public DbSet<BusinessName> BusinessNames => Set<BusinessName>();
     public DbSet<Message> Messages => Set<Message>();
     public DbSet<ImpersonationLog> ImpersonationLogs => Set<ImpersonationLog>();
+    public DbSet<AbnLookupJob> AbnLookupJobs => Set<AbnLookupJob>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {

@@ -11,6 +11,7 @@ public interface IApplicationDbContext
     DbSet<BusinessName> BusinessNames { get; }
     DbSet<Message> Messages { get; }
     DbSet<ImpersonationLog> ImpersonationLogs { get; }
+    DbSet<AbnLookupJob> AbnLookupJobs { get; }
 
     Task<int> SaveChangesAsync(CancellationToken cancellationToken);
 }

@@ -1,7 +1,12 @@
 using BusinessPortal.Application.Common.Interfaces;
 using BusinessPortal.Infrastructure.Data;
 using BusinessPortal.Infrastructure.Data.Interceptors;
+using BusinessPortal.Infrastructure.ExternalClients;
 using BusinessPortal.Infrastructure.Identity;
+using BusinessPortal.Infrastructure.Jobs;
+using BusinessPortal.Infrastructure.Services;
+using Hangfire;
+using Hangfire.PostgreSql;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
@@ -61,6 +66,19 @@ public static class DependencyInjection
             .AddApiEndpoints();
 
         services.AddSingleton<IEmailSender<ApplicationUser>, NoOpEmailSender>();
+
+        // ─── Hangfire (background jobs, stored in the same Postgres DB) ───
+        services.AddHangfire(cfg => cfg
+            .SetDataCompatibilityLevel(CompatibilityLevel.Version_180)
+            .UseSimpleAssemblyNameTypeSerializer()
+            .UseRecommendedSerializerSettings()
+            .UsePostgreSqlStorage(o => o.UseNpgsqlConnection(connectionString)));
+        services.AddHangfireServer();
+        services.AddScoped<IJobScheduler, HangfireJobScheduler>();
+
+        // ─── ABN Lookup (data.gov.au) ───
+        services.AddHttpClient<IAbnLookupClient, AbnLookupClient>();
+        services.AddScoped<IAbnLookupService, AbnLookupService>();
 
         return services;
     }
