@@ -1,0 +1,1753 @@
+﻿{
+    "openapi":  "3.1.1",
+    "info":  {
+                 "title":  "Web | v1",
+                 "version":  "1.0.0"
+             },
+    "servers":  [
+                    {
+                        "url":  "/"
+                    }
+                ],
+    "paths":  {
+                  "/api/register":  {
+                                        "post":  {
+                                                     "tags":  [
+                                                                  "Web"
+                                                              ],
+                                                     "requestBody":  {
+                                                                         "content":  {
+                                                                                         "application/json":  {
+                                                                                                                  "schema":  {
+                                                                                                                                 "$ref":  "#/components/schemas/RegisterRequest"
+                                                                                                                             }
+                                                                                                              }
+                                                                                     },
+                                                                         "required":  true
+                                                                     },
+                                                     "responses":  {
+                                                                       "200":  {
+                                                                                   "description":  "OK"
+                                                                               },
+                                                                       "400":  {
+                                                                                   "description":  "Bad Request",
+                                                                                   "content":  {
+                                                                                                   "application/problem+json":  {
+                                                                                                                                    "schema":  {
+                                                                                                                                                   "$ref":  "#/components/schemas/HttpValidationProblemDetails"
+                                                                                                                                               }
+                                                                                                                                }
+                                                                                               }
+                                                                               }
+                                                                   }
+                                                 }
+                                    },
+                  "/api/login":  {
+                                     "post":  {
+                                                  "tags":  [
+                                                               "Web"
+                                                           ],
+                                                  "parameters":  [
+                                                                     {
+                                                                         "name":  "useCookies",
+                                                                         "in":  "query",
+                                                                         "schema":  {
+                                                                                        "type":  "boolean"
+                                                                                    }
+                                                                     },
+                                                                     {
+                                                                         "name":  "useSessionCookies",
+                                                                         "in":  "query",
+                                                                         "schema":  {
+                                                                                        "type":  "boolean"
+                                                                                    }
+                                                                     }
+                                                                 ],
+                                                  "requestBody":  {
+                                                                      "content":  {
+                                                                                      "application/json":  {
+                                                                                                               "schema":  {
+                                                                                                                              "$ref":  "#/components/schemas/LoginRequest"
+                                                                                                                          }
+                                                                                                           }
+                                                                                  },
+                                                                      "required":  true
+                                                                  },
+                                                  "responses":  {
+                                                                    "200":  {
+                                                                                "description":  "OK",
+                                                                                "content":  {
+                                                                                                "application/json":  {
+                                                                                                                         "schema":  {
+                                                                                                                                        "$ref":  "#/components/schemas/AccessTokenResponse"
+                                                                                                                                    }
+                                                                                                                     }
+                                                                                            }
+                                                                            }
+                                                                }
+                                              }
+                                 },
+                  "/api/refresh":  {
+                                       "post":  {
+                                                    "tags":  [
+                                                                 "Web"
+                                                             ],
+                                                    "requestBody":  {
+                                                                        "content":  {
+                                                                                        "application/json":  {
+                                                                                                                 "schema":  {
+                                                                                                                                "$ref":  "#/components/schemas/RefreshRequest"
+                                                                                                                            }
+                                                                                                             }
+                                                                                    },
+                                                                        "required":  true
+                                                                    },
+                                                    "responses":  {
+                                                                      "200":  {
+                                                                                  "description":  "OK",
+                                                                                  "content":  {
+                                                                                                  "application/json":  {
+                                                                                                                           "schema":  {
+                                                                                                                                          "$ref":  "#/components/schemas/AccessTokenResponse"
+                                                                                                                                      }
+                                                                                                                       }
+                                                                                              }
+                                                                              }
+                                                                  }
+                                                }
+                                   },
+                  "/api/confirmEmail":  {
+                                            "get":  {
+                                                        "tags":  [
+                                                                     "Web"
+                                                                 ],
+                                                        "operationId":  "MapIdentityApi-/api/confirmEmail",
+                                                        "parameters":  [
+                                                                           {
+                                                                               "name":  "userId",
+                                                                               "in":  "query",
+                                                                               "required":  true,
+                                                                               "schema":  {
+                                                                                              "type":  "string"
+                                                                                          }
+                                                                           },
+                                                                           {
+                                                                               "name":  "code",
+                                                                               "in":  "query",
+                                                                               "required":  true,
+                                                                               "schema":  {
+                                                                                              "type":  "string"
+                                                                                          }
+                                                                           },
+                                                                           {
+                                                                               "name":  "changedEmail",
+                                                                               "in":  "query",
+                                                                               "schema":  {
+                                                                                              "type":  "string"
+                                                                                          }
+                                                                           }
+                                                                       ],
+                                                        "responses":  {
+                                                                          "200":  {
+                                                                                      "description":  "OK"
+                                                                                  }
+                                                                      }
+                                                    }
+                                        },
+                  "/api/resendConfirmationEmail":  {
+                                                       "post":  {
+                                                                    "tags":  [
+                                                                                 "Web"
+                                                                             ],
+                                                                    "requestBody":  {
+                                                                                        "content":  {
+                                                                                                        "application/json":  {
+                                                                                                                                 "schema":  {
+                                                                                                                                                "$ref":  "#/components/schemas/ResendConfirmationEmailRequest"
+                                                                                                                                            }
+                                                                                                                             }
+                                                                                                    },
+                                                                                        "required":  true
+                                                                                    },
+                                                                    "responses":  {
+                                                                                      "200":  {
+                                                                                                  "description":  "OK"
+                                                                                              }
+                                                                                  }
+                                                                }
+                                                   },
+                  "/api/forgotPassword":  {
+                                              "post":  {
+                                                           "tags":  [
+                                                                        "Web"
+                                                                    ],
+                                                           "requestBody":  {
+                                                                               "content":  {
+                                                                                               "application/json":  {
+                                                                                                                        "schema":  {
+                                                                                                                                       "$ref":  "#/components/schemas/ForgotPasswordRequest"
+                                                                                                                                   }
+                                                                                                                    }
+                                                                                           },
+                                                                               "required":  true
+                                                                           },
+                                                           "responses":  {
+                                                                             "200":  {
+                                                                                         "description":  "OK"
+                                                                                     },
+                                                                             "400":  {
+                                                                                         "description":  "Bad Request",
+                                                                                         "content":  {
+                                                                                                         "application/problem+json":  {
+                                                                                                                                          "schema":  {
+                                                                                                                                                         "$ref":  "#/components/schemas/HttpValidationProblemDetails"
+                                                                                                                                                     }
+                                                                                                                                      }
+                                                                                                     }
+                                                                                     }
+                                                                         }
+                                                       }
+                                          },
+                  "/api/resetPassword":  {
+                                             "post":  {
+                                                          "tags":  [
+                                                                       "Web"
+                                                                   ],
+                                                          "requestBody":  {
+                                                                              "content":  {
+                                                                                              "application/json":  {
+                                                                                                                       "schema":  {
+                                                                                                                                      "$ref":  "#/components/schemas/ResetPasswordRequest"
+                                                                                                                                  }
+                                                                                                                   }
+                                                                                          },
+                                                                              "required":  true
+                                                                          },
+                                                          "responses":  {
+                                                                            "200":  {
+                                                                                        "description":  "OK"
+                                                                                    },
+                                                                            "400":  {
+                                                                                        "description":  "Bad Request",
+                                                                                        "content":  {
+                                                                                                        "application/problem+json":  {
+                                                                                                                                         "schema":  {
+                                                                                                                                                        "$ref":  "#/components/schemas/HttpValidationProblemDetails"
+                                                                                                                                                    }
+                                                                                                                                     }
+                                                                                                    }
+                                                                                    }
+                                                                        }
+                                                      }
+                                         },
+                  "/api/manage/2fa":  {
+                                          "post":  {
+                                                       "tags":  [
+                                                                    "Web"
+                                                                ],
+                                                       "requestBody":  {
+                                                                           "content":  {
+                                                                                           "application/json":  {
+                                                                                                                    "schema":  {
+                                                                                                                                   "$ref":  "#/components/schemas/TwoFactorRequest"
+                                                                                                                               }
+                                                                                                                }
+                                                                                       },
+                                                                           "required":  true
+                                                                       },
+                                                       "responses":  {
+                                                                         "200":  {
+                                                                                     "description":  "OK",
+                                                                                     "content":  {
+                                                                                                     "application/json":  {
+                                                                                                                              "schema":  {
+                                                                                                                                             "$ref":  "#/components/schemas/TwoFactorResponse"
+                                                                                                                                         }
+                                                                                                                          }
+                                                                                                 }
+                                                                                 },
+                                                                         "400":  {
+                                                                                     "description":  "Bad Request",
+                                                                                     "content":  {
+                                                                                                     "application/problem+json":  {
+                                                                                                                                      "schema":  {
+                                                                                                                                                     "$ref":  "#/components/schemas/HttpValidationProblemDetails"
+                                                                                                                                                 }
+                                                                                                                                  }
+                                                                                                 }
+                                                                                 },
+                                                                         "404":  {
+                                                                                     "description":  "Not Found"
+                                                                                 }
+                                                                     }
+                                                   }
+                                      },
+                  "/api/manage/info":  {
+                                           "get":  {
+                                                       "tags":  [
+                                                                    "Web"
+                                                                ],
+                                                       "responses":  {
+                                                                         "200":  {
+                                                                                     "description":  "OK",
+                                                                                     "content":  {
+                                                                                                     "application/json":  {
+                                                                                                                              "schema":  {
+                                                                                                                                             "$ref":  "#/components/schemas/InfoResponse"
+                                                                                                                                         }
+                                                                                                                          }
+                                                                                                 }
+                                                                                 },
+                                                                         "400":  {
+                                                                                     "description":  "Bad Request",
+                                                                                     "content":  {
+                                                                                                     "application/problem+json":  {
+                                                                                                                                      "schema":  {
+                                                                                                                                                     "$ref":  "#/components/schemas/HttpValidationProblemDetails"
+                                                                                                                                                 }
+                                                                                                                                  }
+                                                                                                 }
+                                                                                 },
+                                                                         "404":  {
+                                                                                     "description":  "Not Found"
+                                                                                 }
+                                                                     }
+                                                   },
+                                           "post":  {
+                                                        "tags":  [
+                                                                     "Web"
+                                                                 ],
+                                                        "requestBody":  {
+                                                                            "content":  {
+                                                                                            "application/json":  {
+                                                                                                                     "schema":  {
+                                                                                                                                    "$ref":  "#/components/schemas/InfoRequest"
+                                                                                                                                }
+                                                                                                                 }
+                                                                                        },
+                                                                            "required":  true
+                                                                        },
+                                                        "responses":  {
+                                                                          "200":  {
+                                                                                      "description":  "OK",
+                                                                                      "content":  {
+                                                                                                      "application/json":  {
+                                                                                                                               "schema":  {
+                                                                                                                                              "$ref":  "#/components/schemas/InfoResponse"
+                                                                                                                                          }
+                                                                                                                           }
+                                                                                                  }
+                                                                                  },
+                                                                          "400":  {
+                                                                                      "description":  "Bad Request",
+                                                                                      "content":  {
+                                                                                                      "application/problem+json":  {
+                                                                                                                                       "schema":  {
+                                                                                                                                                      "$ref":  "#/components/schemas/HttpValidationProblemDetails"
+                                                                                                                                                  }
+                                                                                                                                   }
+                                                                                                  }
+                                                                                  },
+                                                                          "404":  {
+                                                                                      "description":  "Not Found"
+                                                                                  }
+                                                                      }
+                                                    }
+                                       },
+                  "/api/me":  {
+                                  "get":  {
+                                              "tags":  [
+                                                           "Account"
+                                                       ],
+                                              "operationId":  "GetMe",
+                                              "responses":  {
+                                                                "200":  {
+                                                                            "description":  "OK",
+                                                                            "content":  {
+                                                                                            "application/json":  {
+                                                                                                                     "schema":  {
+                                                                                                                                    "$ref":  "#/components/schemas/MeResponse"
+                                                                                                                                }
+                                                                                                                 }
+                                                                                        }
+                                                                        },
+                                                                "401":  {
+                                                                            "description":  "Unauthorized"
+                                                                        }
+                                                            }
+                                          }
+                              },
+                  "/api/logout":  {
+                                      "post":  {
+                                                   "tags":  [
+                                                                "Account"
+                                                            ],
+                                                   "operationId":  "Logout",
+                                                   "responses":  {
+                                                                     "200":  {
+                                                                                 "description":  "OK"
+                                                                             }
+                                                                 }
+                                               }
+                                  },
+                  "/api/profile":  {
+                                       "get":  {
+                                                   "tags":  [
+                                                                "Profile"
+                                                            ],
+                                                   "operationId":  "GetProfile",
+                                                   "responses":  {
+                                                                     "200":  {
+                                                                                 "description":  "OK",
+                                                                                 "content":  {
+                                                                                                 "application/json":  {
+                                                                                                                          "schema":  {
+                                                                                                                                         "$ref":  "#/components/schemas/ProfileModel"
+                                                                                                                                     }
+                                                                                                                      }
+                                                                                             }
+                                                                             },
+                                                                     "401":  {
+                                                                                 "description":  "Unauthorized"
+                                                                             }
+                                                                 }
+                                               },
+                                       "put":  {
+                                                   "tags":  [
+                                                                "Profile"
+                                                            ],
+                                                   "operationId":  "UpdateProfile",
+                                                   "requestBody":  {
+                                                                       "content":  {
+                                                                                       "application/json":  {
+                                                                                                                "schema":  {
+                                                                                                                               "$ref":  "#/components/schemas/ProfileModel"
+                                                                                                                           }
+                                                                                                            }
+                                                                                   },
+                                                                       "required":  true
+                                                                   },
+                                                   "responses":  {
+                                                                     "204":  {
+                                                                                 "description":  "No Content"
+                                                                             },
+                                                                     "401":  {
+                                                                                 "description":  "Unauthorized"
+                                                                             }
+                                                                 }
+                                               }
+                                   },
+                  "/api/business-entities":  {
+                                                 "get":  {
+                                                             "tags":  [
+                                                                          "Business Entities"
+                                                                      ],
+                                                             "operationId":  "GetBusinessEntities",
+                                                             "responses":  {
+                                                                               "200":  {
+                                                                                           "description":  "OK",
+                                                                                           "content":  {
+                                                                                                           "application/json":  {
+                                                                                                                                    "schema":  {
+                                                                                                                                                   "type":  "array",
+                                                                                                                                                   "items":  {
+                                                                                                                                                                 "$ref":  "#/components/schemas/BusinessEntityDto"
+                                                                                                                                                             }
+                                                                                                                                               }
+                                                                                                                                }
+                                                                                                       }
+                                                                                       }
+                                                                           }
+                                                         },
+                                                 "post":  {
+                                                              "tags":  [
+                                                                           "Business Entities"
+                                                                       ],
+                                                              "operationId":  "CreateBusinessEntity",
+                                                              "requestBody":  {
+                                                                                  "content":  {
+                                                                                                  "application/json":  {
+                                                                                                                           "schema":  {
+                                                                                                                                          "$ref":  "#/components/schemas/CreateBusinessEntityCommand"
+                                                                                                                                      }
+                                                                                                                       }
+                                                                                              },
+                                                                                  "required":  true
+                                                                              },
+                                                              "responses":  {
+                                                                                "200":  {
+                                                                                            "description":  "OK",
+                                                                                            "content":  {
+                                                                                                            "application/json":  {
+                                                                                                                                     "schema":  {
+                                                                                                                                                    "$ref":  "#/components/schemas/IdResponse"
+                                                                                                                                                }
+                                                                                                                                 }
+                                                                                                        }
+                                                                                        }
+                                                                            }
+                                                          }
+                                             },
+                  "/api/business-entities/{id}":  {
+                                                      "delete":  {
+                                                                     "tags":  [
+                                                                                  "Business Entities"
+                                                                              ],
+                                                                     "operationId":  "DeleteBusinessEntity",
+                                                                     "parameters":  [
+                                                                                        {
+                                                                                            "name":  "id",
+                                                                                            "in":  "path",
+                                                                                            "required":  true,
+                                                                                            "schema":  {
+                                                                                                           "type":  "string",
+                                                                                                           "format":  "uuid"
+                                                                                                       }
+                                                                                        }
+                                                                                    ],
+                                                                     "responses":  {
+                                                                                       "204":  {
+                                                                                                   "description":  "No Content"
+                                                                                               }
+                                                                                   }
+                                                                 }
+                                                  },
+                  "/api/business-names":  {
+                                              "get":  {
+                                                          "tags":  [
+                                                                       "Business Names"
+                                                                   ],
+                                                          "operationId":  "GetBusinessNames",
+                                                          "responses":  {
+                                                                            "200":  {
+                                                                                        "description":  "OK",
+                                                                                        "content":  {
+                                                                                                        "application/json":  {
+                                                                                                                                 "schema":  {
+                                                                                                                                                "type":  "array",
+                                                                                                                                                "items":  {
+                                                                                                                                                              "$ref":  "#/components/schemas/BusinessNameDto"
+                                                                                                                                                          }
+                                                                                                                                            }
+                                                                                                                             }
+                                                                                                    }
+                                                                                    }
+                                                                        }
+                                                      },
+                                              "post":  {
+                                                           "tags":  [
+                                                                        "Business Names"
+                                                                    ],
+                                                           "operationId":  "CreateBusinessName",
+                                                           "requestBody":  {
+                                                                               "content":  {
+                                                                                               "application/json":  {
+                                                                                                                        "schema":  {
+                                                                                                                                       "$ref":  "#/components/schemas/CreateBusinessNameCommand"
+                                                                                                                                   }
+                                                                                                                    }
+                                                                                           },
+                                                                               "required":  true
+                                                                           },
+                                                           "responses":  {
+                                                                             "200":  {
+                                                                                         "description":  "OK",
+                                                                                         "content":  {
+                                                                                                         "application/json":  {
+                                                                                                                                  "schema":  {
+                                                                                                                                                 "$ref":  "#/components/schemas/IdResponse"
+                                                                                                                                             }
+                                                                                                                              }
+                                                                                                     }
+                                                                                     }
+                                                                         }
+                                                       }
+                                          },
+                  "/api/business-names/{id}":  {
+                                                   "put":  {
+                                                               "tags":  [
+                                                                            "Business Names"
+                                                                        ],
+                                                               "operationId":  "UpdateBusinessName",
+                                                               "parameters":  [
+                                                                                  {
+                                                                                      "name":  "id",
+                                                                                      "in":  "path",
+                                                                                      "required":  true,
+                                                                                      "schema":  {
+                                                                                                     "type":  "string",
+                                                                                                     "format":  "uuid"
+                                                                                                 }
+                                                                                  }
+                                                                              ],
+                                                               "requestBody":  {
+                                                                                   "content":  {
+                                                                                                   "application/json":  {
+                                                                                                                            "schema":  {
+                                                                                                                                           "$ref":  "#/components/schemas/UpdateBusinessNameCommand"
+                                                                                                                                       }
+                                                                                                                        }
+                                                                                               },
+                                                                                   "required":  true
+                                                                               },
+                                                               "responses":  {
+                                                                                 "204":  {
+                                                                                             "description":  "No Content"
+                                                                                         }
+                                                                             }
+                                                           },
+                                                   "delete":  {
+                                                                  "tags":  [
+                                                                               "Business Names"
+                                                                           ],
+                                                                  "operationId":  "DeleteBusinessName",
+                                                                  "parameters":  [
+                                                                                     {
+                                                                                         "name":  "id",
+                                                                                         "in":  "path",
+                                                                                         "required":  true,
+                                                                                         "schema":  {
+                                                                                                        "type":  "string",
+                                                                                                        "format":  "uuid"
+                                                                                                    }
+                                                                                     }
+                                                                                 ],
+                                                                  "responses":  {
+                                                                                    "204":  {
+                                                                                                "description":  "No Content"
+                                                                                            }
+                                                                                }
+                                                              }
+                                               },
+                  "/api/messages/threads":  {
+                                                "get":  {
+                                                            "tags":  [
+                                                                         "Messages"
+                                                                     ],
+                                                            "operationId":  "GetMessageThreads",
+                                                            "responses":  {
+                                                                              "200":  {
+                                                                                          "description":  "OK",
+                                                                                          "content":  {
+                                                                                                          "application/json":  {
+                                                                                                                                   "schema":  {
+                                                                                                                                                  "type":  "array",
+                                                                                                                                                  "items":  {
+                                                                                                                                                                "$ref":  "#/components/schemas/ThreadDto"
+                                                                                                                                                            }
+                                                                                                                                              }
+                                                                                                                               }
+                                                                                                      }
+                                                                                      }
+                                                                          }
+                                                        },
+                                                "post":  {
+                                                             "tags":  [
+                                                                          "Messages"
+                                                                      ],
+                                                             "operationId":  "StartThread",
+                                                             "requestBody":  {
+                                                                                 "content":  {
+                                                                                                 "application/json":  {
+                                                                                                                          "schema":  {
+                                                                                                                                         "$ref":  "#/components/schemas/StartThreadCommand"
+                                                                                                                                     }
+                                                                                                                      }
+                                                                                             },
+                                                                                 "required":  true
+                                                                             },
+                                                             "responses":  {
+                                                                               "200":  {
+                                                                                           "description":  "OK",
+                                                                                           "content":  {
+                                                                                                           "application/json":  {
+                                                                                                                                    "schema":  {
+                                                                                                                                                   "$ref":  "#/components/schemas/ThreadStartedResponse"
+                                                                                                                                               }
+                                                                                                                                }
+                                                                                                       }
+                                                                                       }
+                                                                           }
+                                                         }
+                                            },
+                  "/api/messages/threads/{threadId}/replies":  {
+                                                                   "post":  {
+                                                                                "tags":  [
+                                                                                             "Messages"
+                                                                                         ],
+                                                                                "operationId":  "ReplyToThread",
+                                                                                "parameters":  [
+                                                                                                   {
+                                                                                                       "name":  "threadId",
+                                                                                                       "in":  "path",
+                                                                                                       "required":  true,
+                                                                                                       "schema":  {
+                                                                                                                      "type":  "string",
+                                                                                                                      "format":  "uuid"
+                                                                                                                  }
+                                                                                                   }
+                                                                                               ],
+                                                                                "requestBody":  {
+                                                                                                    "content":  {
+                                                                                                                    "application/json":  {
+                                                                                                                                             "schema":  {
+                                                                                                                                                            "$ref":  "#/components/schemas/ReplyBody"
+                                                                                                                                                        }
+                                                                                                                                         }
+                                                                                                                },
+                                                                                                    "required":  true
+                                                                                                },
+                                                                                "responses":  {
+                                                                                                  "204":  {
+                                                                                                              "description":  "No Content"
+                                                                                                          }
+                                                                                              }
+                                                                            }
+                                                               },
+                  "/api/messages/threads/{threadId}/read":  {
+                                                                "post":  {
+                                                                             "tags":  [
+                                                                                          "Messages"
+                                                                                      ],
+                                                                             "operationId":  "MarkThreadRead",
+                                                                             "parameters":  [
+                                                                                                {
+                                                                                                    "name":  "threadId",
+                                                                                                    "in":  "path",
+                                                                                                    "required":  true,
+                                                                                                    "schema":  {
+                                                                                                                   "type":  "string",
+                                                                                                                   "format":  "uuid"
+                                                                                                               }
+                                                                                                }
+                                                                                            ],
+                                                                             "responses":  {
+                                                                                               "204":  {
+                                                                                                           "description":  "No Content"
+                                                                                                       }
+                                                                                           }
+                                                                         }
+                                                            },
+                  "/api/asic-renewals":  {
+                                             "get":  {
+                                                         "tags":  [
+                                                                      "ASIC Renewals"
+                                                                  ],
+                                                         "operationId":  "GetAsicRenewals",
+                                                         "responses":  {
+                                                                           "200":  {
+                                                                                       "description":  "OK",
+                                                                                       "content":  {
+                                                                                                       "application/json":  {
+                                                                                                                                "schema":  {
+                                                                                                                                               "type":  "array",
+                                                                                                                                               "items":  {
+                                                                                                                                                             "$ref":  "#/components/schemas/AsicRenewalDto"
+                                                                                                                                                         }
+                                                                                                                                           }
+                                                                                                                            }
+                                                                                                   }
+                                                                                   }
+                                                                       }
+                                                     }
+                                         },
+                  "/api/asic-renewals/{id}/renew":  {
+                                                        "post":  {
+                                                                     "tags":  [
+                                                                                  "ASIC Renewals"
+                                                                              ],
+                                                                     "operationId":  "RenewBusinessName",
+                                                                     "parameters":  [
+                                                                                        {
+                                                                                            "name":  "id",
+                                                                                            "in":  "path",
+                                                                                            "required":  true,
+                                                                                            "schema":  {
+                                                                                                           "type":  "string",
+                                                                                                           "format":  "uuid"
+                                                                                                       }
+                                                                                        }
+                                                                                    ],
+                                                                     "requestBody":  {
+                                                                                         "content":  {
+                                                                                                         "application/json":  {
+                                                                                                                                  "schema":  {
+                                                                                                                                                 "$ref":  "#/components/schemas/RenewBody"
+                                                                                                                                             }
+                                                                                                                              }
+                                                                                                     },
+                                                                                         "required":  true
+                                                                                     },
+                                                                     "responses":  {
+                                                                                       "200":  {
+                                                                                                   "description":  "OK",
+                                                                                                   "content":  {
+                                                                                                                   "application/json":  {
+                                                                                                                                            "schema":  {
+                                                                                                                                                           "$ref":  "#/components/schemas/RenewalResponse"
+                                                                                                                                                       }
+                                                                                                                                        }
+                                                                                                               }
+                                                                                               }
+                                                                                   }
+                                                                 }
+                                                    },
+                  "/api/abn-lookup":  {
+                                          "post":  {
+                                                       "tags":  [
+                                                                    "ABN Lookup"
+                                                                ],
+                                                       "operationId":  "StartAbnLookup",
+                                                       "responses":  {
+                                                                         "200":  {
+                                                                                     "description":  "OK",
+                                                                                     "content":  {
+                                                                                                     "application/json":  {
+                                                                                                                              "schema":  {
+                                                                                                                                             "$ref":  "#/components/schemas/JobStartedResponse"
+                                                                                                                                         }
+                                                                                                                          }
+                                                                                                 }
+                                                                                 }
+                                                                     }
+                                                   }
+                                      },
+                  "/api/abn-lookup/status":  {
+                                                 "get":  {
+                                                             "tags":  [
+                                                                          "ABN Lookup"
+                                                                      ],
+                                                             "operationId":  "GetAbnLookupStatus",
+                                                             "responses":  {
+                                                                               "200":  {
+                                                                                           "description":  "OK",
+                                                                                           "content":  {
+                                                                                                           "application/json":  {
+                                                                                                                                    "schema":  {
+                                                                                                                                                   "$ref":  "#/components/schemas/AbnLookupJobDto"
+                                                                                                                                               }
+                                                                                                                                }
+                                                                                                       }
+                                                                                       },
+                                                                               "204":  {
+                                                                                           "description":  "No Content"
+                                                                                       }
+                                                                           }
+                                                         }
+                                             },
+                  "/api/admin/clients":  {
+                                             "get":  {
+                                                         "tags":  [
+                                                                      "Admin"
+                                                                  ],
+                                                         "responses":  {
+                                                                           "200":  {
+                                                                                       "description":  "OK"
+                                                                                   }
+                                                                       }
+                                                     }
+                                         },
+                  "/api/admin/clients/{id}":  {
+                                                  "get":  {
+                                                              "tags":  [
+                                                                           "Admin"
+                                                                       ],
+                                                              "parameters":  [
+                                                                                 {
+                                                                                     "name":  "id",
+                                                                                     "in":  "path",
+                                                                                     "required":  true,
+                                                                                     "schema":  {
+                                                                                                    "type":  "string"
+                                                                                                }
+                                                                                 }
+                                                                             ],
+                                                              "responses":  {
+                                                                                "200":  {
+                                                                                            "description":  "OK"
+                                                                                        }
+                                                                            }
+                                                          }
+                                              },
+                  "/api/integrations/ontraport/webhook":  {
+                                                              "post":  {
+                                                                           "tags":  [
+                                                                                        "Ontraport"
+                                                                                    ],
+                                                                           "responses":  {
+                                                                                             "200":  {
+                                                                                                         "description":  "OK"
+                                                                                                     }
+                                                                                         }
+                                                                       }
+                                                          },
+                  "/api/integrations/ontraport/renewal-paid":  {
+                                                                   "post":  {
+                                                                                "tags":  [
+                                                                                             "Ontraport"
+                                                                                         ],
+                                                                                "responses":  {
+                                                                                                  "200":  {
+                                                                                                              "description":  "OK"
+                                                                                                          }
+                                                                                              }
+                                                                            }
+                                                               }
+              },
+    "components":  {
+                       "schemas":  {
+                                       "AbnLookupJobDto":  {
+                                                               "type":  "object",
+                                                               "properties":  {
+                                                                                  "status":  {
+                                                                                                 "type":  "string"
+                                                                                             },
+                                                                                  "totalAbns":  {
+                                                                                                    "pattern":  "^-?(?:0|[1-9]\\d*)$",
+                                                                                                    "type":  [
+                                                                                                                 "integer",
+                                                                                                                 "string"
+                                                                                                             ],
+                                                                                                    "format":  "int32"
+                                                                                                },
+                                                                                  "abnsProcessed":  {
+                                                                                                        "pattern":  "^-?(?:0|[1-9]\\d*)$",
+                                                                                                        "type":  [
+                                                                                                                     "integer",
+                                                                                                                     "string"
+                                                                                                                 ],
+                                                                                                        "format":  "int32"
+                                                                                                    },
+                                                                                  "addedCount":  {
+                                                                                                     "pattern":  "^-?(?:0|[1-9]\\d*)$",
+                                                                                                     "type":  [
+                                                                                                                  "integer",
+                                                                                                                  "string"
+                                                                                                              ],
+                                                                                                     "format":  "int32"
+                                                                                                 },
+                                                                                  "enrichedCount":  {
+                                                                                                        "pattern":  "^-?(?:0|[1-9]\\d*)$",
+                                                                                                        "type":  [
+                                                                                                                     "integer",
+                                                                                                                     "string"
+                                                                                                                 ],
+                                                                                                        "format":  "int32"
+                                                                                                    },
+                                                                                  "error":  {
+                                                                                                "type":  [
+                                                                                                             "null",
+                                                                                                             "string"
+                                                                                                         ]
+                                                                                            },
+                                                                                  "startedAt":  {
+                                                                                                    "type":  "string",
+                                                                                                    "format":  "date-time"
+                                                                                                },
+                                                                                  "completedAt":  {
+                                                                                                      "type":  [
+                                                                                                                   "null",
+                                                                                                                   "string"
+                                                                                                               ],
+                                                                                                      "format":  "date-time"
+                                                                                                  }
+                                                                              }
+                                                           },
+                                       "AccessTokenResponse":  {
+                                                                   "required":  [
+                                                                                    "accessToken",
+                                                                                    "expiresIn",
+                                                                                    "refreshToken"
+                                                                                ],
+                                                                   "type":  "object",
+                                                                   "properties":  {
+                                                                                      "tokenType":  {
+                                                                                                        "type":  [
+                                                                                                                     "null",
+                                                                                                                     "string"
+                                                                                                                 ]
+                                                                                                    },
+                                                                                      "accessToken":  {
+                                                                                                          "type":  "string"
+                                                                                                      },
+                                                                                      "expiresIn":  {
+                                                                                                        "pattern":  "^-?(?:0|[1-9]\\d*)$",
+                                                                                                        "type":  [
+                                                                                                                     "integer",
+                                                                                                                     "string"
+                                                                                                                 ],
+                                                                                                        "format":  "int64"
+                                                                                                    },
+                                                                                      "refreshToken":  {
+                                                                                                           "type":  "string"
+                                                                                                       }
+                                                                                  }
+                                                               },
+                                       "AsicRenewalDto":  {
+                                                              "type":  "object",
+                                                              "properties":  {
+                                                                                 "sourceId":  {
+                                                                                                  "type":  "string",
+                                                                                                  "format":  "uuid"
+                                                                                              },
+                                                                                 "kind":  {
+                                                                                              "type":  "string"
+                                                                                          },
+                                                                                 "name":  {
+                                                                                              "type":  "string"
+                                                                                          },
+                                                                                 "identifier":  {
+                                                                                                    "type":  "string"
+                                                                                                },
+                                                                                 "dueDate":  {
+                                                                                                 "type":  "string"
+                                                                                             },
+                                                                                 "daysUntil":  {
+                                                                                                   "pattern":  "^-?(?:0|[1-9]\\d*)$",
+                                                                                                   "type":  [
+                                                                                                                "integer",
+                                                                                                                "string"
+                                                                                                            ],
+                                                                                                   "format":  "int32"
+                                                                                               },
+                                                                                 "tone":  {
+                                                                                              "type":  "string"
+                                                                                          },
+                                                                                 "label":  {
+                                                                                               "type":  "string"
+                                                                                           }
+                                                                             }
+                                                          },
+                                       "BusinessEntityDto":  {
+                                                                 "type":  "object",
+                                                                 "properties":  {
+                                                                                    "id":  {
+                                                                                               "type":  "string",
+                                                                                               "format":  "uuid"
+                                                                                           },
+                                                                                    "name":  {
+                                                                                                 "type":  "string"
+                                                                                             },
+                                                                                    "entityType":  {
+                                                                                                       "type":  "string"
+                                                                                                   },
+                                                                                    "abn":  {
+                                                                                                "type":  "string"
+                                                                                            },
+                                                                                    "acn":  {
+                                                                                                "type":  "string"
+                                                                                            },
+                                                                                    "industry":  {
+                                                                                                     "type":  "string"
+                                                                                                 },
+                                                                                    "employees":  {
+                                                                                                      "pattern":  "^-?(?:0|[1-9]\\d*)$",
+                                                                                                      "type":  [
+                                                                                                                   "integer",
+                                                                                                                   "string"
+                                                                                                               ],
+                                                                                                      "format":  "int32"
+                                                                                                  },
+                                                                                    "phone":  {
+                                                                                                  "type":  "string"
+                                                                                              },
+                                                                                    "website":  {
+                                                                                                    "type":  "string"
+                                                                                                },
+                                                                                    "legalName":  {
+                                                                                                      "type":  [
+                                                                                                                   "null",
+                                                                                                                   "string"
+                                                                                                               ]
+                                                                                                  },
+                                                                                    "tfn":  {
+                                                                                                "type":  [
+                                                                                                             "null",
+                                                                                                             "string"
+                                                                                                         ]
+                                                                                            },
+                                                                                    "source":  {
+                                                                                                   "type":  "string"
+                                                                                               },
+                                                                                    "created":  {
+                                                                                                    "type":  "string",
+                                                                                                    "format":  "date-time"
+                                                                                                }
+                                                                                }
+                                                             },
+                                       "BusinessNameDto":  {
+                                                               "type":  "object",
+                                                               "properties":  {
+                                                                                  "id":  {
+                                                                                             "type":  "string",
+                                                                                             "format":  "uuid"
+                                                                                         },
+                                                                                  "name":  {
+                                                                                               "type":  "string"
+                                                                                           },
+                                                                                  "dateRegistered":  {
+                                                                                                         "type":  "string"
+                                                                                                     },
+                                                                                  "renewalDate":  {
+                                                                                                      "type":  "string"
+                                                                                                  },
+                                                                                  "asicKey":  {
+                                                                                                  "type":  "string"
+                                                                                              },
+                                                                                  "created":  {
+                                                                                                  "type":  "string",
+                                                                                                  "format":  "date-time"
+                                                                                              }
+                                                                              }
+                                                           },
+                                       "CreateBusinessEntityCommand":  {
+                                                                           "required":  [
+                                                                                            "name",
+                                                                                            "entityType",
+                                                                                            "abn",
+                                                                                            "acn",
+                                                                                            "industry",
+                                                                                            "employees",
+                                                                                            "phone",
+                                                                                            "website"
+                                                                                        ],
+                                                                           "type":  "object",
+                                                                           "properties":  {
+                                                                                              "name":  {
+                                                                                                           "type":  "string"
+                                                                                                       },
+                                                                                              "entityType":  {
+                                                                                                                 "$ref":  "#/components/schemas/EntityType"
+                                                                                                             },
+                                                                                              "abn":  {
+                                                                                                          "type":  "string"
+                                                                                                      },
+                                                                                              "acn":  {
+                                                                                                          "type":  "string"
+                                                                                                      },
+                                                                                              "industry":  {
+                                                                                                               "type":  "string"
+                                                                                                           },
+                                                                                              "employees":  {
+                                                                                                                "pattern":  "^-?(?:0|[1-9]\\d*)$",
+                                                                                                                "type":  [
+                                                                                                                             "integer",
+                                                                                                                             "string"
+                                                                                                                         ],
+                                                                                                                "format":  "int32"
+                                                                                                            },
+                                                                                              "phone":  {
+                                                                                                            "type":  "string"
+                                                                                                        },
+                                                                                              "website":  {
+                                                                                                              "type":  "string"
+                                                                                                          }
+                                                                                          }
+                                                                       },
+                                       "CreateBusinessNameCommand":  {
+                                                                         "required":  [
+                                                                                          "name",
+                                                                                          "dateRegistered",
+                                                                                          "renewalDate",
+                                                                                          "asicKey"
+                                                                                      ],
+                                                                         "type":  "object",
+                                                                         "properties":  {
+                                                                                            "name":  {
+                                                                                                         "type":  "string"
+                                                                                                     },
+                                                                                            "dateRegistered":  {
+                                                                                                                   "type":  "string"
+                                                                                                               },
+                                                                                            "renewalDate":  {
+                                                                                                                "type":  "string"
+                                                                                                            },
+                                                                                            "asicKey":  {
+                                                                                                            "type":  "string"
+                                                                                                        }
+                                                                                        }
+                                                                     },
+                                       "EntityType":  {
+                                                          "enum":  [
+                                                                       "Unspecified",
+                                                                       "SoleTrader",
+                                                                       "Partnership",
+                                                                       "Company",
+                                                                       "Trust"
+                                                                   ]
+                                                      },
+                                       "ForgotPasswordRequest":  {
+                                                                     "required":  [
+                                                                                      "email"
+                                                                                  ],
+                                                                     "type":  "object",
+                                                                     "properties":  {
+                                                                                        "email":  {
+                                                                                                      "type":  "string"
+                                                                                                  }
+                                                                                    }
+                                                                 },
+                                       "HttpValidationProblemDetails":  {
+                                                                            "type":  "object",
+                                                                            "properties":  {
+                                                                                               "type":  {
+                                                                                                            "type":  [
+                                                                                                                         "null",
+                                                                                                                         "string"
+                                                                                                                     ]
+                                                                                                        },
+                                                                                               "title":  {
+                                                                                                             "type":  [
+                                                                                                                          "null",
+                                                                                                                          "string"
+                                                                                                                      ]
+                                                                                                         },
+                                                                                               "status":  {
+                                                                                                              "pattern":  "^-?(?:0|[1-9]\\d*)$",
+                                                                                                              "type":  [
+                                                                                                                           "null",
+                                                                                                                           "integer",
+                                                                                                                           "string"
+                                                                                                                       ],
+                                                                                                              "format":  "int32"
+                                                                                                          },
+                                                                                               "detail":  {
+                                                                                                              "type":  [
+                                                                                                                           "null",
+                                                                                                                           "string"
+                                                                                                                       ]
+                                                                                                          },
+                                                                                               "instance":  {
+                                                                                                                "type":  [
+                                                                                                                             "null",
+                                                                                                                             "string"
+                                                                                                                         ]
+                                                                                                            },
+                                                                                               "errors":  {
+                                                                                                              "type":  "object",
+                                                                                                              "additionalProperties":  {
+                                                                                                                                           "type":  "array",
+                                                                                                                                           "items":  {
+                                                                                                                                                         "type":  "string"
+                                                                                                                                                     }
+                                                                                                                                       }
+                                                                                                          }
+                                                                                           }
+                                                                        },
+                                       "IdResponse":  {
+                                                          "required":  [
+                                                                           "id"
+                                                                       ],
+                                                          "type":  "object",
+                                                          "properties":  {
+                                                                             "id":  {
+                                                                                        "type":  "string",
+                                                                                        "format":  "uuid"
+                                                                                    }
+                                                                         }
+                                                      },
+                                       "InfoRequest":  {
+                                                           "type":  "object",
+                                                           "properties":  {
+                                                                              "newEmail":  {
+                                                                                               "type":  [
+                                                                                                            "null",
+                                                                                                            "string"
+                                                                                                        ]
+                                                                                           },
+                                                                              "newPassword":  {
+                                                                                                  "type":  [
+                                                                                                               "null",
+                                                                                                               "string"
+                                                                                                           ]
+                                                                                              },
+                                                                              "oldPassword":  {
+                                                                                                  "type":  [
+                                                                                                               "null",
+                                                                                                               "string"
+                                                                                                           ]
+                                                                                              }
+                                                                          }
+                                                       },
+                                       "InfoResponse":  {
+                                                            "required":  [
+                                                                             "email",
+                                                                             "isEmailConfirmed"
+                                                                         ],
+                                                            "type":  "object",
+                                                            "properties":  {
+                                                                               "email":  {
+                                                                                             "type":  "string"
+                                                                                         },
+                                                                               "isEmailConfirmed":  {
+                                                                                                        "type":  "boolean"
+                                                                                                    }
+                                                                           }
+                                                        },
+                                       "JobStartedResponse":  {
+                                                                  "required":  [
+                                                                                   "jobId"
+                                                                               ],
+                                                                  "type":  "object",
+                                                                  "properties":  {
+                                                                                     "jobId":  {
+                                                                                                   "type":  "string",
+                                                                                                   "format":  "uuid"
+                                                                                               }
+                                                                                 }
+                                                              },
+                                       "LoginRequest":  {
+                                                            "required":  [
+                                                                             "email",
+                                                                             "password"
+                                                                         ],
+                                                            "type":  "object",
+                                                            "properties":  {
+                                                                               "email":  {
+                                                                                             "type":  "string"
+                                                                                         },
+                                                                               "password":  {
+                                                                                                "type":  "string"
+                                                                                            },
+                                                                               "twoFactorCode":  {
+                                                                                                     "type":  [
+                                                                                                                  "null",
+                                                                                                                  "string"
+                                                                                                              ]
+                                                                                                 },
+                                                                               "twoFactorRecoveryCode":  {
+                                                                                                             "type":  [
+                                                                                                                          "null",
+                                                                                                                          "string"
+                                                                                                                      ]
+                                                                                                         }
+                                                                           }
+                                                        },
+                                       "MeResponse":  {
+                                                          "required":  [
+                                                                           "id",
+                                                                           "email",
+                                                                           "isAdmin",
+                                                                           "atoConnected",
+                                                                           "firstName",
+                                                                           "lastName"
+                                                                       ],
+                                                          "type":  "object",
+                                                          "properties":  {
+                                                                             "id":  {
+                                                                                        "type":  "string"
+                                                                                    },
+                                                                             "email":  {
+                                                                                           "type":  [
+                                                                                                        "null",
+                                                                                                        "string"
+                                                                                                    ]
+                                                                                       },
+                                                                             "isAdmin":  {
+                                                                                             "type":  "boolean"
+                                                                                         },
+                                                                             "atoConnected":  {
+                                                                                                  "type":  "boolean"
+                                                                                              },
+                                                                             "firstName":  {
+                                                                                               "type":  "string"
+                                                                                           },
+                                                                             "lastName":  {
+                                                                                              "type":  "string"
+                                                                                          }
+                                                                         }
+                                                      },
+                                       "MessageDto":  {
+                                                          "type":  "object",
+                                                          "properties":  {
+                                                                             "id":  {
+                                                                                        "type":  "string",
+                                                                                        "format":  "uuid"
+                                                                                    },
+                                                                             "threadId":  {
+                                                                                              "type":  "string",
+                                                                                              "format":  "uuid"
+                                                                                          },
+                                                                             "inReplyTo":  {
+                                                                                               "type":  [
+                                                                                                            "null",
+                                                                                                            "string"
+                                                                                                        ],
+                                                                                               "format":  "uuid"
+                                                                                           },
+                                                                             "direction":  {
+                                                                                               "type":  "string"
+                                                                                           },
+                                                                             "subject":  {
+                                                                                             "type":  "string"
+                                                                                         },
+                                                                             "body":  {
+                                                                                          "type":  "string"
+                                                                                      },
+                                                                             "read":  {
+                                                                                          "type":  "boolean"
+                                                                                      },
+                                                                             "adminRead":  {
+                                                                                               "type":  "boolean"
+                                                                                           },
+                                                                             "createdAt":  {
+                                                                                               "type":  "string",
+                                                                                               "format":  "date-time"
+                                                                                           }
+                                                                         }
+                                                      },
+                                       "ProfileModel":  {
+                                                            "required":  [
+                                                                             "firstName",
+                                                                             "lastName",
+                                                                             "phone",
+                                                                             "dob",
+                                                                             "tfn",
+                                                                             "address",
+                                                                             "suburb",
+                                                                             "state",
+                                                                             "postcode"
+                                                                         ],
+                                                            "type":  "object",
+                                                            "properties":  {
+                                                                               "firstName":  {
+                                                                                                 "type":  [
+                                                                                                              "null",
+                                                                                                              "string"
+                                                                                                          ]
+                                                                                             },
+                                                                               "lastName":  {
+                                                                                                "type":  [
+                                                                                                             "null",
+                                                                                                             "string"
+                                                                                                         ]
+                                                                                            },
+                                                                               "phone":  {
+                                                                                             "type":  [
+                                                                                                          "null",
+                                                                                                          "string"
+                                                                                                      ]
+                                                                                         },
+                                                                               "dob":  {
+                                                                                           "type":  [
+                                                                                                        "null",
+                                                                                                        "string"
+                                                                                                    ]
+                                                                                       },
+                                                                               "tfn":  {
+                                                                                           "type":  [
+                                                                                                        "null",
+                                                                                                        "string"
+                                                                                                    ]
+                                                                                       },
+                                                                               "address":  {
+                                                                                               "type":  [
+                                                                                                            "null",
+                                                                                                            "string"
+                                                                                                        ]
+                                                                                           },
+                                                                               "suburb":  {
+                                                                                              "type":  [
+                                                                                                           "null",
+                                                                                                           "string"
+                                                                                                       ]
+                                                                                          },
+                                                                               "state":  {
+                                                                                             "type":  [
+                                                                                                          "null",
+                                                                                                          "string"
+                                                                                                      ]
+                                                                                         },
+                                                                               "postcode":  {
+                                                                                                "type":  [
+                                                                                                             "null",
+                                                                                                             "string"
+                                                                                                         ]
+                                                                                            }
+                                                                           }
+                                                        },
+                                       "RefreshRequest":  {
+                                                              "required":  [
+                                                                               "refreshToken"
+                                                                           ],
+                                                              "type":  "object",
+                                                              "properties":  {
+                                                                                 "refreshToken":  {
+                                                                                                      "type":  "string"
+                                                                                                  }
+                                                                             }
+                                                          },
+                                       "RegisterRequest":  {
+                                                               "required":  [
+                                                                                "email",
+                                                                                "password"
+                                                                            ],
+                                                               "type":  "object",
+                                                               "properties":  {
+                                                                                  "email":  {
+                                                                                                "type":  "string"
+                                                                                            },
+                                                                                  "password":  {
+                                                                                                   "type":  "string"
+                                                                                               }
+                                                                              }
+                                                           },
+                                       "RenewalResponse":  {
+                                                               "required":  [
+                                                                                "renewalDate"
+                                                                            ],
+                                                               "type":  "object",
+                                                               "properties":  {
+                                                                                  "renewalDate":  {
+                                                                                                      "type":  "string"
+                                                                                                  }
+                                                                              }
+                                                           },
+                                       "RenewBody":  {
+                                                         "required":  [
+                                                                          "years"
+                                                                      ],
+                                                         "type":  "object",
+                                                         "properties":  {
+                                                                            "years":  {
+                                                                                          "pattern":  "^-?(?:0|[1-9]\\d*)$",
+                                                                                          "type":  [
+                                                                                                       "integer",
+                                                                                                       "string"
+                                                                                                   ],
+                                                                                          "format":  "int32"
+                                                                                      }
+                                                                        }
+                                                     },
+                                       "ReplyBody":  {
+                                                         "required":  [
+                                                                          "body"
+                                                                      ],
+                                                         "type":  "object",
+                                                         "properties":  {
+                                                                            "body":  {
+                                                                                         "type":  "string"
+                                                                                     }
+                                                                        }
+                                                     },
+                                       "ResendConfirmationEmailRequest":  {
+                                                                              "required":  [
+                                                                                               "email"
+                                                                                           ],
+                                                                              "type":  "object",
+                                                                              "properties":  {
+                                                                                                 "email":  {
+                                                                                                               "type":  "string"
+                                                                                                           }
+                                                                                             }
+                                                                          },
+                                       "ResetPasswordRequest":  {
+                                                                    "required":  [
+                                                                                     "email",
+                                                                                     "resetCode",
+                                                                                     "newPassword"
+                                                                                 ],
+                                                                    "type":  "object",
+                                                                    "properties":  {
+                                                                                       "email":  {
+                                                                                                     "type":  "string"
+                                                                                                 },
+                                                                                       "resetCode":  {
+                                                                                                         "type":  "string"
+                                                                                                     },
+                                                                                       "newPassword":  {
+                                                                                                           "type":  "string"
+                                                                                                       }
+                                                                                   }
+                                                                },
+                                       "StartThreadCommand":  {
+                                                                  "required":  [
+                                                                                   "subject",
+                                                                                   "body"
+                                                                               ],
+                                                                  "type":  "object",
+                                                                  "properties":  {
+                                                                                     "subject":  {
+                                                                                                     "type":  "string"
+                                                                                                 },
+                                                                                     "body":  {
+                                                                                                  "type":  "string"
+                                                                                              }
+                                                                                 }
+                                                              },
+                                       "ThreadDto":  {
+                                                         "type":  "object",
+                                                         "properties":  {
+                                                                            "threadId":  {
+                                                                                             "type":  "string",
+                                                                                             "format":  "uuid"
+                                                                                         },
+                                                                            "subject":  {
+                                                                                            "type":  "string"
+                                                                                        },
+                                                                            "messages":  {
+                                                                                             "type":  "array",
+                                                                                             "items":  {
+                                                                                                           "$ref":  "#/components/schemas/MessageDto"
+                                                                                                       }
+                                                                                         },
+                                                                            "lastActivityAt":  {
+                                                                                                   "type":  "string",
+                                                                                                   "format":  "date-time"
+                                                                                               },
+                                                                            "unreadForClient":  {
+                                                                                                    "pattern":  "^-?(?:0|[1-9]\\d*)$",
+                                                                                                    "type":  [
+                                                                                                                 "integer",
+                                                                                                                 "string"
+                                                                                                             ],
+                                                                                                    "format":  "int32"
+                                                                                                },
+                                                                            "unreadForAdmin":  {
+                                                                                                   "pattern":  "^-?(?:0|[1-9]\\d*)$",
+                                                                                                   "type":  [
+                                                                                                                "integer",
+                                                                                                                "string"
+                                                                                                            ],
+                                                                                                   "format":  "int32"
+                                                                                               }
+                                                                        }
+                                                     },
+                                       "ThreadStartedResponse":  {
+                                                                     "required":  [
+                                                                                      "threadId"
+                                                                                  ],
+                                                                     "type":  "object",
+                                                                     "properties":  {
+                                                                                        "threadId":  {
+                                                                                                         "type":  "string",
+                                                                                                         "format":  "uuid"
+                                                                                                     }
+                                                                                    }
+                                                                 },
+                                       "TwoFactorRequest":  {
+                                                                "type":  "object",
+                                                                "properties":  {
+                                                                                   "enable":  {
+                                                                                                  "type":  [
+                                                                                                               "null",
+                                                                                                               "boolean"
+                                                                                                           ]
+                                                                                              },
+                                                                                   "twoFactorCode":  {
+                                                                                                         "type":  [
+                                                                                                                      "null",
+                                                                                                                      "string"
+                                                                                                                  ]
+                                                                                                     },
+                                                                                   "resetSharedKey":  {
+                                                                                                          "type":  "boolean"
+                                                                                                      },
+                                                                                   "resetRecoveryCodes":  {
+                                                                                                              "type":  "boolean"
+                                                                                                          },
+                                                                                   "forgetMachine":  {
+                                                                                                         "type":  "boolean"
+                                                                                                     }
+                                                                               }
+                                                            },
+                                       "TwoFactorResponse":  {
+                                                                 "required":  [
+                                                                                  "sharedKey",
+                                                                                  "recoveryCodesLeft",
+                                                                                  "isTwoFactorEnabled",
+                                                                                  "isMachineRemembered"
+                                                                              ],
+                                                                 "type":  "object",
+                                                                 "properties":  {
+                                                                                    "sharedKey":  {
+                                                                                                      "type":  "string"
+                                                                                                  },
+                                                                                    "recoveryCodesLeft":  {
+                                                                                                              "pattern":  "^-?(?:0|[1-9]\\d*)$",
+                                                                                                              "type":  [
+                                                                                                                           "integer",
+                                                                                                                           "string"
+                                                                                                                       ],
+                                                                                                              "format":  "int32"
+                                                                                                          },
+                                                                                    "recoveryCodes":  {
+                                                                                                          "type":  [
+                                                                                                                       "null",
+                                                                                                                       "array"
+                                                                                                                   ],
+                                                                                                          "items":  {
+                                                                                                                        "type":  "string"
+                                                                                                                    }
+                                                                                                      },
+                                                                                    "isTwoFactorEnabled":  {
+                                                                                                               "type":  "boolean"
+                                                                                                           },
+                                                                                    "isMachineRemembered":  {
+                                                                                                                "type":  "boolean"
+                                                                                                            }
+                                                                                }
+                                                             },
+                                       "UpdateBusinessNameCommand":  {
+                                                                         "required":  [
+                                                                                          "id",
+                                                                                          "name",
+                                                                                          "dateRegistered",
+                                                                                          "renewalDate",
+                                                                                          "asicKey"
+                                                                                      ],
+                                                                         "type":  "object",
+                                                                         "properties":  {
+                                                                                            "id":  {
+                                                                                                       "type":  "string",
+                                                                                                       "format":  "uuid"
+                                                                                                   },
+                                                                                            "name":  {
+                                                                                                         "type":  "string"
+                                                                                                     },
+                                                                                            "dateRegistered":  {
+                                                                                                                   "type":  "string"
+                                                                                                               },
+                                                                                            "renewalDate":  {
+                                                                                                                "type":  "string"
+                                                                                                            },
+                                                                                            "asicKey":  {
+                                                                                                            "type":  "string"
+                                                                                                        }
+                                                                                        }
+                                                                     }
+                                   }
+                   },
+    "tags":  [
+                 {
+                     "name":  "Web"
+                 },
+                 {
+                     "name":  "Account"
+                 },
+                 {
+                     "name":  "Profile"
+                 },
+                 {
+                     "name":  "Business Entities"
+                 },
+                 {
+                     "name":  "Business Names"
+                 },
+                 {
+                     "name":  "Messages"
+                 },
+                 {
+                     "name":  "ASIC Renewals"
+                 },
+                 {
+                     "name":  "ABN Lookup"
+                 },
+                 {
+                     "name":  "Admin"
+                 },
+                 {
+                     "name":  "Ontraport"
+                 }
+             ]
+}

@@ -16,19 +16,22 @@ public static class BusinessEntitiesEndpoints
             .RequireAuthorization();
 
         group.MapGet("/", async (ISender sender) =>
-            Results.Ok(await sender.Send(new GetBusinessEntitiesQuery())));
+                Results.Ok(await sender.Send(new GetBusinessEntitiesQuery())))
+            .WithName("GetBusinessEntities")
+            .Produces<IReadOnlyList<BusinessEntityDto>>();
 
         group.MapPost("/", async (CreateBusinessEntityCommand command, ISender sender) =>
-        {
-            var id = await sender.Send(command);
-            return Results.Ok(new { id });
-        });
+                Results.Ok(new IdResponse(await sender.Send(command))))
+            .WithName("CreateBusinessEntity")
+            .Produces<IdResponse>();
 
         group.MapDelete("/{id:guid}", async (Guid id, ISender sender) =>
-        {
-            await sender.Send(new DeleteBusinessEntityCommand(id));
-            return Results.NoContent();
-        });
+            {
+                await sender.Send(new DeleteBusinessEntityCommand(id));
+                return Results.NoContent();
+            })
+            .WithName("DeleteBusinessEntity")
+            .Produces(StatusCodes.Status204NoContent);
 
         return app;
     }

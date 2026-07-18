@@ -15,13 +15,14 @@ public static class AsicRenewalsEndpoints
             .RequireAuthorization();
 
         group.MapGet("/", async (ISender sender) =>
-            Results.Ok(await sender.Send(new GetAsicRenewalsQuery())));
+                Results.Ok(await sender.Send(new GetAsicRenewalsQuery())))
+            .WithName("GetAsicRenewals")
+            .Produces<IReadOnlyList<AsicRenewalDto>>();
 
         group.MapPost("/{id:guid}/renew", async (Guid id, RenewBody body, ISender sender) =>
-        {
-            var renewalDate = await sender.Send(new RenewBusinessNameCommand(id, body.Years));
-            return Results.Ok(new { renewalDate });
-        });
+                Results.Ok(new RenewalResponse(await sender.Send(new RenewBusinessNameCommand(id, body.Years)))))
+            .WithName("RenewBusinessName")
+            .Produces<RenewalResponse>();
 
         return app;
     }

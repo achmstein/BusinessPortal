@@ -14,17 +14,19 @@ public static class AbnLookupEndpoints
 
         // Kick off a background lookup for the current user's businesses.
         group.MapPost("/", async (ISender sender) =>
-        {
-            var jobId = await sender.Send(new RequestAbnLookupCommand());
-            return Results.Ok(new { jobId });
-        });
+                Results.Ok(new JobStartedResponse(await sender.Send(new RequestAbnLookupCommand()))))
+            .WithName("StartAbnLookup")
+            .Produces<JobStartedResponse>();
 
         // Poll job progress/status.
         group.MapGet("/status", async (ISender sender) =>
-        {
-            var status = await sender.Send(new GetAbnLookupStatusQuery());
-            return status is null ? Results.NoContent() : Results.Ok(status);
-        });
+            {
+                var status = await sender.Send(new GetAbnLookupStatusQuery());
+                return status is null ? Results.NoContent() : Results.Ok(status);
+            })
+            .WithName("GetAbnLookupStatus")
+            .Produces<AbnLookupJobDto>()
+            .Produces(StatusCodes.Status204NoContent);
 
         return app;
     }

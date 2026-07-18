@@ -1,8 +1,8 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react'
-import { api, type Me } from '../lib/api'
+import { getMe, logout as apiLogout, type MeResponse } from '../api/generated'
 
 interface AuthState {
-  user: Me | null
+  user: MeResponse | null
   loading: boolean
   refresh: () => Promise<void>
   logout: () => Promise<void>
@@ -11,12 +11,13 @@ interface AuthState {
 const AuthContext = createContext<AuthState>(null!)
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<Me | null>(null)
+  const [user, setUser] = useState<MeResponse | null>(null)
   const [loading, setLoading] = useState(true)
 
   async function refresh() {
     try {
-      setUser(await api.me())
+      const { data } = await getMe()
+      setUser(data ?? null)
     } catch {
       setUser(null)
     } finally {
@@ -29,7 +30,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [])
 
   async function logout() {
-    await api.logout()
+    await apiLogout()
     setUser(null)
   }
 

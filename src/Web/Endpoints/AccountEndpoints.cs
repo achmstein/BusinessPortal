@@ -13,27 +13,31 @@ public static class AccountEndpoints
         var group = app.MapGroup("/api").WithTags("Account");
 
         group.MapGet("/me", async (ClaimsPrincipal principal, UserManager<ApplicationUser> userManager) =>
-        {
-            var user = await userManager.GetUserAsync(principal);
-            if (user is null)
-                return Results.Unauthorized();
-
-            return Results.Ok(new
             {
-                id = user.Id,
-                email = user.Email,
-                isAdmin = principal.IsInRole(Roles.Admin),
-                atoConnected = user.AtoConnected,
-                firstName = user.Profile.FirstName,
-                lastName = user.Profile.LastName,
-            });
-        }).RequireAuthorization();
+                var user = await userManager.GetUserAsync(principal);
+                if (user is null)
+                    return Results.Unauthorized();
+
+                return Results.Ok(new MeResponse(
+                    user.Id,
+                    user.Email,
+                    principal.IsInRole(Roles.Admin),
+                    user.AtoConnected,
+                    user.Profile.FirstName,
+                    user.Profile.LastName));
+            })
+            .RequireAuthorization()
+            .WithName("GetMe")
+            .Produces<MeResponse>()
+            .Produces(StatusCodes.Status401Unauthorized);
 
         group.MapPost("/logout", async (SignInManager<ApplicationUser> signInManager) =>
-        {
-            await signInManager.SignOutAsync();
-            return Results.Ok();
-        }).RequireAuthorization();
+            {
+                await signInManager.SignOutAsync();
+                return Results.Ok();
+            })
+            .RequireAuthorization()
+            .WithName("Logout");
 
         return app;
     }

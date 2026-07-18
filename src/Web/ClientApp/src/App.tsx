@@ -19,7 +19,7 @@ export default function App() {
         }
       >
         <Route path="/dashboard" element={<DashboardPage />} />
-        <Route path="/personal" element={<PlaceholderPage title="Personal Details" />} />
+        <Route path="/profile" element={<PlaceholderPage title="Personal Details" />} />
         <Route path="/business" element={<BusinessPage />} />
         <Route path="/business-names" element={<PlaceholderPage title="Business Names" />} />
         <Route path="/asic-renewals" element={<PlaceholderPage title="ASIC Renewals" />} />

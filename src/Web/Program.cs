@@ -9,6 +9,7 @@ using BusinessPortal.Web.Infrastructure;
 using BusinessPortal.Web.Services;
 using Hangfire;
 using Microsoft.AspNetCore.Identity;
+using Scalar.AspNetCore;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -51,6 +52,7 @@ app.UseStaticFiles();
 if (app.Environment.IsDevelopment())
 {
     app.MapOpenApi();
+    app.MapScalarApiReference(); // interactive API reference at /scalar
 }
 
 app.UseCors();

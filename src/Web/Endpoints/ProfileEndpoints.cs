@@ -17,33 +17,39 @@ public static class ProfileEndpoints
         var group = app.MapGroup("/api/profile").WithTags("Profile").RequireAuthorization();
 
         group.MapGet("/", async (ClaimsPrincipal principal, UserManager<ApplicationUser> users) =>
-        {
-            var user = await users.GetUserAsync(principal);
-            if (user is null) return Results.Unauthorized();
-            var p = user.Profile;
-            return Results.Ok(new ProfileModel(
-                p.FirstName, p.LastName, p.Phone, p.Dob, p.Tfn, p.Address, p.Suburb, p.State, p.Postcode));
-        });
+            {
+                var user = await users.GetUserAsync(principal);
+                if (user is null) return Results.Unauthorized();
+                var p = user.Profile;
+                return Results.Ok(new ProfileModel(
+                    p.FirstName, p.LastName, p.Phone, p.Dob, p.Tfn, p.Address, p.Suburb, p.State, p.Postcode));
+            })
+            .WithName("GetProfile")
+            .Produces<ProfileModel>()
+            .Produces(StatusCodes.Status401Unauthorized);
 
         group.MapPut("/", async (ProfileModel model, ClaimsPrincipal principal, UserManager<ApplicationUser> users) =>
-        {
-            var user = await users.GetUserAsync(principal);
-            if (user is null) return Results.Unauthorized();
+            {
+                var user = await users.GetUserAsync(principal);
+                if (user is null) return Results.Unauthorized();
 
-            var p = user.Profile;
-            p.FirstName = model.FirstName ?? string.Empty;
-            p.LastName = model.LastName ?? string.Empty;
-            p.Phone = model.Phone ?? string.Empty;
-            p.Dob = model.Dob ?? string.Empty;
-            p.Tfn = model.Tfn ?? string.Empty;
-            p.Address = model.Address ?? string.Empty;
-            p.Suburb = model.Suburb ?? string.Empty;
-            p.State = model.State ?? string.Empty;
-            p.Postcode = model.Postcode ?? string.Empty;
+                var p = user.Profile;
+                p.FirstName = model.FirstName ?? string.Empty;
+                p.LastName = model.LastName ?? string.Empty;
+                p.Phone = model.Phone ?? string.Empty;
+                p.Dob = model.Dob ?? string.Empty;
+                p.Tfn = model.Tfn ?? string.Empty;
+                p.Address = model.Address ?? string.Empty;
+                p.Suburb = model.Suburb ?? string.Empty;
+                p.State = model.State ?? string.Empty;
+                p.Postcode = model.Postcode ?? string.Empty;
 
-            await users.UpdateAsync(user);
-            return Results.NoContent();
-        });
+                await users.UpdateAsync(user);
+                return Results.NoContent();
+            })
+            .WithName("UpdateProfile")
+            .Produces(StatusCodes.Status204NoContent)
+            .Produces(StatusCodes.Status401Unauthorized);
 
         return app;
     }

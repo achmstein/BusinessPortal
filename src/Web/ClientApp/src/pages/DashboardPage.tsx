@@ -1,14 +1,14 @@
 import { useEffect, useState } from 'react'
 import { PageHeader } from '../components/PageHeader'
-import { api, type BusinessEntity, type Me } from '../lib/api'
+import { getBusinessEntities, getMe, type BusinessEntityDto, type MeResponse } from '../api/generated'
 
 export function DashboardPage() {
-  const [me, setMe] = useState<Me | null>(null)
-  const [entities, setEntities] = useState<BusinessEntity[]>([])
+  const [me, setMe] = useState<MeResponse | null>(null)
+  const [entities, setEntities] = useState<BusinessEntityDto[]>([])
 
   useEffect(() => {
-    void api.me().then(setMe).catch(() => {})
-    void api.businessEntities().then(setEntities).catch(() => {})
+    void getMe().then((r) => setMe(r.data ?? null)).catch(() => {})
+    void getBusinessEntities().then((r) => setEntities(r.data ?? [])).catch(() => {})
   }, [])
 
   const hour = new Date().getHours()

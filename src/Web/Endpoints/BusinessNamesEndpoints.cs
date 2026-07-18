@@ -15,25 +15,30 @@ public static class BusinessNamesEndpoints
             .RequireAuthorization();
 
         group.MapGet("/", async (ISender sender) =>
-            Results.Ok(await sender.Send(new GetBusinessNamesQuery())));
+                Results.Ok(await sender.Send(new GetBusinessNamesQuery())))
+            .WithName("GetBusinessNames")
+            .Produces<IReadOnlyList<BusinessNameDto>>();
 
         group.MapPost("/", async (CreateBusinessNameCommand command, ISender sender) =>
-        {
-            var id = await sender.Send(command);
-            return Results.Ok(new { id });
-        });
+                Results.Ok(new IdResponse(await sender.Send(command))))
+            .WithName("CreateBusinessName")
+            .Produces<IdResponse>();
 
         group.MapPut("/{id:guid}", async (Guid id, UpdateBusinessNameCommand command, ISender sender) =>
-        {
-            await sender.Send(command with { Id = id });
-            return Results.NoContent();
-        });
+            {
+                await sender.Send(command with { Id = id });
+                return Results.NoContent();
+            })
+            .WithName("UpdateBusinessName")
+            .Produces(StatusCodes.Status204NoContent);
 
         group.MapDelete("/{id:guid}", async (Guid id, ISender sender) =>
-        {
-            await sender.Send(new DeleteBusinessNameCommand(id));
-            return Results.NoContent();
-        });
+            {
+                await sender.Send(new DeleteBusinessNameCommand(id));
+                return Results.NoContent();
+            })
+            .WithName("DeleteBusinessName")
+            .Produces(StatusCodes.Status204NoContent);
 
         return app;
     }

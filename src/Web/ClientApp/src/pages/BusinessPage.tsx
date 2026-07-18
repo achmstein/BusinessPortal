@@ -1,16 +1,23 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { PageHeader } from '../components/PageHeader'
-import { api, type BusinessEntity } from '../lib/api'
+import {
+  createBusinessEntity,
+  deleteBusinessEntity,
+  getBusinessEntities,
+  type BusinessEntityDto,
+  type EntityType,
+} from '../api/generated'
 
-const ENTITY_TYPES = ['Unspecified', 'SoleTrader', 'Partnership', 'Company', 'Trust']
+const ENTITY_TYPES: EntityType[] = ['Unspecified', 'SoleTrader', 'Partnership', 'Company', 'Trust']
 
 export function BusinessPage() {
-  const [entities, setEntities] = useState<BusinessEntity[]>([])
+  const [entities, setEntities] = useState<BusinessEntityDto[]>([])
   const [error, setError] = useState<string | null>(null)
 
   async function load() {
     try {
-      setEntities(await api.businessEntities())
+      const { data } = await getBusinessEntities()
+      setEntities(data ?? [])
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e))
     }
@@ -24,28 +31,24 @@ export function BusinessPage() {
     e.preventDefault()
     const form = e.currentTarget
     const f = new FormData(form)
-    const payload = {
-      name: String(f.get('name') || ''),
-      entityType: String(f.get('entityType') || 'Unspecified'),
-      abn: String(f.get('abn') || ''),
-      acn: String(f.get('acn') || ''),
-      industry: String(f.get('industry') || ''),
-      employees: Number(f.get('employees') || 0),
-      phone: String(f.get('phone') || ''),
-      website: String(f.get('website') || ''),
-    }
-    await fetch('/api/business-entities', {
-      method: 'POST',
-      credentials: 'include',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
+    await createBusinessEntity({
+      body: {
+        name: String(f.get('name') || ''),
+        entityType: String(f.get('entityType') || 'Unspecified') as EntityType,
+        abn: String(f.get('abn') || ''),
+        acn: String(f.get('acn') || ''),
+        industry: String(f.get('industry') || ''),
+        employees: Number(f.get('employees') || 0),
+        phone: String(f.get('phone') || ''),
+        website: String(f.get('website') || ''),
+      },
     })
     form.reset()
     await load()
   }
 
   async function onDelete(id: string) {
-    await fetch(`/api/business-entities/${id}`, { method: 'DELETE', credentials: 'include' })
+    await deleteBusinessEntity({ path: { id } })
     await load()
   }
 
@@ -68,7 +71,7 @@ export function BusinessPage() {
                 {e.abn ? <span className="text-navy-500">· ABN {e.abn}</span> : null}
                 {e.industry ? <span className="text-navy-500">· {e.industry}</span> : null}
               </div>
-              <button onClick={() => onDelete(e.id)} className="btn-ghost text-sm">Remove</button>
+              <button onClick={() => e.id && onDelete(e.id)} className="btn-ghost text-sm">Remove</button>
             </div>
           ))
         )}

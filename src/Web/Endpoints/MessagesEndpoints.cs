@@ -17,25 +17,30 @@ public static class MessagesEndpoints
             .RequireAuthorization();
 
         group.MapGet("/threads", async (ISender sender) =>
-            Results.Ok(await sender.Send(new GetMessageThreadsQuery())));
+                Results.Ok(await sender.Send(new GetMessageThreadsQuery())))
+            .WithName("GetMessageThreads")
+            .Produces<IReadOnlyList<ThreadDto>>();
 
         group.MapPost("/threads", async (StartThreadCommand command, ISender sender) =>
-        {
-            var threadId = await sender.Send(command);
-            return Results.Ok(new { threadId });
-        });
+                Results.Ok(new ThreadStartedResponse(await sender.Send(command))))
+            .WithName("StartThread")
+            .Produces<ThreadStartedResponse>();
 
         group.MapPost("/threads/{threadId:guid}/replies", async (Guid threadId, ReplyBody body, ISender sender) =>
-        {
-            await sender.Send(new ReplyToThreadCommand(threadId, body.Body));
-            return Results.NoContent();
-        });
+            {
+                await sender.Send(new ReplyToThreadCommand(threadId, body.Body));
+                return Results.NoContent();
+            })
+            .WithName("ReplyToThread")
+            .Produces(StatusCodes.Status204NoContent);
 
         group.MapPost("/threads/{threadId:guid}/read", async (Guid threadId, ISender sender) =>
-        {
-            await sender.Send(new MarkThreadReadCommand(threadId));
-            return Results.NoContent();
-        });
+            {
+                await sender.Send(new MarkThreadReadCommand(threadId));
+                return Results.NoContent();
+            })
+            .WithName("MarkThreadRead")
+            .Produces(StatusCodes.Status204NoContent);
 
         return app;
     }
