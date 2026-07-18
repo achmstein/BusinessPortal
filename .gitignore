@@ -27,6 +27,10 @@ node_modules/
 dist/
 *.local
 .vite/
+*.tsbuildinfo
+# tsc -b composite emit for vite.config.ts (build artifacts, not source)
+src/BusinessPortal.Web/ClientApp/vite.config.js
+src/BusinessPortal.Web/ClientApp/vite.config.d.ts
 
 # The SPA is built into wwwroot at publish time — never commit the generated output.
 src/BusinessPortal.Web/wwwroot/
