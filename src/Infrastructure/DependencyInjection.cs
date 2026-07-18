@@ -4,6 +4,7 @@ using BusinessPortal.Infrastructure.Data.Interceptors;
 using BusinessPortal.Infrastructure.ExternalClients;
 using BusinessPortal.Infrastructure.Identity;
 using BusinessPortal.Infrastructure.Jobs;
+using BusinessPortal.Infrastructure.Ontraport;
 using BusinessPortal.Infrastructure.Services;
 using Hangfire;
 using Hangfire.PostgreSql;
@@ -79,6 +80,10 @@ public static class DependencyInjection
         // ─── ABN Lookup (data.gov.au) ───
         services.AddHttpClient<IAbnLookupClient, AbnLookupClient>();
         services.AddScoped<IAbnLookupService, AbnLookupService>();
+
+        // ─── Ontraport webhooks ───
+        services.Configure<OntraportOptions>(configuration.GetSection(OntraportOptions.SectionName));
+        services.AddScoped<IOntraportService, OntraportService>();
 
         return services;
     }

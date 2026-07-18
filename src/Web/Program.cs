@@ -75,6 +75,7 @@ app.MapMessagesEndpoints();
 app.MapAsicRenewalsEndpoints();
 app.MapAbnLookupEndpoints();
 app.MapAdminEndpoints();
+app.MapOntraportEndpoints();
 
 app.MapDefaultEndpoints();
 
