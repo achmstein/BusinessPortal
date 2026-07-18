@@ -33,6 +33,23 @@ public static class DependencyInjection
         // ─── ASP.NET Identity (cookie auth) ───
         services.AddAuthentication(IdentityConstants.ApplicationScheme)
             .AddIdentityCookies();
+
+        // This is an API behind a SPA — return 401/403 instead of redirecting to a
+        // server-rendered login page (there isn't one). The SPA owns the auth UI.
+        services.ConfigureApplicationCookie(options =>
+        {
+            options.Events.OnRedirectToLogin = ctx =>
+            {
+                ctx.Response.StatusCode = 401;
+                return Task.CompletedTask;
+            };
+            options.Events.OnRedirectToAccessDenied = ctx =>
+            {
+                ctx.Response.StatusCode = 403;
+                return Task.CompletedTask;
+            };
+        });
+
         services.AddAuthorization(options =>
             options.AddPolicy("Admin", policy => policy.RequireRole(Roles.Admin)));
 
