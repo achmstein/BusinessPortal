@@ -4,6 +4,7 @@ import { Layout } from './components/Layout'
 import { LoginPage } from './pages/LoginPage'
 import { DashboardPage } from './pages/DashboardPage'
 import { BusinessPage } from './pages/BusinessPage'
+import { BusinessNamesPage } from './pages/BusinessNamesPage'
 import { PlaceholderPage } from './pages/PlaceholderPage'
 
 export default function App() {
@@ -21,7 +22,7 @@ export default function App() {
         <Route path="/dashboard" element={<DashboardPage />} />
         <Route path="/profile" element={<PlaceholderPage title="Personal Details" />} />
         <Route path="/business" element={<BusinessPage />} />
-        <Route path="/business-names" element={<PlaceholderPage title="Business Names" />} />
+        <Route path="/business-names" element={<BusinessNamesPage />} />
         <Route path="/asic-renewals" element={<PlaceholderPage title="ASIC Renewals" />} />
         <Route path="/ato-portal" element={<PlaceholderPage title="Link to ATO" />} />
         <Route path="/messages" element={<PlaceholderPage title="Messages" />} />
