@@ -5,6 +5,7 @@ import { LoginPage } from './pages/LoginPage'
 import { DashboardPage } from './pages/DashboardPage'
 import { BusinessPage } from './pages/BusinessPage'
 import { BusinessNamesPage } from './pages/BusinessNamesPage'
+import { ProfilePage } from './pages/ProfilePage'
 import { PlaceholderPage } from './pages/PlaceholderPage'
 
 export default function App() {
@@ -20,7 +21,7 @@ export default function App() {
         }
       >
         <Route path="/dashboard" element={<DashboardPage />} />
-        <Route path="/profile" element={<PlaceholderPage title="Personal Details" />} />
+        <Route path="/profile" element={<ProfilePage />} />
         <Route path="/business" element={<BusinessPage />} />
         <Route path="/business-names" element={<BusinessNamesPage />} />
         <Route path="/asic-renewals" element={<PlaceholderPage title="ASIC Renewals" />} />
