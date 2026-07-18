@@ -22,7 +22,7 @@ public static class AccountEndpoints
             {
                 id = user.Id,
                 email = user.Email,
-                isAdmin = user.IsAdmin,
+                isAdmin = principal.IsInRole(Roles.Admin),
                 atoConnected = user.AtoConnected,
                 firstName = user.Profile.FirstName,
                 lastName = user.Profile.LastName,

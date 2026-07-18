@@ -61,7 +61,12 @@ app.UseAuthorization();
 app.MapGroup("/api").MapIdentityApi<ApplicationUser>();
 
 app.MapAccountEndpoints();
+app.MapProfileEndpoints();
 app.MapBusinessEntitiesEndpoints();
+app.MapBusinessNamesEndpoints();
+app.MapMessagesEndpoints();
+app.MapAsicRenewalsEndpoints();
+app.MapAdminEndpoints();
 
 app.MapDefaultEndpoints();
 

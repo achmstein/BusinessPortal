@@ -33,9 +33,11 @@ public static class DependencyInjection
         // ─── ASP.NET Identity (cookie auth) ───
         services.AddAuthentication(IdentityConstants.ApplicationScheme)
             .AddIdentityCookies();
-        services.AddAuthorization();
+        services.AddAuthorization(options =>
+            options.AddPolicy("Admin", policy => policy.RequireRole(Roles.Admin)));
 
         services.AddIdentityCore<ApplicationUser>(options => options.SignIn.RequireConfirmedAccount = false)
+            .AddRoles<IdentityRole>()
             .AddEntityFrameworkStores<ApplicationDbContext>()
             .AddSignInManager()
             .AddDefaultTokenProviders()

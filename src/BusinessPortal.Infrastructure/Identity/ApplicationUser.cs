@@ -3,12 +3,12 @@ using Microsoft.AspNetCore.Identity;
 namespace BusinessPortal.Infrastructure.Identity;
 
 /// <summary>The identity user. Carries the app-specific flags that lived directly
-/// on the original <c>User</c> (isAdmin, atoConnected, ATO nomination stamps) plus
-/// the owned <see cref="UserProfile"/> and the client's collections. Email +
-/// password hash come from <see cref="IdentityUser"/>.</summary>
+/// on the original <c>User</c> (atoConnected, ATO nomination stamps) plus the owned
+/// <see cref="UserProfile"/> and the client's collections. Email + password hash
+/// come from <see cref="IdentityUser"/>. Admin access is role-based (see
+/// <see cref="Roles"/>), not a flag on the user.</summary>
 public class ApplicationUser : IdentityUser
 {
-    public bool IsAdmin { get; set; }
     public bool AtoConnected { get; set; }
     public DateTimeOffset CreatedAt { get; set; }
 
