@@ -1,0 +1,9 @@
+<Project>
+  <!-- Shared C# defaults. TargetFramework is declared per-project so this file
+       does not interfere with the JavaScript frontend under ClientApp. -->
+  <PropertyGroup>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <LangVersion>latest</LangVersion>
+  </PropertyGroup>
+</Project>

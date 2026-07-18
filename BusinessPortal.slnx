@@ -1,0 +1,13 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/BusinessPortal.AppHost/BusinessPortal.AppHost.csproj" />
+    <Project Path="src/BusinessPortal.Application/BusinessPortal.Application.csproj" />
+    <Project Path="src/BusinessPortal.Domain/BusinessPortal.Domain.csproj" />
+    <Project Path="src/BusinessPortal.Infrastructure/BusinessPortal.Infrastructure.csproj" />
+    <Project Path="src/BusinessPortal.ServiceDefaults/BusinessPortal.ServiceDefaults.csproj" />
+    <Project Path="src/BusinessPortal.Web/BusinessPortal.Web.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/BusinessPortal.Domain.UnitTests/BusinessPortal.Domain.UnitTests.csproj" />
+  </Folder>
+</Solution>

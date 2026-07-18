@@ -1,0 +1,42 @@
+# ---- .NET ----
+bin/
+obj/
+[Dd]ebug/
+[Rr]elease/
+x64/
+x86/
+*.user
+*.suo
+.vs/
+artifacts/
+publish/
+*.binlog
+
+# ---- EF / local db ----
+*.db
+*.db-shm
+*.db-wal
+
+# ---- Aspire / runtime-mutable config + secrets ----
+settings.overrides.json
+appsettings.*.local.json
+**/appsettings.Development.local.json
+
+# ---- Node / Vite (ClientApp) ----
+node_modules/
+dist/
+*.local
+.vite/
+
+# The SPA is built into wwwroot at publish time — never commit the generated output.
+src/BusinessPortal.Web/wwwroot/
+
+# ---- env / secrets ----
+.env
+.env.*
+!.env.example
+
+# ---- OS / editor junk ----
+.DS_Store
+Thumbs.db
+*.log
