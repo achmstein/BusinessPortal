@@ -1,7 +1,10 @@
 var builder = DistributedApplication.CreateBuilder(args);
 
 // PostgreSQL with a persistent data volume — the app's only stateful resource.
+// Pinned to a tag already present in the local Docker cache so `dotnet run` never
+// pulls a different Postgres image (change to "18.3" if you'd rather use that one).
 var postgres = builder.AddPostgres("postgres")
+    .WithImageTag("17.6")
     .WithDataVolume("businessportal-pg-data");
 
 var db = postgres.AddDatabase("BusinessPortalDb");
