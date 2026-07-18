@@ -6,7 +6,7 @@ var postgres = builder.AddPostgres("postgres")
 
 var db = postgres.AddDatabase("BusinessPortalDb");
 
-var server = builder.AddProject<Projects.BusinessPortal_Web>("businessportal-server")
+var server = builder.AddProject<Projects.Web>("businessportal-server")
     .WithReference(db)
     .WaitFor(postgres)
     .WithHttpHealthCheck("/health");
@@ -15,7 +15,7 @@ var server = builder.AddProject<Projects.BusinessPortal_Web>("businessportal-ser
 // endpoint the vite proxy reads; in publish mode the SPA is baked into wwwroot.
 if (builder.ExecutionContext.IsRunMode)
 {
-    builder.AddViteApp("webfrontend", "../BusinessPortal.Web/ClientApp")
+    builder.AddViteApp("webfrontend", "../Web/ClientApp")
         .WithReference(server)
         .WaitFor(server);
 }

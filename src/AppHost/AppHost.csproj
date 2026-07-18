@@ -3,6 +3,7 @@
   <PropertyGroup>
     <OutputType>Exe</OutputType>
     <TargetFramework>net10.0</TargetFramework>
+    <RootNamespace>BusinessPortal.AppHost</RootNamespace>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <IsAspireHost>true</IsAspireHost>
@@ -10,7 +11,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\BusinessPortal.Web\BusinessPortal.Web.csproj" />
+    <ProjectReference Include="..\Web\Web.csproj" />
   </ItemGroup>
 
   <ItemGroup>

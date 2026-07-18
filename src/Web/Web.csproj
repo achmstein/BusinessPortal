@@ -15,9 +15,9 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\BusinessPortal.Application\BusinessPortal.Application.csproj" />
-    <ProjectReference Include="..\BusinessPortal.Infrastructure\BusinessPortal.Infrastructure.csproj" />
-    <ProjectReference Include="..\BusinessPortal.ServiceDefaults\BusinessPortal.ServiceDefaults.csproj" />
+    <ProjectReference Include="..\Application\Application.csproj" />
+    <ProjectReference Include="..\Infrastructure\Infrastructure.csproj" />
+    <ProjectReference Include="..\ServiceDefaults\ServiceDefaults.csproj" />
   </ItemGroup>
 
   <!-- On publish, build the SPA and stage its dist output into wwwroot so the single
