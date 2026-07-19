@@ -1,5 +1,6 @@
 using BusinessPortal.Application.Common.Interfaces;
 using BusinessPortal.Infrastructure.Data;
+using BusinessPortal.Infrastructure.Ato;
 using BusinessPortal.Infrastructure.Data.Interceptors;
 using BusinessPortal.Infrastructure.ExternalClients;
 using BusinessPortal.Infrastructure.Identity;
@@ -84,6 +85,11 @@ public static class DependencyInjection
         // ─── Ontraport webhooks ───
         services.Configure<OntraportOptions>(configuration.GetSection(OntraportOptions.SectionName));
         services.AddScoped<IOntraportService, OntraportService>();
+
+        // ─── ATO myID auth client + encrypted session/attempt stores ───
+        services.AddScoped<AtoAuthClient>();
+        services.AddScoped<AtoCookieStore>();
+        services.AddScoped<AtoAttemptStore>();
 
         return services;
     }

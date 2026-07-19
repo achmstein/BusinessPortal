@@ -55,9 +55,22 @@ public static class AtoConstants
     }
 
     // ─── Headers ───
+    // myID audit-header values (sent during the myID portion of the chain).
     public const string AuditCallingAppVersion = "4.2.0.1";
     public const string AuditCallingAppName = "myGovIDAuthSPA";
     public const string RequestedWith = "XMLHttpRequest";
+
+    // myID audit-header names.
+    public const string HdrAuditCallingAppVersion = "X-AuditCallingAppVersion";
+    public const string HdrAuditCallingAppName = "X-AuditCallingAppName";
+    public const string HdrAuditRequestId = "X-AuditRequestId";
+    public const string HdrAuditSessionId = "X-AuditSessionId";
+    public const string HdrRequestedWith = "X-Requested-With";
+
+    // Post-auth REST-API header names (ON_AUTHENTICATED_HEADERS in the original).
+    public const string HdrAtoCsrfHeader = "AtoCsrfHeader";
+    public const string HdrAtoIsfProxyRoute = "AtoIsfProxyRoute";
+    public const string HdrApplicationDetails = "Application-Details";
 
     public const string ApplicationDetailsValue =
         "CodeValues=true,softwareProductName=ATOOnline_ClientSummary,softwareProductVersion=1,softwareOrganisationName=ATO";
