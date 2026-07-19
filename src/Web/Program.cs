@@ -8,6 +8,7 @@ using BusinessPortal.Web.Endpoints;
 using BusinessPortal.Web.Infrastructure;
 using BusinessPortal.Web.Services;
 using Hangfire;
+using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Identity;
 using Scalar.AspNetCore;
 
@@ -20,6 +21,16 @@ builder.Services.AddScoped<IUser, CurrentUser>();
 
 builder.Services.AddApplication();
 builder.Services.AddInfrastructure(builder.Configuration);
+
+// Persist Data Protection keys to a mounted volume in production so the auth
+// cookie survives container redeploys (set by the compose deploy; unset locally).
+var keysDirectory = builder.Configuration["DataProtection:KeysDirectory"];
+if (!string.IsNullOrWhiteSpace(keysDirectory))
+{
+    builder.Services.AddDataProtection()
+        .PersistKeysToFileSystem(new DirectoryInfo(keysDirectory))
+        .SetApplicationName("BusinessPortal");
+}
 
 builder.Services.AddExceptionHandler<CustomExceptionHandler>();
 builder.Services.AddProblemDetails();

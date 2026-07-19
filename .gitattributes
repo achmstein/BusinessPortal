@@ -1,0 +1,3 @@
+# Deploy workflow contains bash heredocs — a stray CRLF breaks `EOF` matching and
+# `set -e` on the Ubuntu runner. Force LF regardless of anyone's autocrlf.
+/.github/workflows/*.yml text eol=lf

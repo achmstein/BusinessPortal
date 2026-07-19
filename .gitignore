@@ -44,3 +44,4 @@ src/BusinessPortal.Web/wwwroot/
 .DS_Store
 Thumbs.db
 *.log
+publish-test/
