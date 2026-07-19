@@ -1013,6 +1013,149 @@
           }
         }
       }
+    },
+    "/api/ato/status": {
+      "get": {
+        "tags": [
+          "ATO"
+        ],
+        "operationId": "GetAtoStatus",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AtoStatusResult"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/ato/link/start": {
+      "post": {
+        "tags": [
+          "ATO"
+        ],
+        "operationId": "StartAtoLink",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StartLinkRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AtoLinkStartResult"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/ato/link/poll": {
+      "post": {
+        "tags": [
+          "ATO"
+        ],
+        "operationId": "PollAtoLink",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PollLinkRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AtoPollResult"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/ato/link/select": {
+      "post": {
+        "tags": [
+          "ATO"
+        ],
+        "operationId": "SelectAtoAgent",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SelectAgentRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AtoSelectResult"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/ato/sync": {
+      "post": {
+        "tags": [
+          "ATO"
+        ],
+        "operationId": "SyncAtoBusinesses",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AtoSyncResult"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/ato/unlink": {
+      "post": {
+        "tags": [
+          "ATO"
+        ],
+        "operationId": "UnlinkAto",
+        "responses": {
+          "204": {
+            "description": "No Content"
+          }
+        }
+      }
     }
   },
   "components": {
@@ -1205,6 +1348,155 @@
           },
           "label": {
             "type": "string"
+          }
+        }
+      },
+      "AtoAgentDto": {
+        "required": [
+          "name",
+          "abn",
+          "ran"
+        ],
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "abn": {
+            "type": "string"
+          },
+          "ran": {
+            "type": "string"
+          }
+        }
+      },
+      "AtoLinkStartResult": {
+        "required": [
+          "attemptId",
+          "referenceCode"
+        ],
+        "type": "object",
+        "properties": {
+          "attemptId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "referenceCode": {
+            "type": "string"
+          }
+        }
+      },
+      "AtoLinkStatus": {
+        "enum": [
+          "Pending",
+          "Linked",
+          "Failed",
+          "Expired"
+        ]
+      },
+      "AtoPollResult": {
+        "required": [
+          "status",
+          "agents",
+          "reason"
+        ],
+        "type": "object",
+        "properties": {
+          "status": {
+            "$ref": "#/components/schemas/AtoLinkStatus"
+          },
+          "agents": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AtoAgentDto"
+            }
+          },
+          "reason": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
+      "AtoSelectResult": {
+        "required": [
+          "connected",
+          "syncedCount",
+          "nomination"
+        ],
+        "type": "object",
+        "properties": {
+          "connected": {
+            "type": "boolean"
+          },
+          "syncedCount": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "nomination": {
+            "type": "string"
+          }
+        }
+      },
+      "AtoStatusResult": {
+        "required": [
+          "connected",
+          "nominatedAt",
+          "nominatedFromAbn"
+        ],
+        "type": "object",
+        "properties": {
+          "connected": {
+            "type": "boolean"
+          },
+          "nominatedAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          },
+          "nominatedFromAbn": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
+      "AtoSyncResult": {
+        "required": [
+          "ok",
+          "syncedCount",
+          "needsRelink",
+          "reason"
+        ],
+        "type": "object",
+        "properties": {
+          "ok": {
+            "type": "boolean"
+          },
+          "syncedCount": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "needsRelink": {
+            "type": "boolean"
+          },
+          "reason": {
+            "type": [
+              "null",
+              "string"
+            ]
           }
         }
       },
@@ -1604,6 +1896,18 @@
           }
         }
       },
+      "PollLinkRequest": {
+        "required": [
+          "attemptId"
+        ],
+        "type": "object",
+        "properties": {
+          "attemptId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        }
+      },
       "ProfileModel": {
         "required": [
           "firstName",
@@ -1764,6 +2068,28 @@
             "type": "string"
           },
           "newPassword": {
+            "type": "string"
+          }
+        }
+      },
+      "SelectAgentRequest": {
+        "required": [
+          "abn"
+        ],
+        "type": "object",
+        "properties": {
+          "abn": {
+            "type": "string"
+          }
+        }
+      },
+      "StartLinkRequest": {
+        "required": [
+          "email"
+        ],
+        "type": "object",
+        "properties": {
+          "email": {
             "type": "string"
           }
         }
@@ -1956,6 +2282,9 @@
     },
     {
       "name": "Ontraport"
+    },
+    {
+      "name": "ATO"
     }
   ]
 }

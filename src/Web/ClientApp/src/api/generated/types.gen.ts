@@ -46,6 +46,44 @@ export type AsicRenewalDto = {
     label?: string;
 };
 
+export type AtoAgentDto = {
+    name: string;
+    abn: string;
+    ran: string;
+};
+
+export type AtoLinkStartResult = {
+    attemptId: string;
+    referenceCode: string;
+};
+
+export type AtoLinkStatus = 'Pending' | 'Linked' | 'Failed' | 'Expired';
+
+export type AtoPollResult = {
+    status: AtoLinkStatus;
+    agents: Array<AtoAgentDto>;
+    reason: null | string;
+};
+
+export type AtoSelectResult = {
+    connected: boolean;
+    syncedCount: number | string;
+    nomination: string;
+};
+
+export type AtoStatusResult = {
+    connected: boolean;
+    nominatedAt: null | string;
+    nominatedFromAbn: null | string;
+};
+
+export type AtoSyncResult = {
+    ok: boolean;
+    syncedCount: number | string;
+    needsRelink: boolean;
+    reason: null | string;
+};
+
 export type BusinessEntityDto = {
     id?: string;
     name?: string;
@@ -158,6 +196,10 @@ export type MessageDto = {
     createdAt?: string;
 };
 
+export type PollLinkRequest = {
+    attemptId: string;
+};
+
 export type ProfileModel = {
     firstName: null | string;
     lastName: null | string;
@@ -199,6 +241,14 @@ export type ResetPasswordRequest = {
     email: string;
     resetCode: string;
     newPassword: string;
+};
+
+export type SelectAgentRequest = {
+    abn: string;
+};
+
+export type StartLinkRequest = {
+    email: string;
 };
 
 export type StartThreadCommand = {
@@ -940,3 +990,99 @@ export type PostApiIntegrationsOntraportRenewalPaidResponses = {
      */
     200: unknown;
 };
+
+export type GetAtoStatusData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/ato/status';
+};
+
+export type GetAtoStatusResponses = {
+    /**
+     * OK
+     */
+    200: AtoStatusResult;
+};
+
+export type GetAtoStatusResponse = GetAtoStatusResponses[keyof GetAtoStatusResponses];
+
+export type StartAtoLinkData = {
+    body: StartLinkRequest;
+    path?: never;
+    query?: never;
+    url: '/api/ato/link/start';
+};
+
+export type StartAtoLinkResponses = {
+    /**
+     * OK
+     */
+    200: AtoLinkStartResult;
+};
+
+export type StartAtoLinkResponse = StartAtoLinkResponses[keyof StartAtoLinkResponses];
+
+export type PollAtoLinkData = {
+    body: PollLinkRequest;
+    path?: never;
+    query?: never;
+    url: '/api/ato/link/poll';
+};
+
+export type PollAtoLinkResponses = {
+    /**
+     * OK
+     */
+    200: AtoPollResult;
+};
+
+export type PollAtoLinkResponse = PollAtoLinkResponses[keyof PollAtoLinkResponses];
+
+export type SelectAtoAgentData = {
+    body: SelectAgentRequest;
+    path?: never;
+    query?: never;
+    url: '/api/ato/link/select';
+};
+
+export type SelectAtoAgentResponses = {
+    /**
+     * OK
+     */
+    200: AtoSelectResult;
+};
+
+export type SelectAtoAgentResponse = SelectAtoAgentResponses[keyof SelectAtoAgentResponses];
+
+export type SyncAtoBusinessesData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/ato/sync';
+};
+
+export type SyncAtoBusinessesResponses = {
+    /**
+     * OK
+     */
+    200: AtoSyncResult;
+};
+
+export type SyncAtoBusinessesResponse = SyncAtoBusinessesResponses[keyof SyncAtoBusinessesResponses];
+
+export type UnlinkAtoData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/ato/unlink';
+};
+
+export type UnlinkAtoResponses = {
+    /**
+     * No Content
+     */
+    204: void;
+};
+
+export type UnlinkAtoResponse = UnlinkAtoResponses[keyof UnlinkAtoResponses];

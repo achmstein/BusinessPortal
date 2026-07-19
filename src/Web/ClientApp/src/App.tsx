@@ -10,11 +10,12 @@ import { BusinessNamesPage } from './pages/BusinessNamesPage'
 import { ProfilePage } from './pages/ProfilePage'
 import { MessagesPage } from './pages/MessagesPage'
 import { AsicRenewalsPage } from './pages/AsicRenewalsPage'
+import { AtoPortalPage } from './pages/AtoPortalPage'
+import { AtoLinkPage } from './pages/AtoLinkPage'
 import { AdminOverviewPage } from './pages/admin/AdminOverviewPage'
 import { AdminClientsPage } from './pages/admin/AdminClientsPage'
 import { AdminClientDetailPage } from './pages/admin/AdminClientDetailPage'
 import { AdminMessagesPage } from './pages/admin/AdminMessagesPage'
-import { PlaceholderPage } from './pages/PlaceholderPage'
 
 export default function App() {
   return (
@@ -34,7 +35,8 @@ export default function App() {
         <Route path="/business" element={<BusinessPage />} />
         <Route path="/business-names" element={<BusinessNamesPage />} />
         <Route path="/asic-renewals" element={<AsicRenewalsPage />} />
-        <Route path="/ato-portal" element={<PlaceholderPage title="Link to ATO" />} />
+        <Route path="/ato-portal" element={<AtoPortalPage />} />
+        <Route path="/ato-portal/link" element={<AtoLinkPage />} />
         <Route path="/messages" element={<MessagesPage />} />
       </Route>
 
