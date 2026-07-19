@@ -1,7 +1,7 @@
 import { useState, type FormEvent } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { BrandLockup } from '../components/Brand'
-import { postApiLogin } from '../api/generated'
+import { getMe, postApiLogin } from '../api/generated'
 import { useAuth } from '../auth/AuthContext'
 
 // Markup ported verbatim from the original app/login/page.tsx. The server action
@@ -22,7 +22,8 @@ export function LoginPage() {
     try {
       await postApiLogin({ query: { useCookies: true }, body: { email, password } })
       await refresh()
-      navigate('/dashboard')
+      const { data } = await getMe()
+      navigate(data?.isAdmin ? '/admin' : '/dashboard')
     } catch {
       setError('Invalid email or password')
     } finally {

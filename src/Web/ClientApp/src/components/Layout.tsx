@@ -3,6 +3,7 @@ import { NavLink, Outlet, useNavigate } from 'react-router-dom'
 import { BrandLockup } from './Brand'
 import { Icon } from './Icon'
 import { useAuth } from '../auth/AuthContext'
+import { stopImpersonation } from '../api/generated'
 
 // Visible client nav items — same set/order/icons as the original components/nav.tsx
 // (the hidden items are omitted, matching the original's `hidden: true` filter).
@@ -35,9 +36,15 @@ function NavList({ onNavigate }: { onNavigate?: () => void }) {
 }
 
 export function Layout() {
-  const { user, logout } = useAuth()
+  const { user, logout, refresh } = useAuth()
   const navigate = useNavigate()
   const [open, setOpen] = useState(false)
+
+  async function onReturnToAdmin() {
+    await stopImpersonation()
+    await refresh()
+    navigate('/admin')
+  }
 
   const fullName = `${user?.firstName ?? ''} ${user?.lastName ?? ''}`.trim() || (user?.email ?? '')
   const email = user?.email ?? ''
@@ -65,6 +72,12 @@ export function Layout() {
 
   return (
     <div className="min-h-dvh bg-navy-50">
+      {user?.impersonating ? (
+        <div className="sticky top-0 z-50 flex items-center justify-between gap-3 bg-amber-400 text-navy-900 px-4 py-2 text-sm">
+          <span>You are impersonating <strong>{email}</strong>.</span>
+          <button type="button" onClick={onReturnToAdmin} className="rounded-md bg-navy-900 text-white px-3 py-1 text-xs font-semibold hover:bg-navy-800">Return to admin</button>
+        </div>
+      ) : null}
       <div className="lg:flex">
         {/* Top bar (mobile) */}
         <div className="lg:hidden sticky top-0 z-30 flex items-center justify-between bg-navy-900 text-white px-4 py-3 shadow">

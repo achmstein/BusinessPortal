@@ -22,6 +22,19 @@ export type AccessTokenResponse = {
     refreshToken: string;
 };
 
+export type AdminOverviewResponse = {
+    clients: number | string;
+    activeThreads: number | string;
+    unreadMessages: number | string;
+    renewalsDue: number | string;
+};
+
+export type AdminReplyBody = {
+    threadId: null | string;
+    subject: null | string;
+    body: string;
+};
+
 export type AsicRenewalDto = {
     sourceId?: string;
     kind?: string;
@@ -97,6 +110,10 @@ export type IdResponse = {
     id: string;
 };
 
+export type ImpersonateBody = {
+    reason: null | string;
+};
+
 export type InfoRequest = {
     newEmail?: null | string;
     newPassword?: null | string;
@@ -126,6 +143,7 @@ export type MeResponse = {
     atoConnected: boolean;
     firstName: string;
     lastName: string;
+    impersonating: boolean;
 };
 
 export type MessageDto = {
@@ -223,6 +241,20 @@ export type UpdateBusinessNameCommand = {
     dateRegistered: string;
     renewalDate: string;
     asicKey: string;
+};
+
+export type StopImpersonationData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/stop-impersonation';
+};
+
+export type StopImpersonationResponses = {
+    /**
+     * OK
+     */
+    200: unknown;
 };
 
 export type PostApiRegisterData = {
@@ -787,21 +819,37 @@ export type GetAbnLookupStatusResponses = {
 
 export type GetAbnLookupStatusResponse = GetAbnLookupStatusResponses[keyof GetAbnLookupStatusResponses];
 
-export type GetApiAdminClientsData = {
+export type GetAdminOverviewData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/admin/overview';
+};
+
+export type GetAdminOverviewResponses = {
+    /**
+     * OK
+     */
+    200: AdminOverviewResponse;
+};
+
+export type GetAdminOverviewResponse = GetAdminOverviewResponses[keyof GetAdminOverviewResponses];
+
+export type GetAdminClientsData = {
     body?: never;
     path?: never;
     query?: never;
     url: '/api/admin/clients';
 };
 
-export type GetApiAdminClientsResponses = {
+export type GetAdminClientsResponses = {
     /**
      * OK
      */
     200: unknown;
 };
 
-export type GetApiAdminClientsByIdData = {
+export type GetAdminClientData = {
     body?: never;
     path: {
         id: string;
@@ -810,7 +858,55 @@ export type GetApiAdminClientsByIdData = {
     url: '/api/admin/clients/{id}';
 };
 
-export type GetApiAdminClientsByIdResponses = {
+export type GetAdminClientResponses = {
+    /**
+     * OK
+     */
+    200: unknown;
+};
+
+export type GetAdminMessagesData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/admin/messages';
+};
+
+export type GetAdminMessagesResponses = {
+    /**
+     * OK
+     */
+    200: unknown;
+};
+
+export type AdminReplyToClientData = {
+    body: AdminReplyBody;
+    path: {
+        id: string;
+    };
+    query?: never;
+    url: '/api/admin/clients/{id}/reply';
+};
+
+export type AdminReplyToClientResponses = {
+    /**
+     * OK
+     */
+    200: IdResponse;
+};
+
+export type AdminReplyToClientResponse = AdminReplyToClientResponses[keyof AdminReplyToClientResponses];
+
+export type StartImpersonationData = {
+    body: ImpersonateBody;
+    path: {
+        id: string;
+    };
+    query?: never;
+    url: '/api/admin/clients/{id}/impersonate';
+};
+
+export type StartImpersonationResponses = {
     /**
      * OK
      */
