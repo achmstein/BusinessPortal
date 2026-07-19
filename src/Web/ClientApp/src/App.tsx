@@ -6,6 +6,8 @@ import { DashboardPage } from './pages/DashboardPage'
 import { BusinessPage } from './pages/BusinessPage'
 import { BusinessNamesPage } from './pages/BusinessNamesPage'
 import { ProfilePage } from './pages/ProfilePage'
+import { MessagesPage } from './pages/MessagesPage'
+import { AsicRenewalsPage } from './pages/AsicRenewalsPage'
 import { PlaceholderPage } from './pages/PlaceholderPage'
 
 export default function App() {
@@ -24,9 +26,9 @@ export default function App() {
         <Route path="/profile" element={<ProfilePage />} />
         <Route path="/business" element={<BusinessPage />} />
         <Route path="/business-names" element={<BusinessNamesPage />} />
-        <Route path="/asic-renewals" element={<PlaceholderPage title="ASIC Renewals" />} />
+        <Route path="/asic-renewals" element={<AsicRenewalsPage />} />
         <Route path="/ato-portal" element={<PlaceholderPage title="Link to ATO" />} />
-        <Route path="/messages" element={<PlaceholderPage title="Messages" />} />
+        <Route path="/messages" element={<MessagesPage />} />
       </Route>
 
       <Route path="*" element={<Navigate to="/dashboard" replace />} />
