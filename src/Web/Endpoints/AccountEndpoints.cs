@@ -24,7 +24,8 @@ public static class AccountEndpoints
                     principal.IsInRole(Roles.Admin),
                     user.AtoConnected,
                     user.Profile.FirstName,
-                    user.Profile.LastName));
+                    user.Profile.LastName,
+                    principal.HasClaim(c => c.Type == ImpersonationClaims.Impersonating)));
             })
             .RequireAuthorization()
             .WithName("GetMe")
