@@ -13,6 +13,7 @@ namespace BusinessPortal.Infrastructure.Services;
 public class AbnLookupService(
     IApplicationDbContext context,
     IAbnLookupClient client,
+    IAsicRegistryClient asic,
     ILogger<AbnLookupService> logger) : IAbnLookupService
 {
     public async Task RunLookupAsync(string userId, CancellationToken cancellationToken)
@@ -65,7 +66,41 @@ public class AbnLookupService(
                 await context.SaveChangesAsync(cancellationToken); // progress for the polling UI
             }
 
+            // ─── ASIC Connect enrichment: fill in real renewal/registration dates that
+            // data.gov.au doesn't carry. Only runs when a 2Captcha key is configured;
+            // skipped gracefully otherwise. Sequential (each scrape is 30–90s + costs credit).
+            var enriched = 0;
+            if (asic.IsConfigured)
+            {
+                var names = await context.BusinessNames.Where(b => b.UserId == userId).ToListAsync(cancellationToken);
+                var byName = names
+                    .GroupBy(n => n.Name.Trim(), StringComparer.OrdinalIgnoreCase)
+                    .ToDictionary(g => g.Key, g => g.First(), StringComparer.OrdinalIgnoreCase);
+
+                foreach (var abn in validAbns)
+                {
+                    try
+                    {
+                        var asicNames = await asic.SearchByAbnAsync(abn, cancellationToken);
+                        foreach (var an in asicNames)
+                        {
+                            if (string.IsNullOrWhiteSpace(an.Name) || !byName.TryGetValue(an.Name.Trim(), out var rec)) continue;
+                            var changed = false;
+                            if (string.IsNullOrEmpty(rec.RenewalDate) && !string.IsNullOrEmpty(an.RenewalDate)) { rec.RenewalDate = an.RenewalDate; changed = true; }
+                            if (string.IsNullOrEmpty(rec.DateRegistered) && !string.IsNullOrEmpty(an.DateRegistered)) { rec.DateRegistered = an.DateRegistered; changed = true; }
+                            if (changed) enriched++;
+                        }
+                        await context.SaveChangesAsync(cancellationToken);
+                    }
+                    catch (Exception ex)
+                    {
+                        logger.LogWarning(ex, "ASIC enrichment failed for ABN {Abn} (user {UserId})", abn, userId);
+                    }
+                }
+            }
+
             job.AddedCount = added;
+            job.EnrichedCount = enriched;
             job.Status = AbnLookupStatus.Done;
             job.CompletedAt = DateTimeOffset.UtcNow;
 

@@ -82,6 +82,11 @@ public static class DependencyInjection
         services.AddHttpClient<IAbnLookupClient, AbnLookupClient>();
         services.AddScoped<IAbnLookupService, AbnLookupService>();
 
+        // ─── ASIC Connect scraper (renewal-date enrichment; gated on a 2Captcha key) ───
+        services.AddHttpClient("asic-2captcha");
+        services.AddScoped<Asic.AsicCaptchaSolver>();
+        services.AddScoped<IAsicRegistryClient, Asic.AsicRegistryClient>();
+
         // ─── Ontraport webhooks ───
         services.Configure<OntraportOptions>(configuration.GetSection(OntraportOptions.SectionName));
         services.AddScoped<IOntraportService, OntraportService>();
