@@ -36,9 +36,12 @@ public sealed partial class AtoHttp : IDisposable
         using var req = new HttpRequestMessage(method, url);
         if (content is not null) req.Content = content;
 
-        req.Headers.TryAddWithoutValidation("User-Agent", AtoConstants.GetUserAgent());
-        req.Headers.TryAddWithoutValidation("Accept", "*/*");
-        req.Headers.TryAddWithoutValidation("Accept-Language", "en-AU,en;q=0.9");
+        // Defaults only when the caller didn't supply its own (the OSfB/Akamai calls
+        // pass browser-specific Accept / Accept-Language and must not be doubled up).
+        bool Has(string name) => headers is not null && headers.Keys.Any(k => string.Equals(k, name, StringComparison.OrdinalIgnoreCase));
+        if (!Has("User-Agent")) req.Headers.TryAddWithoutValidation("User-Agent", AtoConstants.GetUserAgent());
+        if (!Has("Accept")) req.Headers.TryAddWithoutValidation("Accept", "*/*");
+        if (!Has("Accept-Language")) req.Headers.TryAddWithoutValidation("Accept-Language", "en-AU,en;q=0.9");
         if (headers is not null)
             foreach (var (k, v) in headers)
                 req.Headers.TryAddWithoutValidation(k, v);

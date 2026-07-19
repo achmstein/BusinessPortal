@@ -86,10 +86,11 @@ public static class DependencyInjection
         services.Configure<OntraportOptions>(configuration.GetSection(OntraportOptions.SectionName));
         services.AddScoped<IOntraportService, OntraportService>();
 
-        // ─── ATO myID auth client + encrypted session/attempt stores ───
+        // ─── ATO myID auth client + encrypted session/attempt stores + orchestrator ───
         services.AddScoped<AtoAuthClient>();
         services.AddScoped<AtoCookieStore>();
         services.AddScoped<AtoAttemptStore>();
+        services.AddScoped<IAtoService, AtoService>();
 
         return services;
     }

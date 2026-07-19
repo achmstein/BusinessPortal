@@ -39,17 +39,23 @@ public static class AtoConstants
     public const string AccountTypes = "https://onlineservices.ato.gov.au/cdn/static-data/codes-tables/generic/ATOONLINE_ACC_TYPE.json";
     public const string AtoOnlineOrigin = "https://onlineservices.ato.gov.au";
 
-    /// <summary>Identifiers/RelatedParties URL for the SessionView UPN → ABN walk.</summary>
+    /// <summary>Identifiers/RelatedParties URL for the SessionView UPN → ABN walk.
+    /// The <c>start.maxRecordsFetch/maxNumRecordReturn</c> pagination params are
+    /// load-bearing: without them the ATO 416s for some UPNs and silently drops agents
+    /// (confirmed against the canonical Taxtron AtoClient.GetAgentsAsync).</summary>
     public static string IdentifiersRelatedPartiesUrl(string upn)
     {
-        var filter = Uri.EscapeDataString("'relationshipTypeDecode=ABN,aBNIntermediaryRoleID=RA'");
+        var filter = Uri.EscapeDataString(
+            "'relationshipTypeDecode=ABN,aBNIntermediaryRoleID=RA,start.maxRecordsFetch=200,start.maxNumRecordReturn=200'");
         return $"{AtoOnlineOrigin}/api/v2/Identifiers/{Uri.EscapeDataString(upn)}/RelatedParties?Filter={filter}";
     }
 
-    /// <summary>ABN/RelatedParties URL to fetch a RAN for a given ABN.</summary>
+    /// <summary>ABN/RelatedParties URL to fetch a RAN for a given ABN. Same 416-avoidance
+    /// pagination params as <see cref="IdentifiersRelatedPartiesUrl"/>.</summary>
     public static string AbnRelatedPartiesUrl(string abn)
     {
-        var filter = Uri.EscapeDataString("'relationshipTypeDecode=RAN'");
+        var filter = Uri.EscapeDataString(
+            "'relationshipTypeDecode=RAN,start.maxRecordsFetch=200,start.maxNumRecordReturn=200'");
         var context = Uri.EscapeDataString($"'ABN={abn}'");
         return $"{AtoOnlineOrigin}/api/v2/ABN/{Uri.EscapeDataString(abn)}/RelatedParties?Filter={filter}&Context={context}";
     }

@@ -22,15 +22,14 @@ builder.Services.AddScoped<IUser, CurrentUser>();
 builder.Services.AddApplication();
 builder.Services.AddInfrastructure(builder.Configuration);
 
-// Persist Data Protection keys to a mounted volume in production so the auth
-// cookie survives container redeploys (set by the compose deploy; unset locally).
+// Data Protection also encrypts the stored ATO session cookies / link-attempt state
+// (AtoCookieStore / AtoAttemptStore), so register it unconditionally with a stable app
+// name. In production, persist keys to a mounted volume so both the auth cookie and the
+// ATO blobs survive container redeploys (KeysDirectory set by the compose deploy).
+var dataProtection = builder.Services.AddDataProtection().SetApplicationName("BusinessPortal");
 var keysDirectory = builder.Configuration["DataProtection:KeysDirectory"];
 if (!string.IsNullOrWhiteSpace(keysDirectory))
-{
-    builder.Services.AddDataProtection()
-        .PersistKeysToFileSystem(new DirectoryInfo(keysDirectory))
-        .SetApplicationName("BusinessPortal");
-}
+    dataProtection.PersistKeysToFileSystem(new DirectoryInfo(keysDirectory));
 
 builder.Services.AddExceptionHandler<CustomExceptionHandler>();
 builder.Services.AddProblemDetails();
@@ -89,6 +88,7 @@ app.MapAsicRenewalsEndpoints();
 app.MapAbnLookupEndpoints();
 app.MapAdminEndpoints();
 app.MapOntraportEndpoints();
+app.MapAtoEndpoints();
 
 app.MapDefaultEndpoints();
 
