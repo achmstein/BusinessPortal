@@ -12,6 +12,7 @@ const ADMIN_NAV = [
   { href: '/admin/clients', label: 'Clients', icon: 'users' },
   { href: '/admin/registry', label: 'Registry', icon: 'book' },
   { href: '/admin/messages', label: 'Messages', icon: 'chat' },
+  { href: '/admin/settings', label: 'Settings', icon: 'settings' },
 ]
 
 function AdminBrand({ inverted = false }: { inverted?: boolean }) {

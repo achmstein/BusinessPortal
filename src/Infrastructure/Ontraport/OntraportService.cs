@@ -16,14 +16,14 @@ namespace BusinessPortal.Infrastructure.Ontraport;
 public class OntraportService(
     UserManager<ApplicationUser> userManager,
     IApplicationDbContext context,
-    IOptions<OntraportOptions> options,
+    IOptionsMonitor<OntraportOptions> options,
     IConfiguration configuration,
     ILogger<OntraportService> logger) : IOntraportService
 {
-    private readonly OntraportOptions _options = options.Value;
-
-    public bool VerifyWebhookSecret(string? provided) => VerifyAgainst(provided, _options.WebhookSecret);
-    public bool VerifyRenewalSecret(string? provided) => VerifyAgainst(provided, _options.RenewalSecret);
+    // IOptionsMonitor (not IOptions) so secrets saved from the admin Settings UI
+    // (overrides file, reloadOnChange) take effect without a restart.
+    public bool VerifyWebhookSecret(string? provided) => VerifyAgainst(provided, options.CurrentValue.WebhookSecret);
+    public bool VerifyRenewalSecret(string? provided) => VerifyAgainst(provided, options.CurrentValue.RenewalSecret);
 
     private static bool VerifyAgainst(string? provided, string? expected)
     {

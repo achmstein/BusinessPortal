@@ -108,6 +108,9 @@ public static class DependencyInjection
         services.Configure<OntraportOptions>(configuration.GetSection(OntraportOptions.SectionName));
         services.AddScoped<IOntraportService, OntraportService>();
 
+        // ─── Admin-editable integration settings (persisted to the overrides file) ───
+        services.AddSingleton<ISettingsService, Settings.SettingsService>();
+
         // ─── ATO myID auth client + encrypted session/attempt stores + orchestrator ───
         services.AddScoped<AtoAuthClient>();
         services.AddScoped<AtoCookieStore>();

@@ -1140,6 +1140,170 @@
         }
       }
     },
+    "/api/admin/settings/captcha": {
+      "get": {
+        "tags": [
+          "Settings"
+        ],
+        "operationId": "GetCaptchaSettings",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TwoCaptchaSettings"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "Settings"
+        ],
+        "operationId": "UpdateCaptchaSettings",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TwoCaptchaSettings"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "No Content"
+          }
+        }
+      }
+    },
+    "/api/admin/settings/ontraport": {
+      "get": {
+        "tags": [
+          "Settings"
+        ],
+        "operationId": "GetOntraportSettings",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OntraportWebhookSettings"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "Settings"
+        ],
+        "operationId": "UpdateOntraportSettings",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OntraportWebhookSettings"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "No Content"
+          }
+        }
+      }
+    },
+    "/api/admin/settings/email": {
+      "get": {
+        "tags": [
+          "Settings"
+        ],
+        "operationId": "GetEmailSettings",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EmailSettings"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "Settings"
+        ],
+        "operationId": "UpdateEmailSettings",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EmailSettings"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "No Content"
+          }
+        }
+      }
+    },
+    "/api/admin/settings/abn-lookup": {
+      "get": {
+        "tags": [
+          "Settings"
+        ],
+        "operationId": "GetAbnLookupSettings",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AbnLookupSettings"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "Settings"
+        ],
+        "operationId": "UpdateAbnLookupSettings",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AbnLookupSettings"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "No Content"
+          }
+        }
+      }
+    },
     "/api/integrations/ontraport/webhook": {
       "post": {
         "tags": [
@@ -1387,6 +1551,20 @@
               "string"
             ],
             "format": "date-time"
+          }
+        }
+      },
+      "AbnLookupSettings": {
+        "required": [
+          "apiToken"
+        ],
+        "type": "object",
+        "properties": {
+          "apiToken": {
+            "type": [
+              "null",
+              "string"
+            ]
           }
         }
       },
@@ -1933,6 +2111,34 @@
           }
         }
       },
+      "EmailSettings": {
+        "required": [
+          "from",
+          "resendApiKey",
+          "siteUrl"
+        ],
+        "type": "object",
+        "properties": {
+          "from": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "resendApiKey": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "siteUrl": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
       "EntityType": {
         "enum": [
           "Unspecified",
@@ -2199,6 +2405,27 @@
           "createdAt": {
             "type": "string",
             "format": "date-time"
+          }
+        }
+      },
+      "OntraportWebhookSettings": {
+        "required": [
+          "webhookSecret",
+          "renewalSecret"
+        ],
+        "type": "object",
+        "properties": {
+          "webhookSecret": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "renewalSecret": {
+            "type": [
+              "null",
+              "string"
+            ]
           }
         }
       },
@@ -2605,6 +2832,20 @@
           }
         }
       },
+      "TwoCaptchaSettings": {
+        "required": [
+          "apiKey"
+        ],
+        "type": "object",
+        "properties": {
+          "apiKey": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
       "TwoFactorRequest": {
         "type": "object",
         "properties": {
@@ -2725,6 +2966,9 @@
     },
     {
       "name": "Admin"
+    },
+    {
+      "name": "Settings"
     },
     {
       "name": "Ontraport"

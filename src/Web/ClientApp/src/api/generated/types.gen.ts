@@ -15,6 +15,10 @@ export type AbnLookupJobDto = {
     completedAt?: null | string;
 };
 
+export type AbnLookupSettings = {
+    apiToken: null | string;
+};
+
 export type AccessTokenResponse = {
     tokenType?: null | string;
     accessToken: string;
@@ -149,6 +153,12 @@ export type CreateBusinessNameCommand = {
     asicKey: string;
 };
 
+export type EmailSettings = {
+    from: null | string;
+    resendApiKey: null | string;
+    siteUrl: null | string;
+};
+
 export type EntityType = 'Unspecified' | 'SoleTrader' | 'Partnership' | 'Company' | 'Trust';
 
 export type ErrorResponse = {
@@ -224,6 +234,11 @@ export type MessageDto = {
     read?: boolean;
     adminRead?: boolean;
     createdAt?: string;
+};
+
+export type OntraportWebhookSettings = {
+    webhookSecret: null | string;
+    renewalSecret: null | string;
 };
 
 export type PollLinkRequest = {
@@ -337,6 +352,10 @@ export type ThreadDto = {
 
 export type ThreadStartedResponse = {
     threadId: string;
+};
+
+export type TwoCaptchaSettings = {
+    apiKey: null | string;
 };
 
 export type TwoFactorRequest = {
@@ -1134,6 +1153,134 @@ export type StartImpersonationResponses = {
      */
     200: unknown;
 };
+
+export type GetCaptchaSettingsData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/admin/settings/captcha';
+};
+
+export type GetCaptchaSettingsResponses = {
+    /**
+     * OK
+     */
+    200: TwoCaptchaSettings;
+};
+
+export type GetCaptchaSettingsResponse = GetCaptchaSettingsResponses[keyof GetCaptchaSettingsResponses];
+
+export type UpdateCaptchaSettingsData = {
+    body: TwoCaptchaSettings;
+    path?: never;
+    query?: never;
+    url: '/api/admin/settings/captcha';
+};
+
+export type UpdateCaptchaSettingsResponses = {
+    /**
+     * No Content
+     */
+    204: void;
+};
+
+export type UpdateCaptchaSettingsResponse = UpdateCaptchaSettingsResponses[keyof UpdateCaptchaSettingsResponses];
+
+export type GetOntraportSettingsData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/admin/settings/ontraport';
+};
+
+export type GetOntraportSettingsResponses = {
+    /**
+     * OK
+     */
+    200: OntraportWebhookSettings;
+};
+
+export type GetOntraportSettingsResponse = GetOntraportSettingsResponses[keyof GetOntraportSettingsResponses];
+
+export type UpdateOntraportSettingsData = {
+    body: OntraportWebhookSettings;
+    path?: never;
+    query?: never;
+    url: '/api/admin/settings/ontraport';
+};
+
+export type UpdateOntraportSettingsResponses = {
+    /**
+     * No Content
+     */
+    204: void;
+};
+
+export type UpdateOntraportSettingsResponse = UpdateOntraportSettingsResponses[keyof UpdateOntraportSettingsResponses];
+
+export type GetEmailSettingsData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/admin/settings/email';
+};
+
+export type GetEmailSettingsResponses = {
+    /**
+     * OK
+     */
+    200: EmailSettings;
+};
+
+export type GetEmailSettingsResponse = GetEmailSettingsResponses[keyof GetEmailSettingsResponses];
+
+export type UpdateEmailSettingsData = {
+    body: EmailSettings;
+    path?: never;
+    query?: never;
+    url: '/api/admin/settings/email';
+};
+
+export type UpdateEmailSettingsResponses = {
+    /**
+     * No Content
+     */
+    204: void;
+};
+
+export type UpdateEmailSettingsResponse = UpdateEmailSettingsResponses[keyof UpdateEmailSettingsResponses];
+
+export type GetAbnLookupSettingsData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/admin/settings/abn-lookup';
+};
+
+export type GetAbnLookupSettingsResponses = {
+    /**
+     * OK
+     */
+    200: AbnLookupSettings;
+};
+
+export type GetAbnLookupSettingsResponse = GetAbnLookupSettingsResponses[keyof GetAbnLookupSettingsResponses];
+
+export type UpdateAbnLookupSettingsData = {
+    body: AbnLookupSettings;
+    path?: never;
+    query?: never;
+    url: '/api/admin/settings/abn-lookup';
+};
+
+export type UpdateAbnLookupSettingsResponses = {
+    /**
+     * No Content
+     */
+    204: void;
+};
+
+export type UpdateAbnLookupSettingsResponse = UpdateAbnLookupSettingsResponses[keyof UpdateAbnLookupSettingsResponses];
 
 export type PostApiIntegrationsOntraportWebhookData = {
     body?: never;

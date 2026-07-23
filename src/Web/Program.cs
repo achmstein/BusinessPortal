@@ -17,6 +17,16 @@ var builder = WebApplication.CreateBuilder(args);
 
 builder.AddServiceDefaults();
 
+// Writable overrides layer for runtime-mutable settings (2Captcha key, Ontraport
+// webhook secrets, email credentials — edited from the admin Settings UI). Lives
+// outside the immutable container image so SettingsService can persist admin
+// changes; reloadOnChange flushes IOptionsMonitor consumers automatically, so
+// edits take effect without a restart. Added last, so it overrides appsettings.*
+// and environment variables for the keys it sets.
+var overridesPath = builder.Configuration["Storage:OverridesPath"]
+    ?? Path.Combine(builder.Environment.ContentRootPath, "settings.overrides.json");
+builder.Configuration.AddJsonFile(overridesPath, optional: true, reloadOnChange: true);
+
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<IUser, CurrentUser>();
 
@@ -107,6 +117,7 @@ app.MapMessagesEndpoints();
 app.MapAsicRenewalsEndpoints();
 app.MapAbnLookupEndpoints();
 app.MapAdminEndpoints();
+app.MapSettingsEndpoints();
 app.MapOntraportEndpoints();
 app.MapAtoEndpoints();
 

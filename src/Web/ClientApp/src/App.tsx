@@ -23,6 +23,7 @@ import { AdminClientDetailPage } from './pages/admin/AdminClientDetailPage'
 import { AdminMessagesPage } from './pages/admin/AdminMessagesPage'
 import { AdminMessageThreadPage } from './pages/admin/AdminMessageThreadPage'
 import { AdminRegistryPage } from './pages/admin/AdminRegistryPage'
+import { AdminSettingsPage } from './pages/admin/AdminSettingsPage'
 
 export default function App() {
   return (
@@ -64,6 +65,7 @@ export default function App() {
         <Route path="/admin/clients" element={<AdminClientsPage />} />
         <Route path="/admin/clients/:id" element={<AdminClientDetailPage />} />
         <Route path="/admin/registry" element={<AdminRegistryPage />} />
+        <Route path="/admin/settings" element={<AdminSettingsPage />} />
         <Route path="/admin/messages" element={<AdminMessagesPage />} />
         <Route path="/admin/messages/:clientId" element={<AdminMessageThreadPage />} />
       </Route>

@@ -2,7 +2,7 @@
 
 import type { Client, ClientMeta, Options as Options2, RequestResult, TDataShape } from './client';
 import { client } from './client.gen';
-import type { AdminMarkAllReadData, AdminMarkAllReadResponses, AdminReplyToClientData, AdminReplyToClientResponses, CancelBusinessNameData, CancelBusinessNameErrors, CancelBusinessNameResponses, CreateBusinessEntityData, CreateBusinessEntityResponses, CreateBusinessNameData, CreateBusinessNameResponses, DeleteBusinessEntityData, DeleteBusinessEntityResponses, DeleteBusinessNameData, DeleteBusinessNameResponses, GetAbnLookupStatusData, GetAbnLookupStatusResponses, GetAdminClientData, GetAdminClientResponses, GetAdminClientsData, GetAdminClientsResponses, GetAdminClientThreadsData, GetAdminClientThreadsResponses, GetAdminMessagesData, GetAdminMessagesResponses, GetAdminOverviewData, GetAdminOverviewResponses, GetAdminRegistryData, GetAdminRegistryResponses, GetApiManageInfoData, GetApiManageInfoErrors, GetApiManageInfoResponses, GetAsicRenewalsData, GetAsicRenewalsResponses, GetAtoStatusData, GetAtoStatusResponses, GetBusinessEntitiesData, GetBusinessEntitiesResponses, GetBusinessNamesData, GetBusinessNamesResponses, GetMeData, GetMeErrors, GetMeResponses, GetMessageThreadsData, GetMessageThreadsResponses, GetProfileData, GetProfileErrors, GetProfileResponses, LogoutData, LogoutResponses, MapIdentityApiApiConfirmEmailData, MapIdentityApiApiConfirmEmailResponses, MarkAtoConnectedData, MarkAtoConnectedResponses, MarkThreadReadData, MarkThreadReadResponses, PollAtoLinkData, PollAtoLinkResponses, PostApiForgotPasswordData, PostApiForgotPasswordErrors, PostApiForgotPasswordResponses, PostApiIntegrationsOntraportRenewalPaidData, PostApiIntegrationsOntraportRenewalPaidResponses, PostApiIntegrationsOntraportWebhookData, PostApiIntegrationsOntraportWebhookResponses, PostApiLoginData, PostApiLoginResponses, PostApiManage2FaData, PostApiManage2FaErrors, PostApiManage2FaResponses, PostApiManageInfoData, PostApiManageInfoErrors, PostApiManageInfoResponses, PostApiRefreshData, PostApiRefreshResponses, PostApiRegisterData, PostApiRegisterErrors, PostApiRegisterResponses, PostApiResendConfirmationEmailData, PostApiResendConfirmationEmailResponses, PostApiResetPasswordData, PostApiResetPasswordErrors, PostApiResetPasswordResponses, RegisterAccountData, RegisterAccountErrors, RegisterAccountResponses, RenewBusinessNameData, RenewBusinessNameResponses, ReplyToThreadData, ReplyToThreadResponses, SelectAtoAgentData, SelectAtoAgentResponses, StartAbnLookupData, StartAbnLookupResponses, StartAtoLinkData, StartAtoLinkResponses, StartImpersonationData, StartImpersonationResponses, StartThreadData, StartThreadResponses, StopImpersonationData, StopImpersonationResponses, SyncAtoBusinessesData, SyncAtoBusinessesResponses, UnlinkAtoData, UnlinkAtoResponses, UpdateBusinessNameData, UpdateBusinessNameResponses, UpdateProfileData, UpdateProfileErrors, UpdateProfileResponses } from './types.gen';
+import type { AdminMarkAllReadData, AdminMarkAllReadResponses, AdminReplyToClientData, AdminReplyToClientResponses, CancelBusinessNameData, CancelBusinessNameErrors, CancelBusinessNameResponses, CreateBusinessEntityData, CreateBusinessEntityResponses, CreateBusinessNameData, CreateBusinessNameResponses, DeleteBusinessEntityData, DeleteBusinessEntityResponses, DeleteBusinessNameData, DeleteBusinessNameResponses, GetAbnLookupSettingsData, GetAbnLookupSettingsResponses, GetAbnLookupStatusData, GetAbnLookupStatusResponses, GetAdminClientData, GetAdminClientResponses, GetAdminClientsData, GetAdminClientsResponses, GetAdminClientThreadsData, GetAdminClientThreadsResponses, GetAdminMessagesData, GetAdminMessagesResponses, GetAdminOverviewData, GetAdminOverviewResponses, GetAdminRegistryData, GetAdminRegistryResponses, GetApiManageInfoData, GetApiManageInfoErrors, GetApiManageInfoResponses, GetAsicRenewalsData, GetAsicRenewalsResponses, GetAtoStatusData, GetAtoStatusResponses, GetBusinessEntitiesData, GetBusinessEntitiesResponses, GetBusinessNamesData, GetBusinessNamesResponses, GetCaptchaSettingsData, GetCaptchaSettingsResponses, GetEmailSettingsData, GetEmailSettingsResponses, GetMeData, GetMeErrors, GetMeResponses, GetMessageThreadsData, GetMessageThreadsResponses, GetOntraportSettingsData, GetOntraportSettingsResponses, GetProfileData, GetProfileErrors, GetProfileResponses, LogoutData, LogoutResponses, MapIdentityApiApiConfirmEmailData, MapIdentityApiApiConfirmEmailResponses, MarkAtoConnectedData, MarkAtoConnectedResponses, MarkThreadReadData, MarkThreadReadResponses, PollAtoLinkData, PollAtoLinkResponses, PostApiForgotPasswordData, PostApiForgotPasswordErrors, PostApiForgotPasswordResponses, PostApiIntegrationsOntraportRenewalPaidData, PostApiIntegrationsOntraportRenewalPaidResponses, PostApiIntegrationsOntraportWebhookData, PostApiIntegrationsOntraportWebhookResponses, PostApiLoginData, PostApiLoginResponses, PostApiManage2FaData, PostApiManage2FaErrors, PostApiManage2FaResponses, PostApiManageInfoData, PostApiManageInfoErrors, PostApiManageInfoResponses, PostApiRefreshData, PostApiRefreshResponses, PostApiRegisterData, PostApiRegisterErrors, PostApiRegisterResponses, PostApiResendConfirmationEmailData, PostApiResendConfirmationEmailResponses, PostApiResetPasswordData, PostApiResetPasswordErrors, PostApiResetPasswordResponses, RegisterAccountData, RegisterAccountErrors, RegisterAccountResponses, RenewBusinessNameData, RenewBusinessNameResponses, ReplyToThreadData, ReplyToThreadResponses, SelectAtoAgentData, SelectAtoAgentResponses, StartAbnLookupData, StartAbnLookupResponses, StartAtoLinkData, StartAtoLinkResponses, StartImpersonationData, StartImpersonationResponses, StartThreadData, StartThreadResponses, StopImpersonationData, StopImpersonationResponses, SyncAtoBusinessesData, SyncAtoBusinessesResponses, UnlinkAtoData, UnlinkAtoResponses, UpdateAbnLookupSettingsData, UpdateAbnLookupSettingsResponses, UpdateBusinessNameData, UpdateBusinessNameResponses, UpdateCaptchaSettingsData, UpdateCaptchaSettingsResponses, UpdateEmailSettingsData, UpdateEmailSettingsResponses, UpdateOntraportSettingsData, UpdateOntraportSettingsResponses, UpdateProfileData, UpdateProfileErrors, UpdateProfileResponses } from './types.gen';
 
 export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends boolean = boolean, TResponse = unknown> = Options2<TData, ThrowOnError, TResponse> & {
     /**
@@ -226,6 +226,50 @@ export const adminReplyToClient = <ThrowOnError extends boolean = false>(options
 
 export const startImpersonation = <ThrowOnError extends boolean = false>(options: Options<StartImpersonationData, ThrowOnError>): RequestResult<StartImpersonationResponses, unknown, ThrowOnError> => (options.client ?? client).post<StartImpersonationResponses, unknown, ThrowOnError>({
     url: '/api/admin/clients/{id}/impersonate',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+export const getCaptchaSettings = <ThrowOnError extends boolean = false>(options?: Options<GetCaptchaSettingsData, ThrowOnError>): RequestResult<GetCaptchaSettingsResponses, unknown, ThrowOnError> => (options?.client ?? client).get<GetCaptchaSettingsResponses, unknown, ThrowOnError>({ url: '/api/admin/settings/captcha', ...options });
+
+export const updateCaptchaSettings = <ThrowOnError extends boolean = false>(options: Options<UpdateCaptchaSettingsData, ThrowOnError>): RequestResult<UpdateCaptchaSettingsResponses, unknown, ThrowOnError> => (options.client ?? client).put<UpdateCaptchaSettingsResponses, unknown, ThrowOnError>({
+    url: '/api/admin/settings/captcha',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+export const getOntraportSettings = <ThrowOnError extends boolean = false>(options?: Options<GetOntraportSettingsData, ThrowOnError>): RequestResult<GetOntraportSettingsResponses, unknown, ThrowOnError> => (options?.client ?? client).get<GetOntraportSettingsResponses, unknown, ThrowOnError>({ url: '/api/admin/settings/ontraport', ...options });
+
+export const updateOntraportSettings = <ThrowOnError extends boolean = false>(options: Options<UpdateOntraportSettingsData, ThrowOnError>): RequestResult<UpdateOntraportSettingsResponses, unknown, ThrowOnError> => (options.client ?? client).put<UpdateOntraportSettingsResponses, unknown, ThrowOnError>({
+    url: '/api/admin/settings/ontraport',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+export const getEmailSettings = <ThrowOnError extends boolean = false>(options?: Options<GetEmailSettingsData, ThrowOnError>): RequestResult<GetEmailSettingsResponses, unknown, ThrowOnError> => (options?.client ?? client).get<GetEmailSettingsResponses, unknown, ThrowOnError>({ url: '/api/admin/settings/email', ...options });
+
+export const updateEmailSettings = <ThrowOnError extends boolean = false>(options: Options<UpdateEmailSettingsData, ThrowOnError>): RequestResult<UpdateEmailSettingsResponses, unknown, ThrowOnError> => (options.client ?? client).put<UpdateEmailSettingsResponses, unknown, ThrowOnError>({
+    url: '/api/admin/settings/email',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+export const getAbnLookupSettings = <ThrowOnError extends boolean = false>(options?: Options<GetAbnLookupSettingsData, ThrowOnError>): RequestResult<GetAbnLookupSettingsResponses, unknown, ThrowOnError> => (options?.client ?? client).get<GetAbnLookupSettingsResponses, unknown, ThrowOnError>({ url: '/api/admin/settings/abn-lookup', ...options });
+
+export const updateAbnLookupSettings = <ThrowOnError extends boolean = false>(options: Options<UpdateAbnLookupSettingsData, ThrowOnError>): RequestResult<UpdateAbnLookupSettingsResponses, unknown, ThrowOnError> => (options.client ?? client).put<UpdateAbnLookupSettingsResponses, unknown, ThrowOnError>({
+    url: '/api/admin/settings/abn-lookup',
     ...options,
     headers: {
         'Content-Type': 'application/json',

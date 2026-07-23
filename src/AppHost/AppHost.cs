@@ -17,13 +17,13 @@ builder.AddDockerComposeEnvironment("businessportal-compose")
 
         // Persists ASP.NET Data Protection keys so auth cookies survive redeploys.
         compose.AddVolume(new Volume { Name = "businessportal-keys", Driver = "local" });
+
+        // Persists UI-entered integration settings (settings.overrides.json)
+        // across redeploys. The server mounts this at /data (see below).
+        compose.AddVolume(new Volume { Name = "businessportal-data", Driver = "local" });
     });
 
 var pgPassword = builder.AddParameter("postgres-password", secret: true);
-
-// App secrets — injected into the server container as env; filled from the deploy .env.
-var ontraportWebhookSecret = builder.AddParameter("ontraport-webhook-secret", secret: true);
-var ontraportRenewalSecret = builder.AddParameter("ontraport-renewal-secret", secret: true);
 
 var postgres = builder.AddPostgres("postgres", password: pgPassword)
     .WithImageTag("17.6")
@@ -39,8 +39,10 @@ var server = builder.AddProject<Projects.Web>("businessportal-server")
     .WithReference(db)
     .WaitFor(postgres)
     .WithEnvironment("DataProtection__KeysDirectory", "/keys")
-    .WithEnvironment("Ontraport__WebhookSecret", ontraportWebhookSecret)
-    .WithEnvironment("Ontraport__RenewalSecret", ontraportRenewalSecret)
+    // 2Captcha / Ontraport / email credentials are entered from the admin Settings
+    // UI and written to the overrides file on the persistent /data volume (below) —
+    // no longer injected as build/deploy secrets.
+    .WithEnvironment("Storage__OverridesPath", "/data/settings.overrides.json")
     .WithHttpHealthCheck("/health")
     .PublishAsDockerFile()
     .PublishAsDockerComposeService((_, service) =>
@@ -48,7 +50,8 @@ var server = builder.AddProject<Projects.Web>("businessportal-server")
         service.Restart = "unless-stopped";
         service.Ports.Clear();
         service.Networks.Add("caddy");
-        // Run as root so the app can write Data Protection keys to the mounted volume.
+        // Run as root so the app can write Data Protection keys + the settings
+        // overrides file to the mounted volumes.
         service.User = "root";
         service.AddVolume(new Volume
         {
@@ -56,6 +59,13 @@ var server = builder.AddProject<Projects.Web>("businessportal-server")
             Type = "volume",
             Source = "businessportal-keys",
             Target = "/keys",
+        });
+        service.AddVolume(new Volume
+        {
+            Name = "businessportal-data",
+            Type = "volume",
+            Source = "businessportal-data",
+            Target = "/data",
         });
         service.Labels["caddy"] = publicHost;
         service.Labels["caddy.reverse_proxy"] = "{{upstreams 8080}}";
