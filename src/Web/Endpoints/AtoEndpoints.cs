@@ -1,4 +1,6 @@
 using BusinessPortal.Application.Common.Interfaces;
+using BusinessPortal.Infrastructure.Identity;
+using Microsoft.AspNetCore.Identity;
 
 namespace BusinessPortal.Web.Endpoints;
 
@@ -10,6 +12,7 @@ public static class AtoEndpoints
     public record StartLinkRequest(string Email);
     public record PollLinkRequest(Guid AttemptId);
     public record SelectAgentRequest(string Abn);
+    public record MarkConnectedRequest(bool Desired);
 
     public static IEndpointRouteBuilder MapAtoEndpoints(this IEndpointRouteBuilder app)
     {
@@ -35,14 +38,25 @@ public static class AtoEndpoints
             .WithName("PollAtoLink")
             .Produces<AtoPollResult>();
 
+        // Empty ABN is allowed — the original's zero-agents path links the session
+        // without an agent selection (nomination is skipped/best-effort).
         group.MapPost("/link/select", async (SelectAgentRequest body, IUser user, IAtoService svc, CancellationToken ct) =>
-            {
-                if (string.IsNullOrWhiteSpace(body.Abn))
-                    return Results.BadRequest(new { error = "abn is required" });
-                return Results.Ok(await svc.SelectAgentAsync(user.Id!, body.Abn.Trim(), ct));
-            })
+                Results.Ok(await svc.SelectAgentAsync(user.Id!, (body.Abn ?? string.Empty).Trim(), ct)))
             .WithName("SelectAtoAgent")
             .Produces<AtoSelectResult>();
+
+        // "Mark as connected (manual)" — the original toggleConnection fallback for
+        // when the automated link isn't possible.
+        group.MapPost("/mark-connected", async (MarkConnectedRequest body, IUser user, UserManager<ApplicationUser> users) =>
+            {
+                var appUser = await users.FindByIdAsync(user.Id!);
+                if (appUser is null) return Results.NotFound();
+                appUser.AtoConnected = body.Desired;
+                await users.UpdateAsync(appUser);
+                return Results.NoContent();
+            })
+            .WithName("MarkAtoConnected")
+            .Produces(StatusCodes.Status204NoContent);
 
         group.MapPost("/sync", async (IUser user, IAtoService svc, CancellationToken ct) =>
                 Results.Ok(await svc.SyncBusinessesAsync(user.Id!, ct)))

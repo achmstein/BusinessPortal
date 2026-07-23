@@ -6,7 +6,7 @@
   },
   "servers": [
     {
-      "url": "/"
+      "url": "http://localhost:5257/"
     }
   ],
   "paths": {
@@ -367,6 +367,39 @@
         }
       }
     },
+    "/api/account/register": {
+      "post": {
+        "tags": [
+          "Account"
+        ],
+        "operationId": "RegisterAccount",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RegisterBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/me": {
       "get": {
         "tags": [
@@ -628,6 +661,50 @@
         "responses": {
           "204": {
             "description": "No Content"
+          }
+        }
+      }
+    },
+    "/api/business-names/{id}/cancel": {
+      "post": {
+        "tags": [
+          "Business Names"
+        ],
+        "operationId": "CancelBusinessName",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CancelBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
@@ -917,6 +994,79 @@
         }
       }
     },
+    "/api/admin/messages/{clientId}": {
+      "get": {
+        "tags": [
+          "Admin"
+        ],
+        "operationId": "GetAdminClientThreads",
+        "parameters": [
+          {
+            "name": "clientId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminClientThreadsResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/messages/{clientId}/read-all": {
+      "post": {
+        "tags": [
+          "Admin"
+        ],
+        "operationId": "AdminMarkAllRead",
+        "parameters": [
+          {
+            "name": "clientId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          }
+        }
+      }
+    },
+    "/api/admin/registry": {
+      "get": {
+        "tags": [
+          "Admin"
+        ],
+        "operationId": "GetAdminRegistry",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminRegistryResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/admin/clients/{id}/reply": {
       "post": {
         "tags": [
@@ -1124,6 +1274,29 @@
         }
       }
     },
+    "/api/ato/mark-connected": {
+      "post": {
+        "tags": [
+          "ATO"
+        ],
+        "operationId": "MarkAtoConnected",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MarkConnectedRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "No Content"
+          }
+        }
+      }
+    },
     "/api/ato/sync": {
       "post": {
         "tags": [
@@ -1247,6 +1420,38 @@
           }
         }
       },
+      "AdminClientThreadsResponse": {
+        "required": [
+          "id",
+          "email",
+          "name",
+          "threads"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "email": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "name": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "threads": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ThreadDto"
+            }
+          }
+        }
+      },
       "AdminOverviewResponse": {
         "required": [
           "clients",
@@ -1287,6 +1492,43 @@
               "string"
             ],
             "format": "int32"
+          }
+        }
+      },
+      "AdminRegistryResponse": {
+        "required": [
+          "clients",
+          "businessNames",
+          "entities",
+          "companies"
+        ],
+        "type": "object",
+        "properties": {
+          "clients": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "businessNames": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RegistryBusinessNameRow"
+            }
+          },
+          "entities": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RegistryEntityRow"
+            }
+          },
+          "companies": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RegistryCompanyRow"
+            }
           }
         }
       },
@@ -1582,6 +1824,48 @@
           }
         }
       },
+      "CancelBody": {
+        "required": [
+          "scope",
+          "cardName",
+          "cardNumber",
+          "expiry",
+          "ccv"
+        ],
+        "type": "object",
+        "properties": {
+          "scope": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "cardName": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "cardNumber": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "expiry": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "ccv": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
       "CreateBusinessEntityCommand": {
         "required": [
           "name",
@@ -1657,6 +1941,17 @@
           "Company",
           "Trust"
         ]
+      },
+      "ErrorResponse": {
+        "required": [
+          "error"
+        ],
+        "type": "object",
+        "properties": {
+          "error": {
+            "type": "string"
+          }
+        }
       },
       "ForgotPasswordRequest": {
         "required": [
@@ -1816,6 +2111,17 @@
               "null",
               "string"
             ]
+          }
+        }
+      },
+      "MarkConnectedRequest": {
+        "required": [
+          "desired"
+        ],
+        "type": "object",
+        "properties": {
+          "desired": {
+            "type": "boolean"
           }
         }
       },
@@ -1989,6 +2295,29 @@
           }
         }
       },
+      "RegisterBody": {
+        "required": [
+          "email",
+          "password",
+          "firstName",
+          "lastName"
+        ],
+        "type": "object",
+        "properties": {
+          "email": {
+            "type": "string"
+          },
+          "password": {
+            "type": "string"
+          },
+          "firstName": {
+            "type": "string"
+          },
+          "lastName": {
+            "type": "string"
+          }
+        }
+      },
       "RegisterRequest": {
         "required": [
           "email",
@@ -2001,6 +2330,123 @@
           },
           "password": {
             "type": "string"
+          }
+        }
+      },
+      "RegistryBusinessNameRow": {
+        "required": [
+          "id",
+          "name",
+          "asicKey",
+          "dateRegistered",
+          "renewalDate",
+          "client"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string"
+          },
+          "asicKey": {
+            "type": "string"
+          },
+          "dateRegistered": {
+            "type": "string"
+          },
+          "renewalDate": {
+            "type": "string"
+          },
+          "client": {
+            "$ref": "#/components/schemas/RegistryClientRef"
+          }
+        }
+      },
+      "RegistryClientRef": {
+        "required": [
+          "id",
+          "name",
+          "email"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "email": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
+      "RegistryCompanyRow": {
+        "required": [
+          "name",
+          "acn",
+          "abn",
+          "source",
+          "client"
+        ],
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "acn": {
+            "type": "string"
+          },
+          "abn": {
+            "type": "string"
+          },
+          "source": {
+            "type": "string"
+          },
+          "client": {
+            "$ref": "#/components/schemas/RegistryClientRef"
+          }
+        }
+      },
+      "RegistryEntityRow": {
+        "required": [
+          "id",
+          "name",
+          "entityType",
+          "abn",
+          "acn",
+          "industry",
+          "client"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string"
+          },
+          "entityType": {
+            "type": "string"
+          },
+          "abn": {
+            "type": "string"
+          },
+          "acn": {
+            "type": "string"
+          },
+          "industry": {
+            "type": "string"
+          },
+          "client": {
+            "$ref": "#/components/schemas/RegistryClientRef"
           }
         }
       },

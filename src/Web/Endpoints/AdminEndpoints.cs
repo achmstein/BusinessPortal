@@ -99,6 +99,74 @@ public static class AdminEndpoints
             return Results.Ok(result);
         }).WithName("GetAdminMessages");
 
+        // One client's conversations — powers the /admin/messages/{clientId} thread page.
+        group.MapGet("/messages/{clientId}", async (string clientId, UserManager<ApplicationUser> users, IApplicationDbContext context, CancellationToken ct) =>
+        {
+            var user = await users.FindByIdAsync(clientId);
+            if (user is null) return Results.NotFound();
+
+            var msgs = await context.Messages.AsNoTracking()
+                .Where(m => m.UserId == clientId).ToListAsync(ct);
+            var name = $"{user.Profile.FirstName} {user.Profile.LastName}".Trim();
+            return Results.Ok(new AdminClientThreadsResponse(
+                user.Id, user.Email, string.IsNullOrEmpty(name) ? user.Email : name,
+                ThreadDto.GroupIntoThreads(msgs)));
+        }).WithName("GetAdminClientThreads").Produces<AdminClientThreadsResponse>();
+
+        // Mark every client-sent message for this client as read by support.
+        group.MapPost("/messages/{clientId}/read-all", async (string clientId, IApplicationDbContext context, CancellationToken ct) =>
+        {
+            var unread = await context.Messages
+                .Where(m => m.UserId == clientId && m.Direction == MessageDirection.Outbound && !m.AdminRead)
+                .ToListAsync(ct);
+            foreach (var m in unread) m.AdminRead = true;
+            await context.SaveChangesAsync(ct);
+            return Results.NoContent();
+        }).WithName("AdminMarkAllRead").Produces(StatusCodes.Status204NoContent);
+
+        // Cross-client registry — every business name, entity, and company/trust.
+        group.MapGet("/registry", async (UserManager<ApplicationUser> users, IApplicationDbContext context, CancellationToken ct) =>
+        {
+            // Registry is about clients — exclude admin accounts, like the original.
+            var adminIds = (await users.GetUsersInRoleAsync(Roles.Admin)).Select(u => u.Id).ToList();
+            var clients = await users.Users
+                .Where(u => !adminIds.Contains(u.Id))
+                .Select(u => new { u.Id, u.Email, u.Profile.FirstName, u.Profile.LastName })
+                .ToListAsync(ct);
+            var refs = clients.ToDictionary(
+                c => c.Id,
+                c =>
+                {
+                    var name = $"{c.FirstName} {c.LastName}".Trim();
+                    return new RegistryClientRef(c.Id, string.IsNullOrEmpty(name) ? c.Email ?? "" : name, c.Email);
+                });
+            var clientIds = clients.Select(c => c.Id).ToList();
+
+            var names = await context.BusinessNames.AsNoTracking()
+                .Where(b => clientIds.Contains(b.UserId)).ToListAsync(ct);
+            var entities = await context.BusinessEntities.AsNoTracking()
+                .Where(e => clientIds.Contains(e.UserId)).ToListAsync(ct);
+
+            var nameRows = names
+                .Select(b => new RegistryBusinessNameRow(b.Id, b.Name, b.AsicKey, b.DateRegistered, b.RenewalDate, refs[b.UserId]))
+                .ToList();
+            var entityRows = entities
+                .Select(e => new RegistryEntityRow(
+                    e.Id, e.Name,
+                    e.EntityType == EntityType.Unspecified ? "" : e.EntityType.ToString(),
+                    e.Abn, e.Acn, e.Industry, refs[e.UserId]))
+                .ToList();
+            // The original also folded in the legacy "primary business" — that concept
+            // wasn't ported (entities are the single source), so companies come from
+            // entities alone and Source is always "Entity".
+            var companyRows = entities
+                .Where(e => e.EntityType is EntityType.Company or EntityType.Trust)
+                .Select(e => new RegistryCompanyRow(e.Name, e.Acn, e.Abn, "Entity", refs[e.UserId]))
+                .ToList();
+
+            return Results.Ok(new AdminRegistryResponse(clients.Count, nameRows, entityRows, companyRows));
+        }).WithName("GetAdminRegistry").Produces<AdminRegistryResponse>();
+
         // Admin sends a message to a client (support -> client = inbound for the client).
         group.MapPost("/clients/{id}/reply", async (string id, AdminReplyBody body, IApplicationDbContext context, CancellationToken ct) =>
         {

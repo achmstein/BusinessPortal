@@ -1,18 +1,16 @@
 import { useState, type FormEvent } from 'react'
-import { Link, useNavigate, useSearchParams } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { BrandLockup } from '../components/Brand'
-import { getMe, postApiLogin } from '../api/generated'
+import { registerAccount } from '../api/generated'
 import { useAuth } from '../auth/AuthContext'
 
-// Markup ported verbatim from the original app/login/page.tsx. The server action
-// is replaced by a client submit that hits the Identity cookie-login endpoint.
-export function LoginPage() {
+// Markup ported verbatim from the original app/register/page.tsx. The server
+// action is replaced by a client submit against /api/account/register, which
+// seeds the profile + welcome message and starts the session.
+export function RegisterPage() {
   const navigate = useNavigate()
   const { refresh } = useAuth()
-  const [params] = useSearchParams()
-  // The original page rendered ?error= (e.g. "Password updated. Please sign in."
-  // after a reset); submit errors then take over.
-  const [error, setError] = useState<string | null>(params.get('error'))
+  const [error, setError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
 
   async function onSubmit(e: FormEvent<HTMLFormElement>) {
@@ -20,16 +18,20 @@ export function LoginPage() {
     setError(null)
     setSubmitting(true)
     const form = new FormData(e.currentTarget)
-    const email = String(form.get('email') || '').trim().toLowerCase()
-    const password = String(form.get('password') || '')
     try {
-      await postApiLogin({ query: { useCookies: true }, body: { email, password } })
+      await registerAccount({
+        body: {
+          firstName: String(form.get('firstName') || '').trim(),
+          lastName: String(form.get('lastName') || '').trim(),
+          email: String(form.get('email') || '').trim().toLowerCase(),
+          password: String(form.get('password') || ''),
+        },
+      })
       await refresh()
-      const { data } = await getMe()
-      navigate(data?.isAdmin ? '/admin' : '/dashboard')
-    } catch {
-      setError('Invalid email or password')
-    } finally {
+      navigate('/dashboard')
+    } catch (e) {
+      const message = (e as { error?: string })?.error
+      setError(message || 'Could not create the account. Try again shortly.')
       setSubmitting(false)
     }
   }
@@ -42,18 +44,12 @@ export function LoginPage() {
         <BrandLockup inverted />
         <div className="relative">
           <h1 className="text-4xl font-bold leading-tight">
-            Everything you need to start, run and grow your business.
+            Set up your business portal in under a minute.
           </h1>
           <p className="mt-4 text-navy-300 max-w-md">
-            One secure portal for registrations, tax, BAS, insurance, super,
-            documents, free tools and direct support.
+            Free to create. Everything saved securely to your account, ready
+            when you log back in from any device.
           </p>
-          <ul className="mt-8 space-y-2 text-sm text-navy-200">
-            <li>✓ Manage GST, PAYG &amp; business name registrations</li>
-            <li>✓ Lodge BAS and start your 2024/25/26 tax return</li>
-            <li>✓ Track insurance, super and important documents</li>
-            <li>✓ Message support and access free tools instantly</li>
-          </ul>
         </div>
         <div className="relative text-xs text-navy-400">
           © {new Date().getFullYear()} Business Portal
@@ -65,9 +61,9 @@ export function LoginPage() {
           <div className="lg:hidden mb-8">
             <BrandLockup />
           </div>
-          <h2 className="text-2xl font-bold text-navy-900">Welcome back</h2>
+          <h2 className="text-2xl font-bold text-navy-900">Create your account</h2>
           <p className="mt-1 text-sm text-navy-500">
-            Sign in to your business portal.
+            Just the basics — you can fill in the rest after you log in.
           </p>
 
           {error ? (
@@ -77,29 +73,33 @@ export function LoginPage() {
           ) : null}
 
           <form onSubmit={onSubmit} className="mt-6 space-y-4">
+            <div className="form-grid">
+              <div>
+                <label className="label" htmlFor="firstName">First name</label>
+                <input id="firstName" name="firstName" required className="input" />
+              </div>
+              <div>
+                <label className="label" htmlFor="lastName">Last name</label>
+                <input id="lastName" name="lastName" required className="input" />
+              </div>
+            </div>
             <div>
               <label className="label" htmlFor="email">Email</label>
               <input id="email" name="email" type="email" required className="input" placeholder="you@business.com" />
             </div>
             <div>
               <label className="label" htmlFor="password">Password</label>
-              <input id="password" name="password" type="password" required className="input" placeholder="••••••••" />
+              <input id="password" name="password" type="password" minLength={6} required className="input" placeholder="At least 6 characters" />
             </div>
             <button type="submit" disabled={submitting} className="btn-primary w-full">
-              {submitting ? 'Signing in…' : 'Sign in'}
+              {submitting ? 'Creating…' : 'Create account'}
             </button>
           </form>
 
-          <div className="mt-4 text-sm text-right">
-            <Link to="/forgot-password" className="text-brand-700 hover:underline">
-              Forgot your password?
-            </Link>
-          </div>
-
           <p className="mt-6 text-sm text-navy-600">
-            New here?{' '}
-            <Link to="/register" className="text-brand-700 font-semibold hover:underline">
-              Create an account
+            Already have an account?{' '}
+            <Link to="/login" className="text-brand-700 font-semibold hover:underline">
+              Sign in
             </Link>
           </p>
         </div>

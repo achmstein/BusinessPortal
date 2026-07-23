@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import { PageHeader } from '../components/PageHeader'
+import { Flash } from '../components/Flash'
 import {
   getAsicRenewals,
   getBusinessNames,
@@ -10,9 +11,9 @@ import {
 } from '../api/generated'
 
 export function AsicRenewalsPage() {
+  const [params, setParams] = useSearchParams()
   const [items, setItems] = useState<AsicRenewalDto[]>([])
   const [names, setNames] = useState<BusinessNameDto[]>([])
-  const [flash, setFlash] = useState<string | null>(null)
 
   const load = useCallback(async () => {
     try { const { data } = await getAsicRenewals(); setItems(data ?? []) } catch { /* ignore */ }
@@ -33,9 +34,9 @@ export function AsicRenewalsPage() {
           body: 'Please retrieve my upcoming ASIC business name and company review obligations and update my records.',
         },
       })
-      setFlash('Request sent to support — see Messages for updates')
+      setParams({ ok: 'Request sent to support — see Messages for updates' })
     } catch {
-      setFlash('Could not send the request. Try again shortly.')
+      setParams({ err: 'Could not send the request. Try again shortly.' })
     }
   }
 
@@ -47,9 +48,8 @@ export function AsicRenewalsPage() {
         actions={<button onClick={onRequestInfo} className="btn-primary">Request information from ASIC</button>}
       />
 
-      {flash ? (
-        <div className="mb-4 rounded-lg border border-accent-200 bg-accent-50 text-accent-800 text-sm px-4 py-2.5">{flash}</div>
-      ) : null}
+      {/* ?ok/?err flashes — renew/cancel redirects and the request-info action. */}
+      <Flash ok={params.get('ok')} err={params.get('err')} />
 
       {/* Summary */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
@@ -99,7 +99,7 @@ export function AsicRenewalsPage() {
                   </div>
 
                   <div className="flex flex-wrap gap-2 shrink-0">
-                    <Link to="/business-names" className="btn-secondary">Manage</Link>
+                    <Link to={isBusinessName ? '/business-names' : '/business'} className="btn-secondary">Manage</Link>
                     {isBusinessName ? (
                       <>
                         <Link to={`/asic-renewals/${it.sourceId}/renew`} className="btn-primary">Renew</Link>
@@ -124,7 +124,14 @@ export function AsicRenewalsPage() {
         {names.length === 0 ? (
           <p className="mt-3 text-sm text-navy-500 italic">
             Nothing tracked yet. Add a business name in{' '}
-            <Link to="/business-names" className="text-brand-700 font-semibold hover:underline">Business Names</Link>.
+            <Link to="/business-names" className="text-brand-700 font-semibold hover:underline">
+              Business Names
+            </Link>
+            {' '}or fill in your company details (ACN + start date) in{' '}
+            <Link to="/business" className="text-brand-700 font-semibold hover:underline">
+              Business Details
+            </Link>
+            .
           </p>
         ) : (
           <ul className="mt-3 divide-y divide-navy-100">

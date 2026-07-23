@@ -60,14 +60,31 @@ public static class DependencyInjection
         services.AddAuthorization(options =>
             options.AddPolicy("Admin", policy => policy.RequireRole(Roles.Admin)));
 
-        services.AddIdentityCore<ApplicationUser>(options => options.SignIn.RequireConfirmedAccount = false)
+        services.AddIdentityCore<ApplicationUser>(options =>
+            {
+                options.SignIn.RequireConfirmedAccount = false;
+                // Match the original portal's password rule: 6+ characters, no
+                // composition requirements (register enforced only length >= 6).
+                options.Password.RequiredLength = 6;
+                options.Password.RequireDigit = false;
+                options.Password.RequireLowercase = false;
+                options.Password.RequireUppercase = false;
+                options.Password.RequireNonAlphanumeric = false;
+            })
             .AddRoles<IdentityRole>()
             .AddEntityFrameworkStores<ApplicationDbContext>()
             .AddSignInManager()
             .AddDefaultTokenProviders()
             .AddApiEndpoints();
 
-        services.AddSingleton<IEmailSender<ApplicationUser>, NoOpEmailSender>();
+        // Password-reset links promise "expires in 1 hour" (original PasswordReset TTL).
+        services.Configure<DataProtectionTokenProviderOptions>(options =>
+            options.TokenLifespan = TimeSpan.FromHours(1));
+
+        // ─── Email (Resend adapter; console-logs when no API key is configured) ───
+        services.Configure<EmailOptions>(configuration.GetSection(EmailOptions.SectionName));
+        services.AddHttpClient(ResendEmailSender.HttpClientName);
+        services.AddSingleton<IEmailSender<ApplicationUser>, ResendEmailSender>();
 
         // ─── Hangfire (background jobs, stored in the same Postgres DB) ───
         services.AddHangfire(cfg => cfg

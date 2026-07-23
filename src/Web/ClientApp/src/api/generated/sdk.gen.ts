@@ -2,7 +2,7 @@
 
 import type { Client, ClientMeta, Options as Options2, RequestResult, TDataShape } from './client';
 import { client } from './client.gen';
-import type { AdminReplyToClientData, AdminReplyToClientResponses, CreateBusinessEntityData, CreateBusinessEntityResponses, CreateBusinessNameData, CreateBusinessNameResponses, DeleteBusinessEntityData, DeleteBusinessEntityResponses, DeleteBusinessNameData, DeleteBusinessNameResponses, GetAbnLookupStatusData, GetAbnLookupStatusResponses, GetAdminClientData, GetAdminClientResponses, GetAdminClientsData, GetAdminClientsResponses, GetAdminMessagesData, GetAdminMessagesResponses, GetAdminOverviewData, GetAdminOverviewResponses, GetApiManageInfoData, GetApiManageInfoErrors, GetApiManageInfoResponses, GetAsicRenewalsData, GetAsicRenewalsResponses, GetAtoStatusData, GetAtoStatusResponses, GetBusinessEntitiesData, GetBusinessEntitiesResponses, GetBusinessNamesData, GetBusinessNamesResponses, GetMeData, GetMeErrors, GetMeResponses, GetMessageThreadsData, GetMessageThreadsResponses, GetProfileData, GetProfileErrors, GetProfileResponses, LogoutData, LogoutResponses, MapIdentityApiApiConfirmEmailData, MapIdentityApiApiConfirmEmailResponses, MarkThreadReadData, MarkThreadReadResponses, PollAtoLinkData, PollAtoLinkResponses, PostApiForgotPasswordData, PostApiForgotPasswordErrors, PostApiForgotPasswordResponses, PostApiIntegrationsOntraportRenewalPaidData, PostApiIntegrationsOntraportRenewalPaidResponses, PostApiIntegrationsOntraportWebhookData, PostApiIntegrationsOntraportWebhookResponses, PostApiLoginData, PostApiLoginResponses, PostApiManage2FaData, PostApiManage2FaErrors, PostApiManage2FaResponses, PostApiManageInfoData, PostApiManageInfoErrors, PostApiManageInfoResponses, PostApiRefreshData, PostApiRefreshResponses, PostApiRegisterData, PostApiRegisterErrors, PostApiRegisterResponses, PostApiResendConfirmationEmailData, PostApiResendConfirmationEmailResponses, PostApiResetPasswordData, PostApiResetPasswordErrors, PostApiResetPasswordResponses, RenewBusinessNameData, RenewBusinessNameResponses, ReplyToThreadData, ReplyToThreadResponses, SelectAtoAgentData, SelectAtoAgentResponses, StartAbnLookupData, StartAbnLookupResponses, StartAtoLinkData, StartAtoLinkResponses, StartImpersonationData, StartImpersonationResponses, StartThreadData, StartThreadResponses, StopImpersonationData, StopImpersonationResponses, SyncAtoBusinessesData, SyncAtoBusinessesResponses, UnlinkAtoData, UnlinkAtoResponses, UpdateBusinessNameData, UpdateBusinessNameResponses, UpdateProfileData, UpdateProfileErrors, UpdateProfileResponses } from './types.gen';
+import type { AdminMarkAllReadData, AdminMarkAllReadResponses, AdminReplyToClientData, AdminReplyToClientResponses, CancelBusinessNameData, CancelBusinessNameErrors, CancelBusinessNameResponses, CreateBusinessEntityData, CreateBusinessEntityResponses, CreateBusinessNameData, CreateBusinessNameResponses, DeleteBusinessEntityData, DeleteBusinessEntityResponses, DeleteBusinessNameData, DeleteBusinessNameResponses, GetAbnLookupStatusData, GetAbnLookupStatusResponses, GetAdminClientData, GetAdminClientResponses, GetAdminClientsData, GetAdminClientsResponses, GetAdminClientThreadsData, GetAdminClientThreadsResponses, GetAdminMessagesData, GetAdminMessagesResponses, GetAdminOverviewData, GetAdminOverviewResponses, GetAdminRegistryData, GetAdminRegistryResponses, GetApiManageInfoData, GetApiManageInfoErrors, GetApiManageInfoResponses, GetAsicRenewalsData, GetAsicRenewalsResponses, GetAtoStatusData, GetAtoStatusResponses, GetBusinessEntitiesData, GetBusinessEntitiesResponses, GetBusinessNamesData, GetBusinessNamesResponses, GetMeData, GetMeErrors, GetMeResponses, GetMessageThreadsData, GetMessageThreadsResponses, GetProfileData, GetProfileErrors, GetProfileResponses, LogoutData, LogoutResponses, MapIdentityApiApiConfirmEmailData, MapIdentityApiApiConfirmEmailResponses, MarkAtoConnectedData, MarkAtoConnectedResponses, MarkThreadReadData, MarkThreadReadResponses, PollAtoLinkData, PollAtoLinkResponses, PostApiForgotPasswordData, PostApiForgotPasswordErrors, PostApiForgotPasswordResponses, PostApiIntegrationsOntraportRenewalPaidData, PostApiIntegrationsOntraportRenewalPaidResponses, PostApiIntegrationsOntraportWebhookData, PostApiIntegrationsOntraportWebhookResponses, PostApiLoginData, PostApiLoginResponses, PostApiManage2FaData, PostApiManage2FaErrors, PostApiManage2FaResponses, PostApiManageInfoData, PostApiManageInfoErrors, PostApiManageInfoResponses, PostApiRefreshData, PostApiRefreshResponses, PostApiRegisterData, PostApiRegisterErrors, PostApiRegisterResponses, PostApiResendConfirmationEmailData, PostApiResendConfirmationEmailResponses, PostApiResetPasswordData, PostApiResetPasswordErrors, PostApiResetPasswordResponses, RegisterAccountData, RegisterAccountErrors, RegisterAccountResponses, RenewBusinessNameData, RenewBusinessNameResponses, ReplyToThreadData, ReplyToThreadResponses, SelectAtoAgentData, SelectAtoAgentResponses, StartAbnLookupData, StartAbnLookupResponses, StartAtoLinkData, StartAtoLinkResponses, StartImpersonationData, StartImpersonationResponses, StartThreadData, StartThreadResponses, StopImpersonationData, StopImpersonationResponses, SyncAtoBusinessesData, SyncAtoBusinessesResponses, UnlinkAtoData, UnlinkAtoResponses, UpdateBusinessNameData, UpdateBusinessNameResponses, UpdateProfileData, UpdateProfileErrors, UpdateProfileResponses } from './types.gen';
 
 export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends boolean = boolean, TResponse = unknown> = Options2<TData, ThrowOnError, TResponse> & {
     /**
@@ -96,6 +96,15 @@ export const postApiManageInfo = <ThrowOnError extends boolean = false>(options:
     }
 });
 
+export const registerAccount = <ThrowOnError extends boolean = false>(options: Options<RegisterAccountData, ThrowOnError>): RequestResult<RegisterAccountResponses, RegisterAccountErrors, ThrowOnError> => (options.client ?? client).post<RegisterAccountResponses, RegisterAccountErrors, ThrowOnError>({
+    url: '/api/account/register',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
 export const getMe = <ThrowOnError extends boolean = false>(options?: Options<GetMeData, ThrowOnError>): RequestResult<GetMeResponses, GetMeErrors, ThrowOnError> => (options?.client ?? client).get<GetMeResponses, GetMeErrors, ThrowOnError>({ url: '/api/me', ...options });
 
 export const logout = <ThrowOnError extends boolean = false>(options?: Options<LogoutData, ThrowOnError>): RequestResult<LogoutResponses, unknown, ThrowOnError> => (options?.client ?? client).post<LogoutResponses, unknown, ThrowOnError>({ url: '/api/logout', ...options });
@@ -139,6 +148,15 @@ export const deleteBusinessName = <ThrowOnError extends boolean = false>(options
 
 export const updateBusinessName = <ThrowOnError extends boolean = false>(options: Options<UpdateBusinessNameData, ThrowOnError>): RequestResult<UpdateBusinessNameResponses, unknown, ThrowOnError> => (options.client ?? client).put<UpdateBusinessNameResponses, unknown, ThrowOnError>({
     url: '/api/business-names/{id}',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+export const cancelBusinessName = <ThrowOnError extends boolean = false>(options: Options<CancelBusinessNameData, ThrowOnError>): RequestResult<CancelBusinessNameResponses, CancelBusinessNameErrors, ThrowOnError> => (options.client ?? client).post<CancelBusinessNameResponses, CancelBusinessNameErrors, ThrowOnError>({
+    url: '/api/business-names/{id}/cancel',
     ...options,
     headers: {
         'Content-Type': 'application/json',
@@ -191,6 +209,12 @@ export const getAdminClient = <ThrowOnError extends boolean = false>(options: Op
 
 export const getAdminMessages = <ThrowOnError extends boolean = false>(options?: Options<GetAdminMessagesData, ThrowOnError>): RequestResult<GetAdminMessagesResponses, unknown, ThrowOnError> => (options?.client ?? client).get<GetAdminMessagesResponses, unknown, ThrowOnError>({ url: '/api/admin/messages', ...options });
 
+export const getAdminClientThreads = <ThrowOnError extends boolean = false>(options: Options<GetAdminClientThreadsData, ThrowOnError>): RequestResult<GetAdminClientThreadsResponses, unknown, ThrowOnError> => (options.client ?? client).get<GetAdminClientThreadsResponses, unknown, ThrowOnError>({ url: '/api/admin/messages/{clientId}', ...options });
+
+export const adminMarkAllRead = <ThrowOnError extends boolean = false>(options: Options<AdminMarkAllReadData, ThrowOnError>): RequestResult<AdminMarkAllReadResponses, unknown, ThrowOnError> => (options.client ?? client).post<AdminMarkAllReadResponses, unknown, ThrowOnError>({ url: '/api/admin/messages/{clientId}/read-all', ...options });
+
+export const getAdminRegistry = <ThrowOnError extends boolean = false>(options?: Options<GetAdminRegistryData, ThrowOnError>): RequestResult<GetAdminRegistryResponses, unknown, ThrowOnError> => (options?.client ?? client).get<GetAdminRegistryResponses, unknown, ThrowOnError>({ url: '/api/admin/registry', ...options });
+
 export const adminReplyToClient = <ThrowOnError extends boolean = false>(options: Options<AdminReplyToClientData, ThrowOnError>): RequestResult<AdminReplyToClientResponses, unknown, ThrowOnError> => (options.client ?? client).post<AdminReplyToClientResponses, unknown, ThrowOnError>({
     url: '/api/admin/clients/{id}/reply',
     ...options,
@@ -235,6 +259,15 @@ export const pollAtoLink = <ThrowOnError extends boolean = false>(options: Optio
 
 export const selectAtoAgent = <ThrowOnError extends boolean = false>(options: Options<SelectAtoAgentData, ThrowOnError>): RequestResult<SelectAtoAgentResponses, unknown, ThrowOnError> => (options.client ?? client).post<SelectAtoAgentResponses, unknown, ThrowOnError>({
     url: '/api/ato/link/select',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+export const markAtoConnected = <ThrowOnError extends boolean = false>(options: Options<MarkAtoConnectedData, ThrowOnError>): RequestResult<MarkAtoConnectedResponses, unknown, ThrowOnError> => (options.client ?? client).post<MarkAtoConnectedResponses, unknown, ThrowOnError>({
+    url: '/api/ato/mark-connected',
     ...options,
     headers: {
         'Content-Type': 'application/json',

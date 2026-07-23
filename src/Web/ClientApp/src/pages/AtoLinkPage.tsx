@@ -1,37 +1,72 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { PageHeader } from '../components/PageHeader'
-import { startAtoLink, pollAtoLink, selectAtoAgent, type AtoAgentDto } from '../api/generated'
+import { Flash } from '../components/Flash'
+import {
+  pollAtoLink,
+  selectAtoAgent,
+  startAtoLink,
+  type AtoAgentDto,
+  type AtoPollResult,
+} from '../api/generated'
 
-type Step = 'email' | 'code' | 'pick' | 'done' | 'failed'
+type Step = 'email' | 'code' | 'success' | 'failed'
 
 // Each pollAtoLink call is a ~20s server-side long-poll. This caps the number of
 // consecutive calls (the server attempt row also expires, returning Expired).
 const MAX_POLLS = 18
 
+// Markup ported verbatim from the original app/(portal)/ato-portal/link/page.tsx
+// (email → code → success → failed). The original's meta-refresh polling becomes
+// the SPA long-poll; the AUTO_START_TESTING shortcut and DebugTrace dev panel are
+// not ported. saveSelectedAgent's redirect-with-flash lands on /ato-portal?ok=….
 export function AtoLinkPage() {
+  const navigate = useNavigate()
   const [step, setStep] = useState<Step>('email')
-  const [email, setEmail] = useState('')
   const [attemptId, setAttemptId] = useState<string | null>(null)
   const [code, setCode] = useState<string | null>(null)
   const [agents, setAgents] = useState<AtoAgentDto[]>([])
   const [selectedAbn, setSelectedAbn] = useState('')
-  const [error, setError] = useState<string | null>(null)
+  const [flashErr, setFlashErr] = useState<string | null>(null)
+  const [failErr, setFailErr] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
-  const [result, setResult] = useState<{ syncedCount: number; nomination: string } | null>(null)
   const pollingRef = useRef(false)
+
+  function applyPollResult(data: AtoPollResult): boolean {
+    if (data.status === 'Linked') {
+      pollingRef.current = false
+      const list = data.agents ?? []
+      setAgents(list)
+      setSelectedAbn(list[0]?.abn ?? '')
+      setStep('success')
+      return true
+    }
+    if (data.status === 'Failed' || data.status === 'Expired') {
+      pollingRef.current = false
+      setFailErr(data.reason ?? null)
+      setStep('failed')
+      return true
+    }
+    return false // Pending — keep going
+  }
 
   async function onStart(e: FormEvent<HTMLFormElement>) {
     e.preventDefault()
-    if (!email.trim()) return
-    setBusy(true); setError(null)
+    const email = String(new FormData(e.currentTarget).get('email') || '').trim().toLowerCase()
+    if (!email || !email.includes('@')) {
+      setFlashErr('Please enter a valid email')
+      return
+    }
+    setBusy(true)
+    setFlashErr(null)
     try {
-      const { data } = await startAtoLink({ body: { email: email.trim() } })
+      const { data } = await startAtoLink({ body: { email } })
       setAttemptId(data!.attemptId)
       setCode(data!.referenceCode)
       setStep('code')
-    } catch {
-      setError('Could not start the link. Please try again.')
+    } catch (e) {
+      const message = (e as { error?: string })?.error
+      setFlashErr(message || 'Unexpected error during ATO link.')
     } finally { setBusy(false) }
   }
 
@@ -44,150 +79,216 @@ export function AtoLinkPage() {
         try {
           const { data } = await pollAtoLink({ body: { attemptId } })
           if (!pollingRef.current) return
-          if (data!.status === 'Linked') {
-            setAgents(data!.agents)
-            setSelectedAbn(data!.agents[0]?.abn ?? '')
-            setStep('pick')
-            return
-          }
-          if (data!.status === 'Failed' || data!.status === 'Expired') {
-            setError(data!.reason ?? 'The link attempt did not complete.')
-            setStep('failed')
-            return
-          }
+          if (applyPollResult(data!)) return
           // Pending → the server already waited ~20s; loop straight into the next poll.
         } catch {
           await new Promise((r) => setTimeout(r, 2000)) // transient — brief pause then retry
         }
       }
-      if (pollingRef.current) { setError('Timed out waiting for approval on your myID app.'); setStep('failed') }
+      if (pollingRef.current) {
+        setFailErr('Timed out waiting for approval on the myID app.')
+        setStep('failed')
+      }
     })()
     return () => { pollingRef.current = false }
   }, [step, attemptId])
 
-  async function onConfirm() {
-    if (!selectedAbn) return
-    setBusy(true); setError(null)
+  // "I've approved on my phone" — the original checkLinkStatus button. The loop
+  // is already long-polling; this just fires one extra check right now.
+  async function onCheckNow() {
+    if (!attemptId || busy) return
+    setBusy(true)
+    try {
+      const { data } = await pollAtoLink({ body: { attemptId } })
+      applyPollResult(data!)
+    } catch { /* transient — the loop keeps polling */ }
+    finally { setBusy(false) }
+  }
+
+  // saveSelectedAgent port: mark connected + auto-sync + auto-nominate server-side,
+  // then land on /ato-portal with the same composed flash message.
+  async function onSave() {
+    setBusy(true)
+    let msg = 'Linked to ATO.'
     try {
       const { data } = await selectAtoAgent({ body: { abn: selectedAbn } })
-      setResult({ syncedCount: Number(data!.syncedCount) || 0, nomination: data!.nomination })
-    } catch {
-      // Still linked — the finishing steps (sync/nominate) can be retried from /ato-portal.
-      setResult({ syncedCount: 0, nomination: 'failed' })
-    } finally {
-      setBusy(false)
-      setStep('done')
-    }
+      const synced = Number(data?.syncedCount) || 0
+      if (synced > 0) msg += ` Synced ${synced} business${synced === 1 ? '' : 'es'} from ATO.`
+      if (data?.nomination === 'submitted') msg += ' Nominated us as your tax agent.'
+      else if (data?.nomination === 'already_nominated') msg += " (You'd already nominated us — no action needed.)"
+    } catch { /* best-effort — errors don't block the redirect, same as the original */ }
+    navigate(`/ato-portal?ok=${encodeURIComponent(msg)}`)
   }
 
   function restart() {
-    setStep('email'); setAttemptId(null); setCode(null); setAgents([]); setSelectedAbn(''); setError(null); setResult(null)
+    pollingRef.current = false
+    setStep('email')
+    setAttemptId(null)
+    setCode(null)
+    setAgents([])
+    setSelectedAbn('')
+    setFlashErr(null)
+    setFailErr(null)
   }
 
   return (
     <>
-      <PageHeader title="Link to ATO" subtitle="Connect your myID to the ATO Business portal." />
-
-      {error && step !== 'failed' ? (
-        <div className="mb-4 rounded-lg border border-red-200 bg-red-50 text-red-800 text-sm px-4 py-2.5">{error}</div>
-      ) : null}
+      <div className="mb-2">
+        <Link to="/ato-portal" className="text-sm text-brand-700 hover:underline">← ATO Portal</Link>
+      </div>
+      <PageHeader
+        title="Link your business to the ATO"
+        subtitle="Authenticate with myID and nominate us as your registered tax agent."
+      />
+      <Flash err={flashErr ?? (step === 'failed' ? failErr : null)} />
 
       {step === 'email' ? (
-        <section className="card-pad max-w-lg">
-          <h3 className="font-semibold text-navy-900">Step 1 — Your myID email</h3>
-          <p className="text-sm text-navy-600 mt-1">
-            Enter the email you use to sign in to the myID app. We'll send a 4-digit code to approve.
+        <section className="card-pad max-w-2xl">
+          <h2 className="font-semibold text-navy-900">Before we start</h2>
+          <ol className="list-decimal pl-5 mt-2 text-sm text-navy-700 space-y-1">
+            <li>You've downloaded the <strong>myID</strong> app from the App Store or Google Play.</li>
+            <li>You're the principal authority for the business (director, owner, public officer).</li>
+            <li>You'll have your phone with you in the next minute.</li>
+          </ol>
+
+          <p className="mt-4 text-sm text-navy-700">
+            We <strong>never see your password or 2FA</strong>. The myID app on your phone is
+            what authorises the link — we just pass the OAuth tokens through.
           </p>
-          <form onSubmit={onStart} className="mt-4 space-y-4">
+
+          <form onSubmit={onStart} className="mt-6 space-y-4">
             <div>
-              <label className="label">myID email</label>
+              <label className="label" htmlFor="email">
+                myID email
+              </label>
               <input
+                id="email"
+                name="email"
                 type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
                 required
-                className="input"
                 placeholder="you@example.com"
+                className="input"
+                autoComplete="email"
               />
             </div>
+
+            <label className="flex items-start gap-2 text-sm text-navy-700">
+              <input
+                type="checkbox"
+                name="consent"
+                required
+                className="mt-1 h-4 w-4"
+              />
+              <span>
+                I authorise the Business Portal to act on my behalf to link my ATO account.
+                I understand my consent will be recorded.
+              </span>
+            </label>
+
             <button type="submit" disabled={busy} className="btn-primary">
-              {busy ? 'Starting…' : 'Start linking'}
+              {busy ? 'Starting…' : 'Start ATO link'}
             </button>
           </form>
         </section>
       ) : null}
 
       {step === 'code' ? (
-        <section className="card-pad max-w-lg text-center">
-          <h3 className="font-semibold text-navy-900">Step 2 — Approve in your myID app</h3>
-          <p className="text-sm text-navy-600 mt-1">Open the myID app on your phone and enter this code:</p>
-          <div className="my-6 text-5xl font-bold tracking-[0.3em] text-brand-700">{code}</div>
-          <div className="flex items-center justify-center gap-2 text-sm text-navy-500">
-            <span className="relative flex h-2.5 w-2.5">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-brand-400 opacity-75" />
-              <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-brand-500" />
-            </span>
-            Waiting for approval…
-          </div>
-          <button onClick={restart} className="btn-ghost mt-6 text-sm">Cancel</button>
-        </section>
-      ) : null}
+        <section className="card-pad max-w-2xl">
+          <h2 className="font-semibold text-navy-900">Approve on your phone</h2>
 
-      {step === 'pick' ? (
-        <section className="card-pad max-w-lg">
-          <h3 className="font-semibold text-navy-900">Step 3 — Choose your business</h3>
-          <p className="text-sm text-navy-600 mt-1">
-            Pick the ABN to link. We'll sync its details and nominate us as your tax agent.
-          </p>
-          {agents.length === 0 ? (
-            <p className="mt-4 text-sm text-navy-500 italic">
-              No businesses were found on this myID. You can still continue and sync later.
-            </p>
+          <ol className="mt-3 list-decimal pl-5 text-sm text-navy-700 space-y-1">
+            <li>Open <strong>myID</strong> on your phone.</li>
+            <li>If the app prompts, type the code shown below.</li>
+            <li>Tap <strong>Approve</strong>.</li>
+          </ol>
+
+          {code ? (
+            <div className="mt-6 rounded-lg bg-brand-50 border border-brand-200 p-6 text-center">
+              <div className="text-xs uppercase tracking-wider text-brand-700">Reference code</div>
+              <div className="mt-1 text-5xl font-bold text-brand-900 tracking-widest">
+                {code}
+              </div>
+            </div>
           ) : (
-            <ul className="mt-4 space-y-2">
-              {agents.map((a) => (
-                <li key={a.abn}>
-                  <label className="flex items-center gap-3 rounded-lg border border-navy-100 p-3 cursor-pointer hover:bg-navy-50">
-                    <input
-                      type="radio"
-                      name="abn"
-                      value={a.abn}
-                      checked={selectedAbn === a.abn}
-                      onChange={() => setSelectedAbn(a.abn)}
-                    />
-                    <div className="min-w-0">
-                      <div className="font-medium text-navy-900 truncate">{a.name}</div>
-                      <div className="text-xs text-navy-500">ABN {a.abn} · RAN {a.ran}</div>
-                    </div>
-                  </label>
-                </li>
-              ))}
-            </ul>
+            <div className="mt-6 rounded-lg bg-amber-50 border border-amber-200 p-4 text-sm text-amber-900">
+              Waiting for your approval on the myID app…
+            </div>
           )}
-          <button onClick={onConfirm} disabled={busy || (agents.length > 0 && !selectedAbn)} className="btn-primary mt-4">
-            {busy ? 'Finishing…' : 'Confirm & finish'}
-          </button>
+
+          <div className="mt-6 flex flex-wrap items-center gap-3">
+            <button onClick={onCheckNow} disabled={busy} className="btn-secondary">
+              I've approved on my phone
+            </button>
+            <button onClick={restart} className="btn-ghost">Cancel</button>
+          </div>
+
+          <p className="mt-6 text-xs text-navy-500">
+            This page auto-refreshes every few seconds. The approval window is 5 minutes —
+            if you miss it, just click "Cancel" and start again.
+          </p>
         </section>
       ) : null}
 
-      {step === 'done' ? (
-        <section className="card-pad max-w-lg">
-          <h3 className="font-semibold text-accent-800">✓ Linked to the ATO</h3>
-          <p className="text-sm text-navy-700 mt-2">
-            {result ? `Synced ${result.syncedCount} business(es) from the ATO.` : 'Your ATO session is active.'}
-            {result?.nomination === 'submitted' ? ' We\'ve been nominated as your tax agent.' : null}
-            {result?.nomination === 'already_nominated' ? ' You had already nominated us as your tax agent.' : null}
-            {result?.nomination === 'failed' ? ' We couldn\'t finish the agent nomination — you can retry Sync from the ATO page.' : null}
+      {step === 'success' ? (
+        <section className="card-pad max-w-2xl">
+          <h2 className="font-semibold text-accent-700">✓ ATO link successful</h2>
+          <p className="mt-2 text-sm text-navy-700">
+            Your myID session is now connected to the Business Portal. We can read your tax
+            registration details on your behalf.
           </p>
-          <Link to="/ato-portal" className="btn-primary mt-4 inline-block">Back to Link to ATO</Link>
+
+          {agents.length > 0 ? (
+            <form onSubmit={(e) => { e.preventDefault(); void onSave() }} className="mt-6 space-y-4">
+              <div>
+                <label className="label">Which agent profile should we use?</label>
+                {agents.length === 1 ? null : (
+                  <select
+                    name="abn"
+                    className="input"
+                    value={selectedAbn}
+                    onChange={(e) => setSelectedAbn(e.target.value)}
+                  >
+                    {agents.map((a) => (
+                      <option key={a.abn} value={a.abn}>
+                        {a.name} — ABN {a.abn} · RAN {a.ran}
+                      </option>
+                    ))}
+                  </select>
+                )}
+                {agents.length === 1 && (
+                  <p className="mt-1 text-xs text-navy-500">
+                    Using <strong>{agents[0].name}</strong> (RAN {agents[0].ran}).
+                  </p>
+                )}
+              </div>
+
+              <button type="submit" disabled={busy} className="btn-primary">
+                {busy ? 'Saving…' : 'Save and continue'}
+              </button>
+            </form>
+          ) : (
+            <div className="mt-6">
+              <p className="text-sm text-navy-600">
+                No tax agents were found on your myID record. You can still continue —
+                we'll link the session without an agent selection.
+              </p>
+              <button onClick={onSave} disabled={busy} className="btn-primary mt-3">
+                {busy ? 'Saving…' : 'Continue to ATO Portal'}
+              </button>
+            </div>
+          )}
         </section>
       ) : null}
 
       {step === 'failed' ? (
-        <section className="card-pad max-w-lg">
-          <h3 className="font-semibold text-red-800">Linking didn't complete</h3>
-          <p className="text-sm text-navy-700 mt-2">{error ?? 'Something went wrong.'}</p>
-          <div className="mt-4 flex gap-2">
+        <section className="card-pad max-w-2xl border-l-4 border-l-red-400">
+          <h2 className="font-semibold text-red-800">ATO link failed</h2>
+          <p className="mt-2 text-sm text-navy-700">
+            {failErr
+              ? failErr
+              : 'Something went wrong during the ATO authentication. Try again, and if it keeps failing send us a message.'}
+          </p>
+          <div className="mt-6 flex gap-3">
             <button onClick={restart} className="btn-primary">Try again</button>
             <Link to="/messages" className="btn-secondary">Message support</Link>
           </div>
