@@ -143,9 +143,10 @@ export function AdminSettingsPage() {
   // Ontraport webhooks
   const [webhookSecret, setWebhookSecret] = useState('')
   const [renewalSecret, setRenewalSecret] = useState('')
-  // Email (Resend)
+  // Email (Resend or SendGrid)
   const [emailFrom, setEmailFrom] = useState('')
   const [resendApiKey, setResendApiKey] = useState('')
+  const [sendGridApiKey, setSendGridApiKey] = useState('')
   const [siteUrl, setSiteUrl] = useState('')
   // ABN Lookup
   const [abnToken, setAbnToken] = useState('')
@@ -171,6 +172,7 @@ export function AdminSettingsPage() {
         setRenewalSecret(ontraport.data?.renewalSecret ?? '')
         setEmailFrom(email.data?.from ?? '')
         setResendApiKey(email.data?.resendApiKey ?? '')
+        setSendGridApiKey(email.data?.sendGridApiKey ?? '')
         setSiteUrl(email.data?.siteUrl ?? '')
         setAbnToken(abn.data?.apiToken ?? '')
         setRenewtronBaseUrl(renewtron.data?.baseUrl ?? '')
@@ -209,6 +211,7 @@ export function AdminSettingsPage() {
       body: {
         from: emailFrom.trim() || null,
         resendApiKey: resendApiKey.trim() || null,
+        sendGridApiKey: sendGridApiKey.trim() || null,
         siteUrl: siteUrl.trim() || null,
       },
     }))
@@ -268,13 +271,18 @@ export function AdminSettingsPage() {
 
         <SettingsSection
           title="Email"
-          subtitle="Outbound email via Resend — password resets and notifications. Without an API key, emails are logged to the server console instead of sent."
-          configured={resendApiKey.trim().length > 0}
+          subtitle="Outbound email — password resets, invites, notifications. Resend or SendGrid (Resend wins if both are set). Without an API key, emails are logged to the server console instead of sent."
+          configured={resendApiKey.trim().length > 0 || sendGridApiKey.trim().length > 0}
           {...email}
         >
           <div>
             <label className="label" htmlFor="resendApiKey">Resend API key</label>
             <SecretInput id="resendApiKey" value={resendApiKey} onChange={setResendApiKey} placeholder="re_..." />
+          </div>
+          <div>
+            <label className="label" htmlFor="sendGridApiKey">SendGrid API key</label>
+            <SecretInput id="sendGridApiKey" value={sendGridApiKey} onChange={setSendGridApiKey} placeholder="SG...." />
+            <p className="mt-1 text-xs text-navy-500">Alternative to Resend — e.g. reuse Renewtron's verified SendGrid sender.</p>
           </div>
           <div>
             <label className="label" htmlFor="emailFrom">From address</label>

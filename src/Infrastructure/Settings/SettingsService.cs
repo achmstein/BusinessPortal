@@ -72,7 +72,7 @@ public sealed class SettingsService : ISettingsService
     public EmailSettings GetEmailSettings()
     {
         var e = _email.CurrentValue;
-        return new EmailSettings(e.From, e.ResendApiKey, e.SiteUrl);
+        return new EmailSettings(e.From, e.ResendApiKey, e.SendGridApiKey, e.SiteUrl);
     }
 
     public Task UpdateEmailSettingsAsync(EmailSettings settings, CancellationToken cancellationToken) =>
@@ -80,6 +80,7 @@ public sealed class SettingsService : ISettingsService
         {
             From = settings.From?.Trim(),
             ResendApiKey = settings.ResendApiKey?.Trim(),
+            SendGridApiKey = settings.SendGridApiKey?.Trim(),
             SiteUrl = settings.SiteUrl?.Trim(),
         }, cancellationToken);
 

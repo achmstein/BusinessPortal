@@ -6,13 +6,16 @@ using Microsoft.Extensions.Options;
 namespace BusinessPortal.Infrastructure.Identity;
 
 /// <summary>Email settings. Ported from the original lib/email.ts adapter:
-/// with no API key configured, emails are logged to the console instead of sent.</summary>
+/// with no API key configured, emails are logged to the console instead of sent.
+/// Either provider works — Resend wins when both keys are set; SendGrid exists so
+/// the portal can reuse Renewtron's already-verified SendGrid sender.</summary>
 public sealed class EmailOptions
 {
     public const string SectionName = "Email";
 
     public string From { get; set; } = "Business Portal <no-reply@localhost>";
     public string? ResendApiKey { get; set; }
+    public string? SendGridApiKey { get; set; }
 
     /// <summary>Public base URL used in emailed links (the original NEXT_PUBLIC_SITE_URL).</summary>
     public string SiteUrl { get; set; } = "http://localhost:5173";
@@ -105,28 +108,16 @@ public sealed class ResendEmailSender(
         {
             if (!string.IsNullOrWhiteSpace(email.ResendApiKey))
             {
-                var client = httpClientFactory.CreateClient(HttpClientName);
-                using var request = new HttpRequestMessage(HttpMethod.Post, "https://api.resend.com/emails");
-                request.Headers.Authorization = new("Bearer", email.ResendApiKey);
-                request.Content = JsonContent.Create(new
-                {
-                    from = email.From,
-                    to = new[] { to },
-                    subject,
-                    html,
-                    text,
-                });
-                var response = await client.SendAsync(request);
-                if (!response.IsSuccessStatusCode)
-                {
-                    var body = await response.Content.ReadAsStringAsync();
-                    throw new HttpRequestException($"Resend send failed ({(int)response.StatusCode}): {body}");
-                }
+                await SendViaResendAsync(email, to, subject, html, text);
+            }
+            else if (!string.IsNullOrWhiteSpace(email.SendGridApiKey))
+            {
+                await SendViaSendGridAsync(email, to, subject, html, text);
             }
             else
             {
                 logger.LogInformation(
-                    "📧 [EMAIL — console adapter; set Email:ResendApiKey to send for real]\n" +
+                    "📧 [EMAIL — console adapter; set Email:ResendApiKey or Email:SendGridApiKey to send for real]\n" +
                     "To:      {To}\nFrom:    {From}\nSubject: {Subject}\n{Body}",
                     to, email.From, subject, text);
             }
@@ -135,6 +126,63 @@ public sealed class ResendEmailSender(
         {
             logger.LogError(ex, "[email] send failed");
         }
+    }
+
+    private async Task SendViaResendAsync(EmailOptions email, string to, string subject, string html, string text)
+    {
+        var client = httpClientFactory.CreateClient(HttpClientName);
+        using var request = new HttpRequestMessage(HttpMethod.Post, "https://api.resend.com/emails");
+        request.Headers.Authorization = new("Bearer", email.ResendApiKey);
+        request.Content = JsonContent.Create(new
+        {
+            from = email.From,
+            to = new[] { to },
+            subject,
+            html,
+            text,
+        });
+        var response = await client.SendAsync(request);
+        if (!response.IsSuccessStatusCode)
+        {
+            var body = await response.Content.ReadAsStringAsync();
+            throw new HttpRequestException($"Resend send failed ({(int)response.StatusCode}): {body}");
+        }
+    }
+
+    private async Task SendViaSendGridAsync(EmailOptions email, string to, string subject, string html, string text)
+    {
+        var (fromName, fromEmail) = ParseFrom(email.From);
+        var client = httpClientFactory.CreateClient(HttpClientName);
+        using var request = new HttpRequestMessage(HttpMethod.Post, "https://api.sendgrid.com/v3/mail/send");
+        request.Headers.Authorization = new("Bearer", email.SendGridApiKey);
+        request.Content = JsonContent.Create(new
+        {
+            personalizations = new[] { new { to = new[] { new { email = to } } } },
+            from = new { email = fromEmail, name = fromName },
+            subject,
+            // SendGrid requires text/plain before text/html.
+            content = new[]
+            {
+                new { type = "text/plain", value = text },
+                new { type = "text/html", value = html },
+            },
+        });
+        var response = await client.SendAsync(request);
+        if (!response.IsSuccessStatusCode)
+        {
+            var body = await response.Content.ReadAsStringAsync();
+            throw new HttpRequestException($"SendGrid send failed ({(int)response.StatusCode}): {body}");
+        }
+    }
+
+    /// <summary>"Name &lt;addr@host&gt;" → (Name, addr@host); a bare address has no name.</summary>
+    private static (string Name, string Email) ParseFrom(string from)
+    {
+        var open = from.LastIndexOf('<');
+        var close = from.LastIndexOf('>');
+        if (open >= 0 && close > open)
+            return (from[..open].Trim(), from[(open + 1)..close].Trim());
+        return (string.Empty, from.Trim());
     }
 
     private static string EscapeHtml(string s) => s

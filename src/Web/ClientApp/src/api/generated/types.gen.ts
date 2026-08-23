@@ -156,6 +156,7 @@ export type CreateBusinessNameCommand = {
 export type EmailSettings = {
     from: null | string;
     resendApiKey: null | string;
+    sendGridApiKey: null | string;
     siteUrl: null | string;
 };
 

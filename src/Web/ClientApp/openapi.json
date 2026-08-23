@@ -2176,6 +2176,7 @@
         "required": [
           "from",
           "resendApiKey",
+          "sendGridApiKey",
           "siteUrl"
         ],
         "type": "object",
@@ -2187,6 +2188,12 @@
             ]
           },
           "resendApiKey": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "sendGridApiKey": {
             "type": [
               "null",
               "string"

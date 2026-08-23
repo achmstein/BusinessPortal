@@ -7,9 +7,10 @@ public sealed record TwoCaptchaSettings(string? ApiKey);
 /// Empty = that webhook refuses every request.</summary>
 public sealed record OntraportWebhookSettings(string? WebhookSecret, string? RenewalSecret);
 
-/// <summary>Outbound email (Resend) settings, editable from the admin Settings UI.
-/// With no API key, emails are logged to the console instead of sent.</summary>
-public sealed record EmailSettings(string? From, string? ResendApiKey, string? SiteUrl);
+/// <summary>Outbound email settings, editable from the admin Settings UI. Resend
+/// or SendGrid (Resend wins when both keys are set); with no API key, emails are
+/// logged to the console instead of sent.</summary>
+public sealed record EmailSettings(string? From, string? ResendApiKey, string? SendGridApiKey, string? SiteUrl);
 
 /// <summary>ABN Lookup (ABR web services) token, editable from the admin Settings UI.</summary>
 public sealed record AbnLookupSettings(string? ApiToken);
