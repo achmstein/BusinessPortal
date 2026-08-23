@@ -106,6 +106,14 @@ app.UseHangfireDashboard("/hangfire", new DashboardOptions
     Authorization = [new HangfireDashboardAuthorizationFilter()],
 });
 
+// Poll Renewtron for completed business-name renewals and provision portal logins.
+// No-ops (and says so) until the Renewtron API key is set in admin Settings.
+// Every step is idempotent, so this can safely overlap the admin "sync now" button.
+RecurringJob.AddOrUpdate<IRenewtronSyncService>(
+    "renewtron-renewal-sync",
+    sync => sync.SyncAsync(CancellationToken.None),
+    "*/10 * * * *");
+
 // Built-in Identity endpoints: /api/login, /api/register, /api/refresh, etc.
 app.MapGroup("/api").MapIdentityApi<ApplicationUser>();
 

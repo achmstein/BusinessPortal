@@ -14,6 +14,11 @@ public sealed record EmailSettings(string? From, string? ResendApiKey, string? S
 /// <summary>ABN Lookup (ABR web services) token, editable from the admin Settings UI.</summary>
 public sealed record AbnLookupSettings(string? ApiToken);
 
+/// <summary>Renewtron (businessnames.applyforanabn.au) admin-API access for the
+/// completed-renewal sync, editable from the admin Settings UI.
+/// Empty API key = the sync is off.</summary>
+public sealed record RenewtronSettings(string? BaseUrl, string? ApiKey);
+
 /// <summary>
 /// Reads and persists the integration credentials that used to be server-only
 /// (appsettings/environment). Reads reflect the live configuration (including
@@ -37,4 +42,8 @@ public interface ISettingsService
     AbnLookupSettings GetAbnLookupSettings();
 
     Task UpdateAbnLookupSettingsAsync(AbnLookupSettings settings, CancellationToken cancellationToken);
+
+    RenewtronSettings GetRenewtronSettings();
+
+    Task UpdateRenewtronSettingsAsync(RenewtronSettings settings, CancellationToken cancellationToken);
 }

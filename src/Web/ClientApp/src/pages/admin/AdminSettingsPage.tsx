@@ -10,6 +10,10 @@ import {
   updateEmailSettings,
   getAbnLookupSettings,
   updateAbnLookupSettings,
+  getRenewtronSettings,
+  updateRenewtronSettings,
+  runRenewtronSyncNow,
+  type RenewtronSyncResult,
 } from '../../api/generated'
 
 // Modelled on Asictron's SettingsPage: integration credentials are stored on the
@@ -145,15 +149,22 @@ export function AdminSettingsPage() {
   const [siteUrl, setSiteUrl] = useState('')
   // ABN Lookup
   const [abnToken, setAbnToken] = useState('')
+  // Renewtron renewal sync
+  const [renewtronBaseUrl, setRenewtronBaseUrl] = useState('')
+  const [renewtronApiKey, setRenewtronApiKey] = useState('')
+  const [syncBusy, setSyncBusy] = useState(false)
+  const [syncResult, setSyncResult] = useState<RenewtronSyncResult | null>(null)
+  const [syncError, setSyncError] = useState<string | null>(null)
 
   useEffect(() => {
     void (async () => {
       try {
-        const [captcha, ontraport, email, abn] = await Promise.all([
+        const [captcha, ontraport, email, abn, renewtron] = await Promise.all([
           getCaptchaSettings(),
           getOntraportSettings(),
           getEmailSettings(),
           getAbnLookupSettings(),
+          getRenewtronSettings(),
         ])
         setCaptchaKey(captcha.data?.apiKey ?? '')
         setWebhookSecret(ontraport.data?.webhookSecret ?? '')
@@ -162,11 +173,27 @@ export function AdminSettingsPage() {
         setResendApiKey(email.data?.resendApiKey ?? '')
         setSiteUrl(email.data?.siteUrl ?? '')
         setAbnToken(abn.data?.apiToken ?? '')
+        setRenewtronBaseUrl(renewtron.data?.baseUrl ?? '')
+        setRenewtronApiKey(renewtron.data?.apiKey ?? '')
       } catch (err) {
         setLoadError(err instanceof Error ? err.message : 'Failed to load settings')
       }
     })()
   }, [])
+
+  const runSyncNow = async () => {
+    setSyncBusy(true)
+    setSyncResult(null)
+    setSyncError(null)
+    try {
+      const res = await runRenewtronSyncNow({ throwOnError: true })
+      setSyncResult(res.data)
+    } catch (err) {
+      setSyncError(err instanceof Error ? err.message : 'Sync failed')
+    } finally {
+      setSyncBusy(false)
+    }
+  }
 
   const captcha = useSave(() =>
     updateCaptchaSettings({ body: { apiKey: captchaKey.trim() || null } }))
@@ -187,6 +214,13 @@ export function AdminSettingsPage() {
     }))
   const abn = useSave(() =>
     updateAbnLookupSettings({ body: { apiToken: abnToken.trim() || null } }))
+  const renewtron = useSave(() =>
+    updateRenewtronSettings({
+      body: {
+        baseUrl: renewtronBaseUrl.trim() || null,
+        apiKey: renewtronApiKey.trim() || null,
+      },
+    }))
 
   const origin = window.location.origin
 
@@ -277,6 +311,49 @@ export function AdminSettingsPage() {
             <label className="label" htmlFor="abnToken">API token (GUID)</label>
             <SecretInput id="abnToken" value={abnToken} onChange={setAbnToken} placeholder="00000000-0000-0000-0000-000000000000" />
           </div>
+        </SettingsSection>
+
+        <SettingsSection
+          title="Renewtron renewal sync"
+          subtitle="Polls Renewtron every 10 minutes for completed business name renewals and creates a portal login for each customer (new accounts get a set-password invite email). An empty API key turns the sync off."
+          configured={renewtronApiKey.trim().length > 0}
+          {...renewtron}
+        >
+          <div>
+            <label className="label" htmlFor="renewtronBaseUrl">Base URL</label>
+            <input
+              id="renewtronBaseUrl"
+              className="input"
+              value={renewtronBaseUrl}
+              onChange={(e) => setRenewtronBaseUrl(e.target.value)}
+              placeholder="https://businessnames.applyforanabn.au"
+              autoComplete="off"
+            />
+          </div>
+          <div>
+            <label className="label" htmlFor="renewtronApiKey">API key</label>
+            <SecretInput id="renewtronApiKey" value={renewtronApiKey} onChange={setRenewtronApiKey} placeholder="Renewtron's X-Api-Key value" />
+          </div>
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              className="btn-secondary"
+              disabled={syncBusy}
+              onClick={() => void runSyncNow()}
+            >
+              {syncBusy ? 'Syncing…' : 'Sync now'}
+            </button>
+            {syncResult ? (
+              <span className="text-sm text-navy-600">
+                {syncResult.configured
+                  ? `${syncResult.fetched} completed renewals — ${syncResult.created} logins created, ${syncResult.updated} updated, ${syncResult.skipped} skipped, ${syncResult.failed} failed.`
+                  : (syncResult.message ?? 'Not configured.')}
+              </span>
+            ) : null}
+          </div>
+          {syncError ? (
+            <div className="rounded-lg bg-red-50 border border-red-200 text-red-800 text-sm px-4 py-2.5">{syncError}</div>
+          ) : null}
         </SettingsSection>
       </div>
     </>

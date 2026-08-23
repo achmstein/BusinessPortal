@@ -23,17 +23,20 @@ public sealed class SettingsService : ISettingsService
     // caches the value captured at startup and never sees reloadOnChange refreshes.
     private readonly IOptionsMonitor<OntraportOptions> _ontraport;
     private readonly IOptionsMonitor<EmailOptions> _email;
+    private readonly IOptionsMonitor<Renewtron.RenewtronOptions> _renewtron;
     private readonly IConfiguration _configuration;
     private readonly string _overridesPath;
 
     public SettingsService(
         IOptionsMonitor<OntraportOptions> ontraport,
         IOptionsMonitor<EmailOptions> email,
+        IOptionsMonitor<Renewtron.RenewtronOptions> renewtron,
         IConfiguration configuration,
         IHostEnvironment environment)
     {
         _ontraport = ontraport;
         _email = email;
+        _renewtron = renewtron;
         _configuration = configuration;
 
         // Match Program.cs: the writable overrides file lives outside the image.
@@ -87,6 +90,19 @@ public sealed class SettingsService : ISettingsService
         UpdateSectionAsync("AbnLookup", new
         {
             ApiToken = settings.ApiToken?.Trim(),
+        }, cancellationToken);
+
+    public RenewtronSettings GetRenewtronSettings()
+    {
+        var r = _renewtron.CurrentValue;
+        return new RenewtronSettings(r.BaseUrl, r.ApiKey);
+    }
+
+    public Task UpdateRenewtronSettingsAsync(RenewtronSettings settings, CancellationToken cancellationToken) =>
+        UpdateSectionAsync(Renewtron.RenewtronOptions.SectionName, new
+        {
+            BaseUrl = settings.BaseUrl?.Trim().TrimEnd('/'),
+            ApiKey = settings.ApiKey?.Trim(),
         }, cancellationToken);
 
     private async Task UpdateSectionAsync(string sectionName, object section, CancellationToken cancellationToken)

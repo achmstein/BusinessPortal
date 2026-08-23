@@ -20,6 +20,7 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
     public DbSet<AbnLookupJob> AbnLookupJobs => Set<AbnLookupJob>();
     public DbSet<AtoSession> AtoSessions => Set<AtoSession>();
     public DbSet<AtoLinkAttempt> AtoLinkAttempts => Set<AtoLinkAttempt>();
+    public DbSet<RenewtronProvisionLog> RenewtronProvisionLogs => Set<RenewtronProvisionLog>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {

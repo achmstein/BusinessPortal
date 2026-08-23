@@ -1493,6 +1493,67 @@
           }
         }
       }
+    },
+    "/api/admin/settings/renewtron": {
+      "get": {
+        "tags": [
+          "Settings"
+        ],
+        "operationId": "GetRenewtronSettings",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RenewtronSettings"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "Settings"
+        ],
+        "operationId": "UpdateRenewtronSettings",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RenewtronSettings"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "No Content"
+          }
+        }
+      }
+    },
+    "/api/admin/settings/renewtron/sync-now": {
+      "post": {
+        "tags": [
+          "Settings"
+        ],
+        "operationId": "RunRenewtronSyncNow",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RenewtronSyncResult"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -2677,17 +2738,6 @@
           }
         }
       },
-      "RenewalResponse": {
-        "required": [
-          "renewalDate"
-        ],
-        "type": "object",
-        "properties": {
-          "renewalDate": {
-            "type": "string"
-          }
-        }
-      },
       "RenewBody": {
         "required": [
           "years"
@@ -2701,6 +2751,81 @@
               "string"
             ],
             "format": "int32"
+          }
+        }
+      },
+      "RenewalResponse": {
+        "required": [
+          "renewalDate"
+        ],
+        "type": "object",
+        "properties": {
+          "renewalDate": {
+            "type": "string"
+          }
+        }
+      },
+      "RenewtronSettings": {
+        "required": [
+          "baseUrl",
+          "apiKey"
+        ],
+        "type": "object",
+        "properties": {
+          "baseUrl": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "apiKey": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
+      "RenewtronSyncResult": {
+        "required": [
+          "configured",
+          "fetched",
+          "created",
+          "updated",
+          "skipped",
+          "failed",
+          "message"
+        ],
+        "type": "object",
+        "properties": {
+          "configured": {
+            "type": "boolean"
+          },
+          "fetched": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "created": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "updated": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "skipped": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "failed": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "message": {
+            "type": [
+              "null",
+              "string"
+            ]
           }
         }
       },

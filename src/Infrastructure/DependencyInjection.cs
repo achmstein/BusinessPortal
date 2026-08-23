@@ -77,14 +77,21 @@ public static class DependencyInjection
             .AddDefaultTokenProviders()
             .AddApiEndpoints();
 
-        // Password-reset links promise "expires in 1 hour" (original PasswordReset TTL).
+        // Reset links double as the set-your-password invite for auto-provisioned
+        // accounts (Renewtron/Ontraport), which sits in an inbox longer than a
+        // just-requested reset — 48h covers both. Tokens still die early when the
+        // password changes (they embed the security stamp). Keep in step with
+        // ResendEmailSender.TokenTtl (the "expires in …" email copy).
         services.Configure<DataProtectionTokenProviderOptions>(options =>
-            options.TokenLifespan = TimeSpan.FromHours(1));
+            options.TokenLifespan = TimeSpan.FromHours(48));
 
         // ─── Email (Resend adapter; console-logs when no API key is configured) ───
+        // Registered as itself too: the invite email (SendInviteAsync) isn't part
+        // of Identity's IEmailSender<TUser> contract.
         services.Configure<EmailOptions>(configuration.GetSection(EmailOptions.SectionName));
         services.AddHttpClient(ResendEmailSender.HttpClientName);
-        services.AddSingleton<IEmailSender<ApplicationUser>, ResendEmailSender>();
+        services.AddSingleton<ResendEmailSender>();
+        services.AddSingleton<IEmailSender<ApplicationUser>>(sp => sp.GetRequiredService<ResendEmailSender>());
 
         // ─── Hangfire (background jobs, stored in the same Postgres DB) ───
         services.AddHangfire(cfg => cfg
@@ -107,6 +114,14 @@ public static class DependencyInjection
         // ─── Ontraport webhooks ───
         services.Configure<OntraportOptions>(configuration.GetSection(OntraportOptions.SectionName));
         services.AddScoped<IOntraportService, OntraportService>();
+
+        // ─── Auto-provisioned portal logins (shared by Ontraport + Renewtron) ───
+        services.AddScoped<UserProvisioningService>();
+
+        // ─── Renewtron completed-renewal sync (recurring job + admin "sync now") ───
+        services.Configure<Renewtron.RenewtronOptions>(configuration.GetSection(Renewtron.RenewtronOptions.SectionName));
+        services.AddHttpClient<Renewtron.RenewtronClient>();
+        services.AddScoped<IRenewtronSyncService, Renewtron.RenewtronSyncService>();
 
         // ─── Admin-editable integration settings (persisted to the overrides file) ───
         services.AddSingleton<ISettingsService, Settings.SettingsService>();

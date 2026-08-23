@@ -14,6 +14,7 @@ public interface IApplicationDbContext
     DbSet<AbnLookupJob> AbnLookupJobs { get; }
     DbSet<AtoSession> AtoSessions { get; }
     DbSet<AtoLinkAttempt> AtoLinkAttempts { get; }
+    DbSet<RenewtronProvisionLog> RenewtronProvisionLogs { get; }
 
     Task<int> SaveChangesAsync(CancellationToken cancellationToken);
 }

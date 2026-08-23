@@ -46,26 +46,57 @@ public sealed class ResendEmailSender(
     // one-click link the original app emailed (reset page reads email+code params).
     public Task SendPasswordResetCodeAsync(ApplicationUser user, string email, string resetCode)
     {
-        var link = $"{options.CurrentValue.SiteUrl.TrimEnd('/')}/reset-password" +
-                   $"?email={Uri.EscapeDataString(email)}&code={Uri.EscapeDataString(resetCode)}";
+        var link = ResetLink(email, resetCode);
         return SendAsync(email, "Reset your Business Portal password",
             ResetHtml(NameOf(user), link), ResetText(NameOf(user), link));
     }
 
+    /// <summary>Set-your-password invite for auto-provisioned accounts (Ontraport
+    /// contact sync, Renewtron renewal sync). The code is a standard password-reset
+    /// token, so the invite reuses the existing /reset-password page.</summary>
+    public Task SendInviteAsync(ApplicationUser user, string email, string resetCode)
+    {
+        var link = ResetLink(email, resetCode);
+        var name = NameOf(user);
+        return SendAsync(email,
+            "Your Business Portal account is ready",
+            $"<p>Hi {EscapeHtml(name)},</p>" +
+            "<p>A Business Portal account has been created for you as part of your business name renewal. " +
+            "You can see your business names and renewal dates, and message our support team, any time.</p>" +
+            $"<p>Click the link below to set your password and sign in. The link expires in {TokenTtl}.</p>" +
+            $"<p><a href=\"{link}\">{link}</a></p>" +
+            $"<p>If the link has expired, use “Forgot password” at {EscapeHtml(LoginUrl)} — it emails you a fresh one.</p>",
+            $"Hi {name},\n\n" +
+            "A Business Portal account has been created for you as part of your business name renewal.\n\n" +
+            $"Set your password and sign in: {link}\n\n" +
+            $"The link expires in {TokenTtl}. If it has expired, use “Forgot password” at {LoginUrl} to get a fresh one.");
+    }
+
+    /// <summary>Matches DataProtectionTokenProviderOptions.TokenLifespan in
+    /// DependencyInjection — update both together.</summary>
+    private const string TokenTtl = "48 hours";
+
+    private string LoginUrl => $"{options.CurrentValue.SiteUrl.TrimEnd('/')}/login";
+
+    private string ResetLink(string email, string resetCode) =>
+        $"{options.CurrentValue.SiteUrl.TrimEnd('/')}/reset-password" +
+        $"?email={Uri.EscapeDataString(email)}&code={Uri.EscapeDataString(resetCode)}";
+
     private string NameOf(ApplicationUser user) =>
         string.IsNullOrWhiteSpace(user.Profile.FirstName) ? user.Email ?? "" : user.Profile.FirstName;
 
-    // Copy ported verbatim from the original requestReset server action.
+    // Copy ported from the original requestReset server action (TTL updated to
+    // match the configured token lifespan).
     private static string ResetHtml(string name, string link) =>
         $"<p>Hi {EscapeHtml(name)},</p>" +
         "<p>Someone (hopefully you) asked to reset the password on your Business Portal account.</p>" +
-        "<p>Click the link below to choose a new one. The link expires in 1 hour.</p>" +
+        $"<p>Click the link below to choose a new one. The link expires in {TokenTtl}.</p>" +
         $"<p><a href=\"{link}\">{link}</a></p>" +
         "<p>If you didn't request this, you can safely ignore this email.</p>";
 
     private static string ResetText(string name, string link) =>
         $"Hi {name},\n\nReset your Business Portal password: {link}\n\n" +
-        "Link expires in 1 hour. If you didn't request this, ignore this email.";
+        $"Link expires in {TokenTtl}. If you didn't request this, ignore this email.";
 
     private async Task SendAsync(string to, string subject, string html, string text)
     {

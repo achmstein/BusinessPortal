@@ -306,12 +306,27 @@ export type RegistryEntityRow = {
     client: RegistryClientRef;
 };
 
+export type RenewBody = {
+    years: number | string;
+};
+
 export type RenewalResponse = {
     renewalDate: string;
 };
 
-export type RenewBody = {
-    years: number | string;
+export type RenewtronSettings = {
+    baseUrl: null | string;
+    apiKey: null | string;
+};
+
+export type RenewtronSyncResult = {
+    configured: boolean;
+    fetched: number;
+    created: number;
+    updated: number;
+    skipped: number;
+    failed: number;
+    message: null | string;
 };
 
 export type ReplyBody = {
@@ -1421,3 +1436,51 @@ export type UnlinkAtoResponses = {
 };
 
 export type UnlinkAtoResponse = UnlinkAtoResponses[keyof UnlinkAtoResponses];
+
+export type GetRenewtronSettingsData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/admin/settings/renewtron';
+};
+
+export type GetRenewtronSettingsResponses = {
+    /**
+     * OK
+     */
+    200: RenewtronSettings;
+};
+
+export type GetRenewtronSettingsResponse = GetRenewtronSettingsResponses[keyof GetRenewtronSettingsResponses];
+
+export type UpdateRenewtronSettingsData = {
+    body: RenewtronSettings;
+    path?: never;
+    query?: never;
+    url: '/api/admin/settings/renewtron';
+};
+
+export type UpdateRenewtronSettingsResponses = {
+    /**
+     * No Content
+     */
+    204: void;
+};
+
+export type UpdateRenewtronSettingsResponse = UpdateRenewtronSettingsResponses[keyof UpdateRenewtronSettingsResponses];
+
+export type RunRenewtronSyncNowData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/admin/settings/renewtron/sync-now';
+};
+
+export type RunRenewtronSyncNowResponses = {
+    /**
+     * OK
+     */
+    200: RenewtronSyncResult;
+};
+
+export type RunRenewtronSyncNowResponse = RunRenewtronSyncNowResponses[keyof RunRenewtronSyncNowResponses];

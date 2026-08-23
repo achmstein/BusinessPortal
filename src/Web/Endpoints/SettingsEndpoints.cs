@@ -62,6 +62,25 @@ public static class SettingsEndpoints
             })
             .WithName("UpdateAbnLookupSettings").Produces(StatusCodes.Status204NoContent);
 
+        // Renewtron admin-API access — drives the completed-renewal login sync.
+        group.MapGet("/renewtron", (ISettingsService settings) =>
+                Results.Ok(settings.GetRenewtronSettings()))
+            .WithName("GetRenewtronSettings").Produces<RenewtronSettings>();
+
+        group.MapPut("/renewtron", async (RenewtronSettings body, ISettingsService settings, CancellationToken ct) =>
+            {
+                await settings.UpdateRenewtronSettingsAsync(body, ct);
+                return Results.NoContent();
+            })
+            .WithName("UpdateRenewtronSettings").Produces(StatusCodes.Status204NoContent);
+
+        // Run the sync in the request so the admin sees the outcome immediately;
+        // the same service runs on the recurring Hangfire schedule. Safe to overlap
+        // with the schedule — every step is idempotent.
+        group.MapPost("/renewtron/sync-now", async (IRenewtronSyncService sync, CancellationToken ct) =>
+                Results.Ok(await sync.SyncAsync(ct)))
+            .WithName("RunRenewtronSyncNow").Produces<RenewtronSyncResult>();
+
         return app;
     }
 }

@@ -1,24 +1,22 @@
-using System.Globalization;
 using System.Security.Cryptography;
 using System.Text;
 using BusinessPortal.Application.Common.Interfaces;
+using BusinessPortal.Domain.Services;
 using BusinessPortal.Infrastructure.Identity;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
 namespace BusinessPortal.Infrastructure.Ontraport;
 
 /// <summary>Handles the Ontraport contact-sync and renewal-paid webhooks. Ported
-/// from app/api/integrations/ontraport/* + lib/ontraport.ts.</summary>
+/// from app/api/integrations/ontraport/* + lib/ontraport.ts. User find-or-create
+/// lives in UserProvisioningService, shared with the Renewtron renewal sync.</summary>
 public class OntraportService(
     UserManager<ApplicationUser> userManager,
+    UserProvisioningService provisioner,
     IApplicationDbContext context,
-    IOptionsMonitor<OntraportOptions> options,
-    IConfiguration configuration,
-    ILogger<OntraportService> logger) : IOntraportService
+    IOptionsMonitor<OntraportOptions> options) : IOntraportService
 {
     // IOptionsMonitor (not IOptions) so secrets saved from the admin Settings UI
     // (overrides file, reloadOnChange) take effect without a restart.
@@ -40,57 +38,30 @@ public class OntraportService(
         if (string.IsNullOrEmpty(mapped.Email))
             return new OntraportResult(400, new { ok = false, error = "email field required" });
 
-        var existing = await userManager.FindByEmailAsync(mapped.Email);
-        if (existing is not null)
-        {
-            // Refresh in place — password / other entities / messages / roles preserved.
-            ApplyProfile(existing, mapped);
-            await ApplyBusinessDataAsync(existing.Id, mapped, ct);
-            await context.SaveChangesAsync(ct);
-            return new OntraportResult(200, new { ok = true, action = "updated", userId = existing.Id });
-        }
-
-        // Create with a temporary password.
-        var temp = GenerateTempPassword();
-        var user = new ApplicationUser
-        {
-            UserName = mapped.Email,
-            Email = mapped.Email,
-            EmailConfirmed = true,
-            CreatedAt = DateTimeOffset.UtcNow,
-            Profile = new UserProfile
-            {
-                FirstName = mapped.Profile.FirstName,
-                LastName = mapped.Profile.LastName,
-                Phone = mapped.Profile.Phone,
-                Dob = mapped.Profile.Dob,
-                Tfn = mapped.Profile.Tfn,
-                Address = mapped.Profile.Address,
-                Suburb = mapped.Profile.Suburb,
-                State = mapped.Profile.State,
-                Postcode = mapped.Profile.Postcode,
-            },
-        };
-
-        var result = await userManager.CreateAsync(user, temp);
-        if (!result.Succeeded)
-        {
-            logger.LogWarning("Ontraport create failed for {Email}: {Errors}",
-                mapped.Email, string.Join("; ", result.Errors.Select(e => e.Description)));
+        // Find-or-create (new accounts get a welcome message + set-password invite
+        // email); existing accounts have their profile refreshed in place.
+        var provision = await provisioner.EnsureUserAsync(mapped.Email, new ProvisionProfile(
+            FirstName: mapped.Profile.FirstName,
+            LastName: mapped.Profile.LastName,
+            Phone: mapped.Profile.Phone,
+            Dob: mapped.Profile.Dob,
+            Tfn: mapped.Profile.Tfn,
+            Address: mapped.Profile.Address,
+            Suburb: mapped.Profile.Suburb,
+            State: mapped.Profile.State,
+            Postcode: mapped.Profile.Postcode), ct);
+        if (provision.User is null)
             return new OntraportResult(500, new { ok = false, error = "could not create user" });
-        }
 
-        context.Messages.Add(WelcomeMessage(user.Id));
-        await ApplyBusinessDataAsync(user.Id, mapped, ct);
+        await ApplyBusinessDataAsync(provision.User.Id, mapped, ct);
         await context.SaveChangesAsync(ct);
 
-        // No mail adapter yet — log the temp password (console fallback, like the
-        // original when RESEND_API_KEY is unset).
-        var loginUrl = (configuration["PublicSiteUrl"] ?? "http://localhost:5173").TrimEnd('/') + "/login";
-        logger.LogInformation("Ontraport created {Email}. Temp password: {Temp} — sign in at {LoginUrl}",
-            mapped.Email, temp, loginUrl);
-
-        return new OntraportResult(200, new { ok = true, action = "created", userId = user.Id });
+        return new OntraportResult(200, new
+        {
+            ok = true,
+            action = provision.Created ? "created" : "updated",
+            userId = provision.User.Id,
+        });
     }
 
     public async Task<OntraportResult> ProcessRenewalPaidAsync(IReadOnlyDictionary<string, string> payload, CancellationToken ct)
@@ -126,7 +97,7 @@ public class OntraportService(
         if (!string.IsNullOrEmpty(transactionId) && bn.RenewalTransactionIds.Contains(transactionId))
             return new OntraportResult(200, new { ok = true, action = "already_processed", userId = user.Id, bnId = bnIdRaw, bnName = bn.Name });
 
-        bn.RenewalDate = AddYears(bn.RenewalDate, years);
+        bn.RenewalDate = RenewalDateMath.Extend(bn.RenewalDate, years);
         if (!string.IsNullOrEmpty(transactionId))
             bn.RenewalTransactionIds = [.. bn.RenewalTransactionIds, transactionId]; // new list → EF detects the change
 
@@ -147,21 +118,6 @@ public class OntraportService(
     }
 
     // ─────────────────────────────────────────────────────────────────────
-
-    private static void ApplyProfile(ApplicationUser user, MappedContact mapped)
-    {
-        var p = user.Profile;
-        var m = mapped.Profile;
-        if (!string.IsNullOrEmpty(m.FirstName)) p.FirstName = m.FirstName;
-        if (!string.IsNullOrEmpty(m.LastName)) p.LastName = m.LastName;
-        if (!string.IsNullOrEmpty(m.Phone)) p.Phone = m.Phone;
-        if (!string.IsNullOrEmpty(m.Dob)) p.Dob = m.Dob;
-        if (!string.IsNullOrEmpty(m.Tfn)) p.Tfn = m.Tfn;
-        if (!string.IsNullOrEmpty(m.Address)) p.Address = m.Address;
-        if (!string.IsNullOrEmpty(m.Suburb)) p.Suburb = m.Suburb;
-        if (!string.IsNullOrEmpty(m.State)) p.State = m.State;
-        if (!string.IsNullOrEmpty(m.Postcode)) p.Postcode = m.Postcode;
-    }
 
     /// <summary>Upsert the single entity (by ABN) and business name (by name) from
     /// the payload. Adds to the tracked context; the caller saves.</summary>
@@ -221,34 +177,4 @@ public class OntraportService(
         }
     }
 
-    private static Message WelcomeMessage(string userId)
-    {
-        var msg = new Message
-        {
-            UserId = userId,
-            Direction = MessageDirection.Inbound,
-            Subject = "Welcome to the Business Portal",
-            Body = "Your Business Name is being Renewed and will be updated on its Renewal Date. Please send any support requests here.",
-            Read = false,
-            AdminRead = true,
-        };
-        msg.ThreadId = msg.Id;
-        return msg;
-    }
-
-    private static string AddYears(string existing, int years)
-    {
-        var today = DateOnly.FromDateTime(DateTime.UtcNow);
-        var baseDate = today;
-        if (DateOnly.TryParse(existing, CultureInfo.InvariantCulture, DateTimeStyles.None, out var d) && d > today)
-            baseDate = d;
-        return baseDate.AddYears(years).ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
-    }
-
-    private static string GenerateTempPassword()
-    {
-        var raw = Convert.ToBase64String(RandomNumberGenerator.GetBytes(9))
-            .Replace("+", "x").Replace("/", "y").Replace("=", string.Empty);
-        return "Bp1!" + raw; // meets Identity's default policy (upper/lower/digit/special)
-    }
 }
