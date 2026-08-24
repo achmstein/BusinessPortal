@@ -2065,39 +2065,11 @@
       },
       "CancelBody": {
         "required": [
-          "scope",
-          "cardName",
-          "cardNumber",
-          "expiry",
-          "ccv"
+          "scope"
         ],
         "type": "object",
         "properties": {
           "scope": {
-            "type": [
-              "null",
-              "string"
-            ]
-          },
-          "cardName": {
-            "type": [
-              "null",
-              "string"
-            ]
-          },
-          "cardNumber": {
-            "type": [
-              "null",
-              "string"
-            ]
-          },
-          "expiry": {
-            "type": [
-              "null",
-              "string"
-            ]
-          },
-          "ccv": {
             "type": [
               "null",
               "string"

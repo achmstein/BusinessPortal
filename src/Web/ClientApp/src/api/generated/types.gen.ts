@@ -129,10 +129,6 @@ export type BusinessNameDto = {
 
 export type CancelBody = {
     scope: null | string;
-    cardName: null | string;
-    cardNumber: null | string;
-    expiry: null | string;
-    ccv: null | string;
 };
 
 export type CreateBusinessEntityCommand = {

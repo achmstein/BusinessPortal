@@ -1,107 +1,190 @@
-import { useEffect, useState } from 'react'
+import { RadioGroup } from '@ark-ui/react/radio-group'
+import { useQuery } from '@tanstack/react-query'
 import { Link, Navigate, useParams, useSearchParams } from 'react-router-dom'
-import { PageHeader } from '../components/PageHeader'
-import { Flash } from '../components/Flash'
-import { RenewTermSelector, type RenewTerm } from '../components/RenewTermSelector'
-import { useAuth } from '../auth/AuthContext'
-import { getBusinessNames, type BusinessNameDto } from '../api/generated'
+import { ArrowLeft } from 'lucide-react'
+import { getBusinessNamesOptions } from '@/api/generated/@tanstack/react-query.gen'
+import { useAuth } from '@/auth/AuthContext'
+import { formatDate } from '@/lib/dates'
+import { extendedRenewalDate, renewalStatus } from '@/lib/renewal'
+import { cn } from '@/lib/cn'
+import { Button, ErrorState, PageHeader, Panel, Skeleton } from '@/ui'
 
-const TERMS: Record<RenewTerm, { years: number; price: number; iframeUrl: string }> = {
-  // Ontraport order forms. Both pages allow iframing (no X-Frame-Options
-  // or frame-ancestors CSP — verified 2026-06-30).
-  // bnId, email, and years are appended as URL params so the Ontraport rule
-  // can stash them on the contact/transaction and our renewal-paid webhook
-  // reads them back when the payment succeeds.
-  '1': { years: 1, price: 99, iframeUrl: 'https://idealbusiness.au/portalpayment' },
-  '3': { years: 3, price: 199, iframeUrl: 'https://idealbusiness.au/portalrenewal3' },
+// ─────────────────────────────────────────────────────────────────────────────
+// Paying to renew.
+//
+// The thing someone is actually buying here is a date — how long their name
+// stays theirs — but the old page showed only a price and a term, leaving the
+// customer to do the arithmetic. Each option now leads with the expiry date it
+// produces, and the price sits underneath.
+//
+// It also opened with three summary tiles and a term selector before the
+// payment form, so on a phone you scrolled past a screen of chrome to reach the
+// thing you came to do. The summary is one line now.
+//
+// Payment stays in the hosted form: card details never reach this application.
+// ─────────────────────────────────────────────────────────────────────────────
+
+type Term = '1' | '3'
+
+const TERMS: Record<Term, { years: number; price: number; url: string }> = {
+  // Ontraport order forms — both allow framing (verified 2026-06-30). bnId,
+  // email and years ride along so the renewal-paid webhook knows which name to
+  // extend when the payment lands.
+  '1': { years: 1, price: 99, url: 'https://idealbusiness.au/portalpayment' },
+  '3': { years: 3, price: 199, url: 'https://idealbusiness.au/portalrenewal3' },
 }
 
-// Markup ported verbatim from the original app/(portal)/asic-renewals/[bnId]/renew/page.tsx.
 export function RenewBusinessNamePage() {
   const { bnId } = useParams<{ bnId: string }>()
-  const [params] = useSearchParams()
+  const [params, setParams] = useSearchParams()
   const { user } = useAuth()
-  const [names, setNames] = useState<BusinessNameDto[] | null>(null)
+  const names = useQuery(getBusinessNamesOptions())
 
-  useEffect(() => {
-    getBusinessNames()
-      .then(({ data }) => setNames(data ?? []))
-      .catch(() => setNames([]))
-  }, [])
+  const term: Term = params.get('term') === '3' ? '3' : '1'
 
-  if (!names || !user) return null
-  const bn = names.find((b) => b.id === bnId)
-  if (!bn) return <Navigate to="/asic-renewals" replace />
+  if (names.isPending) {
+    return (
+      <div className="flex max-w-3xl flex-col gap-4">
+        <Skeleton className="h-10 w-2/3" />
+        <Skeleton className="h-32 w-full" />
+      </div>
+    )
+  }
 
-  const selectedTerm: RenewTerm = params.get('term') === '3' ? '3' : '1'
-  const t = TERMS[selectedTerm]
+  if (names.isError) {
+    return (
+      <ErrorState
+        description="We couldn’t load that business name."
+        action={
+          <Button variant="secondary" onClick={() => void names.refetch()}>
+            Try again
+          </Button>
+        }
+      />
+    )
+  }
 
-  // Pass identifying data through to Ontraport so the renewal-paid webhook
-  // knows which business name to bump when the order completes.
-  const iframeUrl =
-    `${t.iframeUrl}?bnId=${encodeURIComponent(bn.id ?? '')}` +
-    `&email=${encodeURIComponent(user.email ?? '')}` +
-    `&years=${t.years}` +
-    `&firstname=${encodeURIComponent(user.firstName || '')}` +
-    `&lastname=${encodeURIComponent(user.lastName || '')}`
+  const name = (names.data ?? []).find((b) => b.id === bnId)
+  if (!name) return <Navigate to="/asic-renewals" replace />
+
+  const status = renewalStatus(name.renewalDate)
+  const selected = TERMS[term]
+
+  const paymentUrl =
+    `${selected.url}?bnId=${encodeURIComponent(name.id ?? '')}` +
+    `&email=${encodeURIComponent(user?.email ?? '')}` +
+    `&years=${selected.years}` +
+    `&firstname=${encodeURIComponent(user?.firstName ?? '')}` +
+    `&lastname=${encodeURIComponent(user?.lastName ?? '')}`
 
   return (
-    <>
-      <div className="mb-2">
-        <Link to="/asic-renewals" className="text-sm text-brand-700 hover:underline">← ASIC Renewals</Link>
-      </div>
-      <PageHeader title="Renew business name" subtitle={bn.name ?? ''} />
-      <Flash ok={params.get('ok')} err={params.get('err')} />
+    <div className="flex max-w-3xl flex-col gap-6">
+      <Link
+        to="/asic-renewals"
+        className="inline-flex items-center gap-1.5 self-start text-sm text-bottle-600 hover:underline"
+      >
+        <ArrowLeft aria-hidden className="size-3.5" />
+        Back to renewals
+      </Link>
 
-      {/* Summary */}
-      <div className="card-pad mb-6">
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          <Field label="Business name" value={bn.name ?? ''} />
-          <Field label="Current renewal" value={bn.renewalDate ? new Date(bn.renewalDate).toLocaleDateString() : '—'} />
-          <Field label="ASIC key" value={bn.asicKey || '—'} />
-        </div>
-      </div>
+      <PageHeader
+        title="Renew this business name"
+        description={
+          <>
+            <strong className="font-medium text-ink">{name.name}</strong>
+            {name.renewalDate ? (
+              <>
+                {' '}
+                · {status.tone === 'overdue' ? 'was due' : 'currently runs to'}{' '}
+                {formatDate(name.renewalDate)}
+              </>
+            ) : null}
+          </>
+        }
+      />
 
-      {/* Term selector — auto-updates the URL (?term=…) on radio change */}
-      <RenewTermSelector bnId={bn.id ?? ''} selected={selectedTerm} />
+      <fieldset className="flex flex-col gap-3">
+        <legend className="mb-3 font-display text-xl font-medium text-ink">How long for?</legend>
+        <RadioGroup.Root
+          value={term}
+          onValueChange={(details) => setParams({ term: details.value ?? '1' }, { replace: true })}
+        >
+          <div className="grid gap-3 sm:grid-cols-2">
+            {(Object.keys(TERMS) as Term[]).map((key) => {
+              const option = TERMS[key]
+              const until = extendedRenewalDate(name.renewalDate, option.years)
+              const isSelected = key === term
+              return (
+                <RadioGroup.Item
+                  key={key}
+                  value={key}
+                  className={cn(
+                    'flex cursor-pointer flex-col gap-1 rounded-sm p-4 text-left ring-1 transition-colors',
+                    isSelected
+                      ? 'bg-surface-sunken ring-ink'
+                      : 'bg-surface ring-rule-firm hover:bg-surface-sunken/60',
+                  )}
+                >
+                  <span className="flex items-center gap-2">
+                    <RadioGroup.ItemControl
+                      className={cn(
+                        'grid size-4 shrink-0 place-items-center rounded-full ring-1',
+                        isSelected ? 'ring-ink' : 'ring-rule-firm',
+                      )}
+                    >
+                      {isSelected ? <span className="size-2 rounded-full bg-ink" /> : null}
+                    </RadioGroup.ItemControl>
+                    <RadioGroup.ItemText className="text-sm text-sage">
+                      {option.years} year{option.years > 1 ? 's' : ''}
+                    </RadioGroup.ItemText>
+                  </span>
 
-      {/* Total */}
-      <div className="card-pad mb-3 flex items-center justify-between">
-        <h3 className="font-semibold text-navy-900">Payment</h3>
-        <div className="text-right">
-          <div className="text-xs uppercase tracking-wider text-navy-500">
-            Total — {t.years} year{t.years > 1 ? 's' : ''}
+                  {/* The date is what's being bought, so it leads. */}
+                  <span className="font-display text-2xl leading-tight font-medium text-ink">
+                    Yours until {formatDate(until)}
+                  </span>
+                  <span className="text-sm text-sage" data-numeric>
+                    ${option.price}
+                  </span>
+                  <RadioGroup.ItemHiddenInput />
+                </RadioGroup.Item>
+              )
+            })}
           </div>
-          <div className="text-2xl font-bold text-navy-900">${t.price}</div>
-        </div>
-      </div>
+        </RadioGroup.Root>
+      </fieldset>
 
-      {/* Iframed Ontraport order form */}
-      <div className="card-pad p-0 overflow-hidden">
+      <Panel className="flex flex-col gap-0 overflow-hidden p-0">
+        <div className="flex items-baseline justify-between gap-4 border-b border-rule px-5 py-4">
+          <h2 className="font-display text-xl font-medium text-ink">Payment</h2>
+          <span className="text-sm text-sage">
+            <span data-numeric className="text-base font-medium text-ink">
+              ${selected.price}
+            </span>{' '}
+            · {selected.years} year{selected.years > 1 ? 's' : ''}
+          </span>
+        </div>
+
         <iframe
-          key={selectedTerm} // remount on term change so the URL refreshes
-          src={iframeUrl}
-          title={`Pay $${t.price} — ${t.years} year renewal`}
-          className="w-full bg-white"
-          style={{ minHeight: 900, border: 0 }}
+          key={term} // remount so the form picks up the new term
+          src={paymentUrl}
+          title={`Pay $${selected.price} to renew for ${selected.years} year${selected.years > 1 ? 's' : ''}`}
+          // Taller on narrow screens, not shorter: the hosted form stacks its
+          // fields on a phone, so a fixed 900px left it scrolling inside the
+          // frame — a nested scrollbar in the middle of a payment.
+          className="min-h-[68rem] w-full border-0 bg-surface sm:min-h-[56rem]"
           loading="lazy"
         />
-      </div>
+      </Panel>
 
-      <p className="mt-4 text-xs text-navy-500 text-center">
-        Your renewal date will update automatically once payment is confirmed —
-        usually within a minute. You&apos;ll also get a confirmation message in your{' '}
-        <Link to="/messages" className="underline">Messages</Link> inbox.
+      <p className="text-sm text-sage">
+        Your renewal date updates automatically once the payment clears, usually within a minute, and we
+        confirm it in{' '}
+        <Link to="/messages" className="text-bottle-600 hover:underline">
+          Messages
+        </Link>
+        .
       </p>
-    </>
-  )
-}
-
-function Field({ label, value }: { label: string; value: string }) {
-  return (
-    <div>
-      <div className="text-[11px] uppercase tracking-wider text-navy-500">{label}</div>
-      <div className="text-sm font-semibold text-navy-900 truncate">{value}</div>
     </div>
   )
 }

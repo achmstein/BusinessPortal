@@ -53,6 +53,24 @@ export function renewalStatus(
 }
 
 /**
+ * The renewal date a name would carry after renewing for `years`.
+ *
+ * Mirrors RenewalDateMath.Extend on the server: a registration still in date
+ * extends from its existing expiry, a lapsed one from today, so renewing late
+ * never silently loses the customer time. Kept in step with that method —
+ * this is only for showing the outcome before payment; the server decides.
+ */
+export function extendedRenewalDate(
+  renewalDate: string | null | undefined,
+  years: number,
+  now: Date = today(),
+): Date {
+  const current = parseDateOnly(renewalDate)
+  const base = current && current > now ? current : now
+  return new Date(base.getFullYear() + years, base.getMonth(), base.getDate())
+}
+
+/**
  * How far through its registration term a name is, as 0–1.
  *
  * Drives the validity band. Falls back to the renewal window alone when the

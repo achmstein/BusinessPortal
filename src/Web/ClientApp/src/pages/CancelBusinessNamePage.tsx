@@ -1,179 +1,184 @@
-import { useEffect, useState, type FormEvent } from 'react'
-import { Link, Navigate, useNavigate, useParams, useSearchParams } from 'react-router-dom'
-import { PageHeader } from '../components/PageHeader'
-import { Flash } from '../components/Flash'
-import { cancelBusinessName, getBusinessNames, type BusinessNameDto } from '../api/generated'
+import { useState } from 'react'
+import { RadioGroup } from '@ark-ui/react/radio-group'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { Link, Navigate, useNavigate, useParams } from 'react-router-dom'
+import { ArrowLeft } from 'lucide-react'
+import {
+  cancelBusinessNameMutation,
+  getBusinessNamesOptions,
+  getBusinessNamesQueryKey,
+} from '@/api/generated/@tanstack/react-query.gen'
+import { formatDate } from '@/lib/dates'
+import { cn } from '@/lib/cn'
+import {
+  Button,
+  Checkbox,
+  ErrorState,
+  PageHeader,
+  Panel,
+  PanelTitle,
+  Skeleton,
+  toastError,
+  toastSuccess,
+} from '@/ui'
 
-const CANCEL_FEE = 29
+// ─────────────────────────────────────────────────────────────────────────────
+// Cancelling a business name is rare, irreversible, and costs the customer
+// something real — the name can be registered by someone else afterwards. So
+// this page is a confirmation, and the whole design is about making the
+// consequence concrete before the button is available.
+//
+// The payment step is gone. It collected a cardholder name, full card number,
+// expiry and CCV, validated their shape server-side and then discarded them —
+// nothing was ever charged. It was labelled a demo but sat on a live route, so
+// it was pure risk: real customers' card details in request bodies and logs, in
+// exchange for nothing. Renewals already take money the right way, through a
+// hosted form; if a cancellation fee is wanted it belongs there too.
+//
+// Deliberately not a type-the-name-to-confirm gate: that pattern reads as a
+// puzzle to the people who use this portal. A plain acknowledgement and a button
+// that names the business name is clearer and just as deliberate.
+// ─────────────────────────────────────────────────────────────────────────────
+
 type Scope = 'name' | 'name_and_abn'
 
-// Markup ported verbatim from the original app/(portal)/asic-renewals/[bnId]/cancel/page.tsx.
-// The processCancellation server action becomes POST /api/business-names/{id}/cancel.
+const OPTIONS: { value: Scope; title: string; detail: string }[] = [
+  {
+    value: 'name',
+    title: 'Just the business name',
+    detail: 'Your ABN stays active, so you can keep trading under your own name or register a new one.',
+  },
+  {
+    value: 'name_and_abn',
+    title: 'The business name and the ABN',
+    detail:
+      'We’ll cancel the name and raise the ABN cancellation with our team, who action it with the ATO and confirm in Messages.',
+  },
+]
+
 export function CancelBusinessNamePage() {
   const { bnId } = useParams<{ bnId: string }>()
   const navigate = useNavigate()
-  const [params, setParams] = useSearchParams()
-  const [names, setNames] = useState<BusinessNameDto[] | null>(null)
-  const [submitting, setSubmitting] = useState(false)
+  const queryClient = useQueryClient()
+  const names = useQuery(getBusinessNamesOptions())
+  const [scope, setScope] = useState<Scope>('name')
+  const [acknowledged, setAcknowledged] = useState(false)
 
-  useEffect(() => {
-    getBusinessNames()
-      .then(({ data }) => setNames(data ?? []))
-      .catch(() => setNames([]))
-  }, [])
+  const cancel = useMutation({
+    ...cancelBusinessNameMutation(),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: getBusinessNamesQueryKey() })
+      toastSuccess('Business name cancelled', 'We’ve confirmed it in your messages.')
+      navigate('/asic-renewals', { replace: true })
+    },
+    onError: () => toastError('We couldn’t cancel that name', 'Nothing has changed. Try again in a moment.'),
+  })
 
-  if (!names) return null
-  const bn = names.find((b) => b.id === bnId)
-  if (!bn) return <Navigate to="/asic-renewals" replace />
-
-  const selectedScope: Scope = params.get('scope') === 'name_and_abn' ? 'name_and_abn' : 'name'
-
-  // GET form in the original — reflect the radio choice into ?scope= so the
-  // payment form below picks it up.
-  function onUpdateScope(e: FormEvent<HTMLFormElement>) {
-    e.preventDefault()
-    const scope = String(new FormData(e.currentTarget).get('scope') || 'name')
-    setParams({ scope })
+  if (names.isPending) {
+    return (
+      <div className="flex max-w-2xl flex-col gap-4">
+        <Skeleton className="h-10 w-2/3" />
+        <Skeleton className="h-40 w-full" />
+      </div>
+    )
   }
 
-  async function onPay(e: FormEvent<HTMLFormElement>) {
-    e.preventDefault()
-    const form = new FormData(e.currentTarget)
-    const cardName = String(form.get('cardName') || '').trim()
-    const cardNumber = String(form.get('cardNumber') || '').replace(/\s+/g, '')
-    const expiry = String(form.get('expiry') || '').trim()
-    const ccv = String(form.get('ccv') || '').trim()
-
-    if (!cardName || cardNumber.length < 12 || !expiry || ccv.length < 3) {
-      setParams({ scope: selectedScope, err: 'Please complete all card fields' })
-      return
-    }
-
-    setSubmitting(true)
-    try {
-      await cancelBusinessName({
-        path: { id: bn!.id! },
-        body: { scope: selectedScope, cardName, cardNumber, expiry, ccv },
-      })
-      navigate('/asic-renewals?ok=Cancelled+business+name')
-    } catch (e) {
-      const message = (e as { error?: string })?.error
-      setParams({ scope: selectedScope, err: message || 'Could not cancel the business name' })
-      setSubmitting(false)
-    }
+  if (names.isError) {
+    return (
+      <ErrorState
+        description="We couldn’t load that business name."
+        action={
+          <Button variant="secondary" onClick={() => void names.refetch()}>
+            Try again
+          </Button>
+        }
+      />
+    )
   }
+
+  const name = (names.data ?? []).find((b) => b.id === bnId)
+  if (!name) return <Navigate to="/asic-renewals" replace />
 
   return (
-    <>
-      <div className="mb-2">
-        <Link to="/asic-renewals" className="text-sm text-brand-700 hover:underline">← ASIC Renewals</Link>
-      </div>
-      <PageHeader
-        title="Cancel business name"
-        subtitle={bn.name ?? ''}
-      />
-      <Flash ok={params.get('ok')} err={params.get('err')} />
+    <div className="flex max-w-2xl flex-col gap-6">
+      <Link
+        to="/asic-renewals"
+        className="inline-flex items-center gap-1.5 self-start text-sm text-bottle-600 hover:underline"
+      >
+        <ArrowLeft aria-hidden className="size-3.5" />
+        Back to renewals
+      </Link>
 
-      <div className="card-pad border-l-4 border-l-red-400 mb-6">
-        <h3 className="font-semibold text-red-800">This action cannot be undone</h3>
-        <p className="text-sm text-navy-700 mt-1">
-          Once cancelled, the business name can't be used to trade under. If you want to
-          keep using the name later you'll have to register it again from scratch.
+      <PageHeader title="Cancel this business name" description={name.name ?? undefined} />
+
+      <div className="flex flex-col gap-2 rounded-sm border-l-2 border-rust-600 bg-rust-50/60 px-5 py-4">
+        <h2 className="font-display text-lg font-medium text-rust-700">This can’t be undone</h2>
+        <p className="text-sm leading-relaxed text-rust-600">
+          Once <strong className="font-medium">{name.name}</strong> is cancelled you can’t trade under it,
+          and anyone else is free to register it. Getting it back means registering again from scratch — and
+          only if it’s still available.
+          {name.renewalDate ? (
+            <> Its current registration runs until {formatDate(name.renewalDate)}.</>
+          ) : null}
         </p>
       </div>
 
-      {/* Scope selector — GET form so the page reflects choice; payment form below picks it up via hidden input */}
-      <form onSubmit={onUpdateScope} className="card-pad mb-6">
-        <h3 className="font-semibold text-navy-900">What would you like to cancel?</h3>
-        <div className="mt-4 space-y-3">
-          <ScopeOption
-            value="name"
-            title="Just the business name"
-            desc="Cancel only the business name registration. The associated ABN (if any) stays active."
-            selected={selectedScope === 'name'}
-          />
-          <ScopeOption
-            value="name_and_abn"
-            title="The business name AND the ABN"
-            desc="Cancel the business name and also send an ABN cancellation request to the ATO."
-            selected={selectedScope === 'name_and_abn'}
-          />
-        </div>
-        <div className="mt-4 flex justify-end">
-          <button type="submit" className="btn-secondary">Update selection</button>
-        </div>
-      </form>
+      <Panel className="flex flex-col gap-4">
+        <PanelTitle as="h2" className="text-lg">
+          What should we cancel?
+        </PanelTitle>
 
-      {/* Payment */}
-      <form onSubmit={onPay} className="card-pad space-y-4">
-        <div className="flex items-center justify-between">
-          <h3 className="font-semibold text-navy-900">Payment</h3>
-          <div className="text-right">
-            <div className="text-xs uppercase tracking-wider text-navy-500">Cancellation fee</div>
-            <div className="text-2xl font-bold text-navy-900">${CANCEL_FEE}</div>
+        <RadioGroup.Root value={scope} onValueChange={(details) => setScope(details.value as Scope)}>
+          <div className="flex flex-col gap-3">
+            {OPTIONS.map((option) => (
+              <RadioGroup.Item
+                key={option.value}
+                value={option.value}
+                className={cn(
+                  'flex cursor-pointer items-start gap-3 rounded-sm p-4 ring-1 transition-colors',
+                  scope === option.value
+                    ? 'bg-surface-sunken ring-ink'
+                    : 'bg-surface ring-rule-firm hover:bg-surface-sunken/60',
+                )}
+              >
+                <RadioGroup.ItemControl
+                  className={cn(
+                    'mt-0.5 grid size-4 shrink-0 place-items-center rounded-full ring-1 transition-colors',
+                    scope === option.value ? 'ring-ink' : 'ring-rule-firm',
+                  )}
+                >
+                  {scope === option.value ? <span className="size-2 rounded-full bg-ink" /> : null}
+                </RadioGroup.ItemControl>
+                <span className="flex flex-col gap-1">
+                  <RadioGroup.ItemText className="text-sm font-medium text-ink">
+                    {option.title}
+                  </RadioGroup.ItemText>
+                  <span className="text-sm leading-relaxed text-sage">{option.detail}</span>
+                </span>
+                <RadioGroup.ItemHiddenInput />
+              </RadioGroup.Item>
+            ))}
           </div>
-        </div>
+        </RadioGroup.Root>
+      </Panel>
 
-        <div className="rounded-lg bg-amber-50 border border-amber-200 text-amber-900 text-xs px-3 py-2">
-          Demo form — no real card is charged. Replace with your payment processor when wiring this up.
-        </div>
+      <Checkbox checked={acknowledged} onCheckedChange={setAcknowledged}>
+        I understand this is permanent and that {name.name} may be registered by someone else afterwards.
+      </Checkbox>
 
-        <div className="form-grid">
-          <div className="sm:col-span-2">
-            <label className="label">Name on card</label>
-            <input name="cardName" required className="input" placeholder="As it appears on the card" autoComplete="cc-name" />
-          </div>
-          <div className="sm:col-span-2">
-            <label className="label">Card number</label>
-            <input name="cardNumber" required inputMode="numeric" className="input font-mono" placeholder="•••• •••• •••• ••••" autoComplete="cc-number" />
-          </div>
-          <div>
-            <label className="label">Expiry (MM/YY)</label>
-            <input name="expiry" required className="input" placeholder="MM/YY" autoComplete="cc-exp" />
-          </div>
-          <div>
-            <label className="label">CCV</label>
-            <input name="ccv" required inputMode="numeric" maxLength={4} className="input" placeholder="•••" autoComplete="cc-csc" />
-          </div>
-        </div>
-
-        <div className="flex flex-col sm:flex-row gap-2 justify-end pt-2">
-          <Link to="/asic-renewals" className="btn-secondary">Don't cancel</Link>
-          <button type="submit" disabled={submitting} className="btn-danger">
-            {submitting ? 'Processing…' : `Pay $${CANCEL_FEE} and confirm cancellation`}
-          </button>
-        </div>
-      </form>
-    </>
-  )
-}
-
-function ScopeOption({
-  value,
-  title,
-  desc,
-  selected,
-}: {
-  value: Scope
-  title: string
-  desc: string
-  selected: boolean
-}) {
-  return (
-    <label
-      className={`block rounded-lg border p-4 cursor-pointer transition ${
-        selected
-          ? 'border-brand-500 bg-brand-50 ring-2 ring-brand-200'
-          : 'border-navy-200 hover:border-navy-300 bg-white'
-      }`}
-    >
-      <div className="flex items-start gap-3">
-        <input type="radio" name="scope" value={value} defaultChecked={selected} className="mt-1 h-4 w-4" />
-        <div className="flex-1">
-          <div className="font-semibold text-navy-900">{title}</div>
-          <div className="text-sm text-navy-600 mt-1">{desc}</div>
-        </div>
+      <div className="flex flex-wrap justify-end gap-2 border-t border-rule pt-5">
+        <Button asChild variant="ghost">
+          <Link to="/asic-renewals">Keep this name</Link>
+        </Button>
+        <Button
+          variant="danger"
+          disabled={!acknowledged}
+          loading={cancel.isPending}
+          onClick={() => cancel.mutate({ path: { id: name.id! }, body: { scope } })}
+        >
+          Cancel {name.name}
+        </Button>
       </div>
-    </label>
+    </div>
   )
 }

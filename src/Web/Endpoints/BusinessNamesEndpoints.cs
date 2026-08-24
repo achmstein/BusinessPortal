@@ -9,7 +9,7 @@ namespace BusinessPortal.Web.Endpoints;
 
 public static class BusinessNamesEndpoints
 {
-    public record CancelBody(string? Scope, string? CardName, string? CardNumber, string? Expiry, string? Ccv);
+    public record CancelBody(string? Scope);
 
     public static IEndpointRouteBuilder MapBusinessNamesEndpoints(this IEndpointRouteBuilder app)
     {
@@ -43,22 +43,24 @@ public static class BusinessNamesEndpoints
             .WithName("DeleteBusinessName")
             .Produces(StatusCodes.Status204NoContent);
 
-        // Cancellation flow (demo payment). Mirrors processCancellation: presence-check
-        // the card fields (nothing is charged or stored), then remove the name and post
-        // the confirmation/support messages.
+        // Cancellation removes the name and posts the confirmation / ABN support
+        // messages.
+        //
+        // This used to accept a cardholder name, full card number, expiry and CCV,
+        // validate their shape, and then discard them — CancelBusinessNameCommand
+        // takes only the id and the ABN flag, and no processor was ever called.
+        // Nothing was charged, so accepting card details put raw PANs and CCVs into
+        // request bodies (and any request logging) for no purpose at all, while
+        // dragging the whole application into PCI scope. If a cancellation fee is
+        // wanted, take it the way renewals do — through the hosted payment form,
+        // which keeps card data off this server entirely.
         group.MapPost("/{id:guid}/cancel", async (Guid id, CancelBody body, ISender sender) =>
             {
-                var cardNumber = (body.CardNumber ?? string.Empty).Replace(" ", "");
-                if (string.IsNullOrWhiteSpace(body.CardName) || cardNumber.Length < 12 ||
-                    string.IsNullOrWhiteSpace(body.Expiry) || (body.Ccv ?? string.Empty).Trim().Length < 3)
-                    return Results.BadRequest(new ErrorResponse("Please complete all card fields"));
-
                 await sender.Send(new CancelBusinessNameCommand(id, body.Scope == "name_and_abn"));
                 return Results.NoContent();
             })
             .WithName("CancelBusinessName")
-            .Produces(StatusCodes.Status204NoContent)
-            .Produces<ErrorResponse>(StatusCodes.Status400BadRequest);
+            .Produces(StatusCodes.Status204NoContent);
 
         return app;
     }
