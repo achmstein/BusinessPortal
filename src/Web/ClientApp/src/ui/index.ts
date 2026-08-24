@@ -3,6 +3,7 @@
 // detail that can be swapped without touching a single page.
 export { Button, type ButtonProps } from './Button'
 export { Field } from './Field'
+export { Checkbox } from './Checkbox'
 export { Badge } from './Badge'
 export { Dialog, ConfirmDialog } from './Dialog'
 export { ValidityBand } from './ValidityBand'

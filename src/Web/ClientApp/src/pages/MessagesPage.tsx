@@ -1,159 +1,276 @@
-import { useCallback, useEffect, useState, type FormEvent } from 'react'
-import { PageHeader } from '../components/PageHeader'
+import { useEffect, useRef, useState } from 'react'
+import { Accordion } from '@ark-ui/react/accordion'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useForm } from 'react-hook-form'
+import { zodResolver } from '@hookform/resolvers/zod'
+import { z } from 'zod'
+import { ChevronDown } from 'lucide-react'
 import {
-  getMessageThreads,
-  markThreadRead,
-  replyToThread,
-  startThread,
-  type ThreadDto,
-} from '../api/generated'
+  getMessageThreadsOptions,
+  getMessageThreadsQueryKey,
+  markThreadReadMutation,
+  replyToThreadMutation,
+  startThreadMutation,
+} from '@/api/generated/@tanstack/react-query.gen'
+import type { ThreadDto } from '@/api/generated'
+import { formatDateTime } from '@/lib/dates'
+import { cn } from '@/lib/cn'
+import {
+  Button,
+  Dialog,
+  EmptyState,
+  ErrorState,
+  Field,
+  PageHeader,
+  Skeleton,
+  toastError,
+  toastSuccess,
+} from '@/ui'
 
-export function MessagesPage() {
-  const [threads, setThreads] = useState<ThreadDto[]>([])
-  const [flash, setFlash] = useState<{ tone: 'ok' | 'err'; text: string } | null>(null)
+// ─────────────────────────────────────────────────────────────────────────────
+// A support inbox for a relationship that produces a handful of threads a year,
+// not a chat app.
+//
+// What changed and why:
+//
+//  · The compose form no longer occupies the top of the page. If support had
+//    replied to you, their reply was below a form you had to scroll past. New
+//    conversations start from a button; your messages come first.
+//  · Replying happens inside the open thread. Every thread used to render its
+//    own always-visible reply box, so a page of three conversations showed
+//    three empty textareas.
+//  · Opening a thread marks it read. It was a badge-shaped button you had to
+//    find and click, which is not what "read" means.
+//  · Threads sort by unread first, then by recency, and only the newest is
+//    open on arrival.
+// ─────────────────────────────────────────────────────────────────────────────
 
-  const load = useCallback(async () => {
-    try {
-      const { data } = await getMessageThreads()
-      setThreads(data ?? [])
-    } catch { /* ignore */ }
-  }, [])
+const newThreadSchema = z.object({
+  subject: z.string().trim().min(1, 'Give it a subject so we can route it quickly.'),
+  body: z.string().trim().min(1, 'Tell us what you need help with.'),
+})
 
-  useEffect(() => { void load() }, [load])
+const replySchema = z.object({
+  body: z.string().trim().min(1, 'Write a reply before sending.'),
+})
 
-  const totalUnread = threads.reduce((n, t) => n + (Number(t.unreadForClient) || 0), 0)
+type NewThreadForm = z.infer<typeof newThreadSchema>
+type ReplyForm = z.infer<typeof replySchema>
 
-  async function onStart(e: FormEvent<HTMLFormElement>) {
-    e.preventDefault()
-    const form = e.currentTarget
-    const f = new FormData(form)
-    const subject = String(f.get('subject') || '').trim()
-    const body = String(f.get('body') || '').trim()
-    if (!subject || !body) { setFlash({ tone: 'err', text: 'Please fill in both fields' }); return }
-    await startThread({ body: { subject, body } })
-    form.reset()
-    setFlash({ tone: 'ok', text: 'Message sent to support' })
-    await load()
-  }
+function ThreadReply({ threadId, onSent }: { threadId: string; onSent: () => void }) {
+  const form = useForm<ReplyForm>({ resolver: zodResolver(replySchema), defaultValues: { body: '' } })
 
-  async function onReply(threadId: string, e: FormEvent<HTMLFormElement>) {
-    e.preventDefault()
-    const form = e.currentTarget
-    const body = String(new FormData(form).get('body') || '').trim()
-    if (!body) { setFlash({ tone: 'err', text: 'Please enter a reply' }); return }
-    await replyToThread({ path: { threadId }, body: { body } })
-    form.reset()
-    setFlash({ tone: 'ok', text: 'Reply sent' })
-    await load()
-  }
-
-  async function onMarkRead(threadId: string) {
-    await markThreadRead({ path: { threadId } })
-    await load()
-  }
-
-  async function onMarkAllRead() {
-    await Promise.all(
-      threads.filter((t) => Number(t.unreadForClient) > 0 && t.threadId).map((t) => markThreadRead({ path: { threadId: t.threadId! } })),
-    )
-    setFlash({ tone: 'ok', text: 'All messages marked as read' })
-    await load()
-  }
+  const reply = useMutation({
+    ...replyToThreadMutation(),
+    onSuccess: () => {
+      form.reset({ body: '' })
+      onSent()
+      toastSuccess('Reply sent')
+    },
+    onError: () => toastError('Couldn’t send that reply', 'Try again in a moment.'),
+  })
 
   return (
-    <>
+    <form
+      className="flex flex-col gap-3 border-t border-rule pt-4"
+      onSubmit={form.handleSubmit((values) => reply.mutate({ path: { threadId }, body: values }))}
+      noValidate
+    >
+      <Field label="Reply" error={form.formState.errors.body?.message}>
+        <Field.Textarea rows={3} placeholder="Type your reply…" {...form.register('body')} />
+      </Field>
+      <Button type="submit" size="sm" className="self-end" loading={reply.isPending}>
+        Send reply
+      </Button>
+    </form>
+  )
+}
+
+export function MessagesPage() {
+  const queryClient = useQueryClient()
+  const threads = useQuery(getMessageThreadsOptions())
+  const [composing, setComposing] = useState(false)
+  const [openThreads, setOpenThreads] = useState<string[] | null>(null)
+  const markedRef = useRef(new Set<string>())
+
+  const invalidate = () => queryClient.invalidateQueries({ queryKey: getMessageThreadsQueryKey() })
+
+  const markRead = useMutation({ ...markThreadReadMutation(), onSuccess: invalidate })
+
+  const start = useMutation({
+    ...startThreadMutation(),
+    onSuccess: async () => {
+      await invalidate()
+      setComposing(false)
+      newThreadForm.reset({ subject: '', body: '' })
+      toastSuccess('Message sent', 'We usually reply within one business day.')
+    },
+    onError: () => toastError('Couldn’t send that message', 'Try again in a moment.'),
+  })
+
+  const newThreadForm = useForm<NewThreadForm>({
+    resolver: zodResolver(newThreadSchema),
+    defaultValues: { subject: '', body: '' },
+  })
+
+  // Unread first, then most recent. Someone opening this page is nearly always
+  // looking for the thing they haven't read.
+  const list: ThreadDto[] = [...(threads.data ?? [])].sort((a, b) => {
+    const unreadDiff = (Number(b.unreadForClient) || 0) - (Number(a.unreadForClient) || 0)
+    if (unreadDiff !== 0) return unreadDiff
+    return (b.lastActivityAt ?? '').localeCompare(a.lastActivityAt ?? '')
+  })
+
+  // Open the top thread on arrival, once the data exists.
+  const defaultOpen = list[0]?.threadId
+  const value = openThreads ?? (defaultOpen ? [defaultOpen] : [])
+
+  // Opening a thread is reading it. The dependency is a joined string rather
+  // than the arrays themselves, which are rebuilt on every render and would
+  // otherwise re-run this effect continuously.
+  const unreadOpenIds = value
+    .filter((id) => Number(list.find((t) => t.threadId === id)?.unreadForClient) > 0)
+    .join(',')
+  const markReadMutate = markRead.mutate
+
+  useEffect(() => {
+    if (!unreadOpenIds) return
+    for (const threadId of unreadOpenIds.split(',')) {
+      if (markedRef.current.has(threadId)) continue
+      markedRef.current.add(threadId)
+      markReadMutate({ path: { threadId } })
+    }
+  }, [unreadOpenIds, markReadMutate])
+
+  return (
+    <div className="flex flex-col gap-6">
       <PageHeader
-        title="Messages & Support"
-        subtitle="Conversations with our support team. Reply to any message to keep the thread going."
-        actions={totalUnread > 0 ? (
-          <button className="btn-secondary" onClick={onMarkAllRead}>Mark all read</button>
-        ) : undefined}
+        title="Messages"
+        description="Your conversations with our support team."
+        actions={<Button onClick={() => setComposing(true)}>New conversation</Button>}
       />
 
-      {flash ? (
-        <div className={`mb-4 rounded-lg border px-4 py-2.5 text-sm ${flash.tone === 'ok' ? 'bg-accent-50 border-accent-200 text-accent-800' : 'bg-red-50 border-red-200 text-red-800'}`}>
-          {flash.text}
+      {threads.isPending ? (
+        <div className="flex flex-col gap-3">
+          <Skeleton className="h-20 w-full" />
+          <Skeleton className="h-20 w-full" />
         </div>
-      ) : null}
-
-      {/* Start a new thread */}
-      <section className="card-pad">
-        <h3 className="font-semibold text-navy-900">Start a new conversation</h3>
-        <form onSubmit={onStart} className="mt-4 space-y-3">
-          <div>
-            <label className="label">Subject</label>
-            <input name="subject" required className="input" placeholder="What can we help with?" />
-          </div>
-          <div>
-            <label className="label">Message</label>
-            <textarea name="body" rows={4} required className="input" />
-          </div>
-          <div className="flex justify-end">
-            <button type="submit" className="btn-primary">Send to support</button>
-          </div>
-        </form>
-      </section>
-
-      {/* Threads */}
-      <section className="mt-6">
-        {threads.length === 0 ? (
-          <div className="card-pad">
-            <p className="text-sm text-navy-500 italic">No conversations yet.</p>
-          </div>
-        ) : (
-          <ul className="space-y-4">
-            {threads.map((thread) => (
-              <li key={thread.threadId} id={`thread-${thread.threadId}`} className="card-pad scroll-mt-4">
-                <div className="flex items-center justify-between gap-3">
-                  <h3 className="font-semibold text-navy-900 truncate">{thread.subject}</h3>
-                  <div className="flex items-center gap-2 shrink-0">
-                    {Number(thread.unreadForClient) > 0 ? (
-                      <span className="badge-blue">{thread.unreadForClient} new</span>
-                    ) : null}
-                    <span className="text-[11px] text-navy-400">
-                      {thread.lastActivityAt ? new Date(thread.lastActivityAt).toLocaleString() : ''}
+      ) : threads.isError ? (
+        <ErrorState
+          description="We couldn’t load your messages just now."
+          action={
+            <Button variant="secondary" onClick={() => void threads.refetch()}>
+              Try again
+            </Button>
+          }
+        />
+      ) : list.length === 0 ? (
+        <EmptyState
+          title="No messages yet"
+          description="Ask us anything about your business names, renewals or ABN — we usually reply within one business day."
+          action={<Button onClick={() => setComposing(true)}>Start a conversation</Button>}
+        />
+      ) : (
+        <Accordion.Root
+          multiple
+          value={value}
+          onValueChange={(details) => setOpenThreads(details.value)}
+          className="flex flex-col rounded-sm bg-surface ring-1 ring-rule [&>*+*]:border-t [&>*+*]:border-rule"
+        >
+          {list.map((thread) => {
+            const unread = Number(thread.unreadForClient) || 0
+            return (
+              <Accordion.Item key={thread.threadId} value={thread.threadId ?? ''}>
+                <Accordion.ItemTrigger className="flex w-full items-center gap-3 px-5 py-4 text-left hover:bg-surface-sunken/60 sm:px-6">
+                  <span className="min-w-0 flex-1">
+                    <span
+                      className={cn(
+                        'font-display block truncate text-lg leading-tight',
+                        unread > 0 ? 'font-medium text-ink' : 'font-normal text-ink-muted',
+                      )}
+                    >
+                      {thread.subject}
                     </span>
-                  </div>
-                </div>
+                    <span className="mt-0.5 block text-xs text-sage">
+                      {formatDateTime(thread.lastActivityAt)}
+                    </span>
+                  </span>
+                  {unread > 0 ? (
+                    <span className="size-2 shrink-0 rounded-full bg-bottle-600" aria-label={`${unread} unread`} />
+                  ) : null}
+                  <Accordion.ItemIndicator>
+                    <ChevronDown aria-hidden className="size-4 text-sage transition-transform" />
+                  </Accordion.ItemIndicator>
+                </Accordion.ItemTrigger>
 
-                <ul className="mt-4 space-y-3">
-                  {(thread.messages ?? []).map((m) => {
-                    const fromSupport = m.direction === 'Inbound'
-                    return (
-                      <li key={m.id} className={`rounded-lg border p-3 ${fromSupport ? 'bg-brand-50/50 border-brand-100' : 'bg-white border-navy-100'}`}>
-                        <div className="flex items-start justify-between gap-3">
-                          <div className="min-w-0">
-                            <div className="text-xs uppercase tracking-wider text-navy-500">
-                              {fromSupport ? 'Support' : 'You'} · {m.createdAt ? new Date(m.createdAt).toLocaleString() : ''}
-                            </div>
-                            <div className="text-sm text-navy-700 mt-1 whitespace-pre-wrap">{m.body}</div>
-                          </div>
-                          {fromSupport && !m.read ? (
-                            <button className="badge-blue cursor-pointer" onClick={() => thread.threadId && onMarkRead(thread.threadId)}>
-                              New · mark read
-                            </button>
-                          ) : null}
-                        </div>
-                      </li>
-                    )
-                  })}
-                </ul>
+                <Accordion.ItemContent className="px-5 pb-5 sm:px-6">
+                  <ul className="flex flex-col gap-4 pb-4">
+                    {(thread.messages ?? []).map((message) => {
+                      const fromSupport = message.direction === 'Inbound'
+                      return (
+                        <li
+                          key={message.id}
+                          className={cn(
+                            'flex flex-col gap-1 border-l-2 pl-3',
+                            fromSupport ? 'border-bottle-200' : 'border-rule',
+                          )}
+                        >
+                          <p className="text-xs text-sage">
+                            {fromSupport ? 'Our team' : 'You'} · {formatDateTime(message.createdAt)}
+                          </p>
+                          <p className="text-sm leading-relaxed whitespace-pre-wrap text-ink">
+                            {message.body}
+                          </p>
+                        </li>
+                      )
+                    })}
+                  </ul>
 
-                {/* Reply form */}
-                <form onSubmit={(e) => thread.threadId && onReply(thread.threadId, e)} className="mt-4 border-t border-navy-100 pt-4 space-y-3">
-                  <div>
-                    <label className="label">Reply</label>
-                    <textarea name="body" rows={3} required className="input" placeholder="Type your reply…" />
-                  </div>
-                  <div className="flex justify-end">
-                    <button type="submit" className="btn-primary">Send reply</button>
-                  </div>
-                </form>
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
-    </>
+                  {thread.threadId ? (
+                    <ThreadReply threadId={thread.threadId} onSent={() => void invalidate()} />
+                  ) : null}
+                </Accordion.ItemContent>
+              </Accordion.Item>
+            )
+          })}
+        </Accordion.Root>
+      )}
+
+      <Dialog
+        open={composing}
+        onOpenChange={(open) => {
+          setComposing(open)
+          if (!open) newThreadForm.reset({ subject: '', body: '' })
+        }}
+        title="New conversation"
+        description="We usually reply within one business day."
+        footer={
+          <>
+            <Button variant="ghost" onClick={() => setComposing(false)}>
+              Cancel
+            </Button>
+            <Button
+              loading={start.isPending}
+              onClick={newThreadForm.handleSubmit((values) => start.mutate({ body: values }))}
+            >
+              Send message
+            </Button>
+          </>
+        }
+      >
+        <form
+          className="flex flex-col gap-4"
+          onSubmit={newThreadForm.handleSubmit((values) => start.mutate({ body: values }))}
+          noValidate
+        >
+          <Field label="Subject" required error={newThreadForm.formState.errors.subject?.message}>
+            <Field.Input placeholder="What can we help with?" {...newThreadForm.register('subject')} />
+          </Field>
+          <Field label="Message" required error={newThreadForm.formState.errors.body?.message}>
+            <Field.Textarea rows={5} {...newThreadForm.register('body')} />
+          </Field>
+        </form>
+      </Dialog>
+    </div>
   )
 }
