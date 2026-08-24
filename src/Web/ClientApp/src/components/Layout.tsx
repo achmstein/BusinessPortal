@@ -1,44 +1,46 @@
-import { useState } from 'react'
+import { Menu } from '@ark-ui/react/menu'
+import { Portal } from '@ark-ui/react/portal'
+import { ChevronDown, LogOut, UserRound } from 'lucide-react'
 import { NavLink, Outlet, useNavigate } from 'react-router-dom'
-import { BrandLockup } from './Brand'
-import { Icon } from './Icon'
 import { useAuth } from '../auth/AuthContext'
 import { stopImpersonation } from '../api/generated'
+import { Button } from '@/ui'
+import { cn } from '@/lib/cn'
 
-// Visible client nav items — same set/order/icons as the original components/nav.tsx
-// (the hidden items are omitted, matching the original's `hidden: true` filter).
+// ─────────────────────────────────────────────────────────────────────────────
+// The client shell.
+//
+// Two decisions specific to this audience, both departures from the old shell:
+//
+// A light top bar rather than a 288px dark sidebar. The content below is a
+// single-column record spine, and a fixed rail spent a fifth of a laptop screen
+// on seven links; dark chrome also reads as an operations tool rather than the
+// customer's own records.
+//
+// On small screens the nav is a horizontally scrollable strip, not a drawer.
+// People reach this portal once or twice a year, usually from a renewal email —
+// they scan for a destination rather than recalling one, so all seven staying
+// visible beats hiding them behind a hamburger. It also removes an entire class
+// of bug: the old drawer had no focus trap, no Escape handler and a click-only
+// backdrop, so opening it with a keyboard left you stranded.
+// ─────────────────────────────────────────────────────────────────────────────
+
 const NAV_ITEMS = [
-  { href: '/dashboard', label: 'Dashboard', icon: 'home' },
-  { href: '/profile', label: 'Personal Details', icon: 'user' },
-  { href: '/business', label: 'Business Details', icon: 'briefcase' },
-  { href: '/business-names', label: 'Business Names', icon: 'id' },
-  { href: '/asic-renewals', label: 'ASIC Renewals', icon: 'bell' },
-  { href: '/ato-portal', label: 'Link to ATO', icon: 'link' },
-  { href: '/messages', label: 'Messages', icon: 'chat' },
+  { href: '/dashboard', label: 'Overview' },
+  { href: '/business-names', label: 'Business names' },
+  { href: '/asic-renewals', label: 'Renewals' },
+  { href: '/business', label: 'Businesses' },
+  { href: '/ato-portal', label: 'ATO' },
+  { href: '/messages', label: 'Messages' },
+  { href: '/profile', label: 'Your details' },
 ]
-
-function NavList({ onNavigate }: { onNavigate?: () => void }) {
-  return (
-    <nav className="space-y-1">
-      {NAV_ITEMS.map((item) => (
-        <NavLink
-          key={item.href}
-          to={item.href}
-          onClick={onNavigate}
-          className={({ isActive }) => `nav-link ${isActive ? 'nav-link-active' : ''}`}
-        >
-          <Icon name={item.icon} />
-          <span>{item.label}</span>
-        </NavLink>
-      ))}
-    </nav>
-  )
-}
 
 export function Layout() {
   const { user, logout, refresh } = useAuth()
   const navigate = useNavigate()
-  const [open, setOpen] = useState(false)
+
+  const fullName = `${user?.firstName ?? ''} ${user?.lastName ?? ''}`.trim() || (user?.email ?? '')
+  const email = user?.email ?? ''
 
   async function onReturnToAdmin() {
     await stopImpersonation()
@@ -46,81 +48,106 @@ export function Layout() {
     navigate('/admin')
   }
 
-  const fullName = `${user?.firstName ?? ''} ${user?.lastName ?? ''}`.trim() || (user?.email ?? '')
-  const email = user?.email ?? ''
-
   async function onLogout() {
     await logout()
     navigate('/login')
   }
 
-  const signedInFooter = (
-    <div className="border-t border-navy-800 pt-3 mt-3">
-      <div className="px-3">
-        <div className="text-[11px] uppercase tracking-wider text-navy-400">Signed in as</div>
-        <div className="text-sm font-medium truncate">{fullName}</div>
-        <div className="text-xs text-navy-400 truncate">{email}</div>
-      </div>
-      <div className="mt-3 px-1">
-        <button type="button" onClick={onLogout} className="nav-link w-full">
-          <Icon name="logout" />
-          <span>Sign out</span>
-        </button>
-      </div>
-    </div>
-  )
-
   return (
-    <div className="min-h-dvh bg-navy-50">
+    <div className="min-h-dvh bg-paper">
+      <a
+        href="#main"
+        className="sr-only focus:not-sr-only focus:absolute focus:top-2 focus:left-2 focus:z-50 focus:rounded-sm focus:bg-ink focus:px-3 focus:py-2 focus:text-sm focus:text-paper"
+      >
+        Skip to content
+      </a>
+
       {user?.impersonating ? (
-        <div className="sticky top-0 z-50 flex items-center justify-between gap-3 bg-amber-400 text-navy-900 px-4 py-2 text-sm">
-          <span>You are impersonating <strong>{email}</strong>.</span>
-          <button type="button" onClick={onReturnToAdmin} className="rounded-md bg-navy-900 text-white px-3 py-1 text-xs font-semibold hover:bg-navy-800">Return to admin</button>
+        <div className="sticky top-0 z-50 flex flex-wrap items-center justify-between gap-2 bg-brass-50 px-4 py-2 text-sm text-brass-700 ring-1 ring-brass-100">
+          <span>
+            You’re viewing the portal as <strong className="font-medium">{email}</strong>.
+          </span>
+          <Button size="sm" variant="secondary" onClick={onReturnToAdmin}>
+            Return to admin
+          </Button>
         </div>
       ) : null}
-      <div className="lg:flex">
-        {/* Top bar (mobile) */}
-        <div className="lg:hidden sticky top-0 z-30 flex items-center justify-between bg-navy-900 text-white px-4 py-3 shadow">
-          <BrandLockup inverted />
-          <button aria-label="Open menu" onClick={() => setOpen(true)} className="rounded-md p-2 hover:bg-navy-800">
-            <Icon name="menu" />
-          </button>
+
+      <header className="sticky top-0 z-30 border-b border-rule bg-paper/95 backdrop-blur">
+        <div className="mx-auto flex max-w-5xl items-center justify-between gap-4 px-4 py-3 sm:px-6">
+          <NavLink to="/dashboard" className="flex flex-col leading-none">
+            <span className="font-display text-lg font-medium text-ink">Business Portal</span>
+            <span className="text-[0.7rem] tracking-[0.12em] text-sage uppercase">Your records</span>
+          </NavLink>
+
+          <Menu.Root>
+            <Menu.Trigger className="flex items-center gap-2 rounded-sm px-2 py-1.5 text-sm text-ink-muted hover:bg-surface-sunken hover:text-ink">
+              <UserRound aria-hidden className="size-4" />
+              <span className="hidden max-w-[12rem] truncate sm:inline">{fullName}</span>
+              <ChevronDown aria-hidden className="size-3.5 text-sage" />
+            </Menu.Trigger>
+            <Portal>
+              <Menu.Positioner>
+                <Menu.Content className="min-w-56 rounded-sm bg-surface p-1 shadow-overlay ring-1 ring-rule focus:outline-none">
+                  <div className="border-b border-rule px-3 py-2">
+                    <p className="truncate text-sm font-medium text-ink">{fullName}</p>
+                    <p className="truncate text-xs text-sage">{email}</p>
+                  </div>
+                  <Menu.Item
+                    value="profile"
+                    onSelect={() => navigate('/profile')}
+                    className="flex cursor-pointer items-center gap-2 rounded-xs px-3 py-2 text-sm text-ink-muted data-[highlighted]:bg-surface-sunken data-[highlighted]:text-ink"
+                  >
+                    <UserRound aria-hidden className="size-4" />
+                    Your details
+                  </Menu.Item>
+                  <Menu.Item
+                    value="signout"
+                    onSelect={() => void onLogout()}
+                    className="flex cursor-pointer items-center gap-2 rounded-xs px-3 py-2 text-sm text-ink-muted data-[highlighted]:bg-surface-sunken data-[highlighted]:text-ink"
+                  >
+                    <LogOut aria-hidden className="size-4" />
+                    Sign out
+                  </Menu.Item>
+                </Menu.Content>
+              </Menu.Positioner>
+            </Portal>
+          </Menu.Root>
         </div>
 
-        {/* Drawer (mobile) */}
-        {open ? (
-          <div className="lg:hidden fixed inset-0 z-40">
-            <div className="absolute inset-0 bg-black/50" onClick={() => setOpen(false)} />
-            <aside className="absolute left-0 top-0 bottom-0 w-72 max-w-[85%] bg-navy-900 text-white p-4 overflow-y-auto">
-              <div className="flex items-center justify-between mb-6">
-                <BrandLockup inverted />
-                <button aria-label="Close menu" onClick={() => setOpen(false)} className="rounded-md p-2 hover:bg-navy-800">
-                  <Icon name="close" />
-                </button>
-              </div>
-              <NavList onNavigate={() => setOpen(false)} />
-              {signedInFooter}
-            </aside>
-          </div>
-        ) : null}
+        <nav aria-label="Portal sections" className="mx-auto max-w-5xl px-4 sm:px-6">
+          {/* Scrolls horizontally on narrow screens; every destination stays
+              reachable without opening anything. */}
+          <ul className="-mb-px flex gap-1 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+            {NAV_ITEMS.map((item) => (
+              <li key={item.href}>
+                <NavLink
+                  to={item.href}
+                  aria-current={undefined}
+                  className={({ isActive }) =>
+                    cn(
+                      'inline-block border-b-2 px-3 py-2.5 text-sm whitespace-nowrap transition-colors',
+                      isActive
+                        ? 'border-bottle-600 font-medium text-ink'
+                        : 'border-transparent text-sage hover:border-rule-firm hover:text-ink',
+                    )
+                  }
+                >
+                  {({ isActive }) => (
+                    // aria-current is what conveys "you are here" to assistive
+                    // tech; the underline alone is visual-only.
+                    <span aria-current={isActive ? 'page' : undefined}>{item.label}</span>
+                  )}
+                </NavLink>
+              </li>
+            ))}
+          </ul>
+        </nav>
+      </header>
 
-        {/* Sidebar (desktop) */}
-        <aside className="hidden lg:flex lg:flex-col lg:w-72 bg-navy-900 text-white p-4 sticky top-0 h-dvh">
-          <div className="px-2 py-2">
-            <BrandLockup inverted />
-          </div>
-          <div className="mt-4 flex-1 overflow-y-auto pr-1">
-            <NavList />
-          </div>
-          {signedInFooter}
-        </aside>
-
-        <main className="flex-1 min-w-0">
-          <div className="max-w-6xl mx-auto p-4 sm:p-6 lg:p-10">
-            <Outlet />
-          </div>
-        </main>
-      </div>
+      <main id="main" className="mx-auto max-w-5xl px-4 py-8 sm:px-6 sm:py-10">
+        <Outlet />
+      </main>
     </div>
   )
 }

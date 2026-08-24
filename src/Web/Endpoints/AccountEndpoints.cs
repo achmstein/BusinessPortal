@@ -29,8 +29,10 @@ public static class AccountEndpoints
                 CancellationToken ct) =>
             {
                 var email = body.Email.Trim().ToLowerInvariant();
-                if (string.IsNullOrEmpty(email) || body.Password.Length < 6)
-                    return Results.BadRequest(new ErrorResponse("Email and a password of 6+ characters required"));
+                // Matches Identity's configured RequiredLength and what the
+                // register screen tells people — all three move together.
+                if (string.IsNullOrEmpty(email) || body.Password.Length < 8)
+                    return Results.BadRequest(new ErrorResponse("Enter an email address and a password of at least 8 characters."));
                 if (await users.FindByEmailAsync(email) is not null)
                     return Results.BadRequest(new ErrorResponse("An account with that email already exists"));
 

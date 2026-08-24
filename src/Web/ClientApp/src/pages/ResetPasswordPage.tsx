@@ -1,92 +1,121 @@
-import { useState, type FormEvent } from 'react'
+import { useForm } from 'react-hook-form'
+import { zodResolver } from '@hookform/resolvers/zod'
+import { useMutation } from '@tanstack/react-query'
+import { z } from 'zod'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
-import { BrandLockup } from '../components/Brand'
-import { postApiResetPassword } from '../api/generated'
+import { postApiResetPassword } from '@/api/generated'
+import { AuthShell } from '@/components/AuthShell'
+import { Button, Field } from '@/ui'
 
-// Markup ported verbatim from the original app/reset-password/page.tsx. The
-// emailed link carries ?email=…&code=… (Identity's reset code instead of the
-// original PasswordReset token); submit hits /api/resetPassword.
+// This screen has two audiences reached by the same link. Someone who forgot
+// their password is *re*setting one; someone who was invited after renewing a
+// business name is choosing their first. The invite email carries `welcome=1`
+// so we don't tell a brand-new customer to pick a "new" password they never had.
+
+const schema = z
+  .object({
+    password: z.string().min(8, 'Use at least 8 characters.'),
+    confirm: z.string(),
+  })
+  .refine((values) => values.password === values.confirm, {
+    message: 'Both passwords need to match.',
+    path: ['confirm'],
+  })
+
+type ResetForm = z.infer<typeof schema>
+
 export function ResetPasswordPage() {
   const navigate = useNavigate()
   const [params] = useSearchParams()
-  const [error, setError] = useState<string | null>(null)
-  const [submitting, setSubmitting] = useState(false)
 
-  const email = params.get('email') || ''
-  const code = params.get('code') || ''
-  // The original validated the token up-front; Identity can only check on
-  // submit, so up-front we can only catch a missing/mangled link.
-  const valid = !!email && !!code
+  const email = params.get('email') ?? ''
+  const code = params.get('code') ?? ''
+  const welcome = params.get('welcome') === '1'
+  const linkUsable = Boolean(email && code)
 
-  async function onSubmit(e: FormEvent<HTMLFormElement>) {
-    e.preventDefault()
-    const form = new FormData(e.currentTarget)
-    const password = String(form.get('password') || '')
-    const confirm = String(form.get('confirm') || '')
+  const form = useForm<ResetForm>({
+    resolver: zodResolver(schema),
+    defaultValues: { password: '', confirm: '' },
+  })
 
-    if (password.length < 8) {
-      setError('Password must be at least 8 characters')
-      return
-    }
-    if (password !== confirm) {
-      setError('Passwords do not match')
-      return
-    }
+  const submit = useMutation({
+    mutationFn: (values: ResetForm) =>
+      postApiResetPassword({ body: { email, resetCode: code, newPassword: values.password } }),
+    onSuccess: () => {
+      const notice = welcome
+        ? 'Your password is set — sign in to see your records.'
+        : 'Your password has been changed. Sign in with it now.'
+      navigate(`/login?notice=${encodeURIComponent(notice)}`, { replace: true })
+    },
+    onError: () => {
+      // Identity can only judge the token on submit, and an expired link is by
+      // far the likeliest cause. Say so on the field rather than bouncing the
+      // person to another page with an error in the query string.
+      form.setError('password', {
+        message: 'This link has expired or has already been used. Request a new one below.',
+      })
+    },
+  })
 
-    setSubmitting(true)
-    try {
-      await postApiResetPassword({ body: { email, resetCode: code, newPassword: password } })
-      navigate('/login?error=Password+updated.+Please+sign+in.')
-    } catch {
-      navigate('/forgot-password?error=Reset+link+is+invalid+or+expired.+Request+a+new+one.')
-    }
+  if (!linkUsable) {
+    return (
+      <AuthShell
+        title="This link won’t work"
+        description="The address is missing part of the link — it may have been broken across two lines by your email app."
+      >
+        <Button asChild size="lg" className="w-full">
+          <Link to="/forgot-password">Send me a new link</Link>
+        </Button>
+      </AuthShell>
+    )
   }
 
   return (
-    <main className="min-h-dvh flex items-center justify-center p-6 bg-navy-50">
-      <div className="w-full max-w-md">
-        <div className="mb-8">
-          <BrandLockup />
-        </div>
-        <div className="card-pad">
-          <h1 className="text-2xl font-bold text-navy-900">Choose a new password</h1>
+    <AuthShell
+      title={welcome ? 'Choose a password' : 'Choose a new password'}
+      description={
+        welcome ? (
+          <>
+            This sets up sign-in for <strong className="font-medium text-ink">{email}</strong>. You’ll use it
+            to check your business names and renewal dates.
+          </>
+        ) : (
+          <>
+            You’re resetting the password for <strong className="font-medium text-ink">{email}</strong>.
+          </>
+        )
+      }
+      footer={
+        <>
+          Link expired?{' '}
+          <Link to="/forgot-password" className="text-bottle-600 hover:underline">
+            Send a new one
+          </Link>
+        </>
+      }
+    >
+      <form
+        className="flex flex-col gap-4"
+        onSubmit={form.handleSubmit((values) => submit.mutate(values))}
+        noValidate
+      >
+        <Field
+          label="Password"
+          required
+          hint="At least 8 characters. A short phrase is easier to remember than a jumble."
+          error={form.formState.errors.password?.message}
+        >
+          <Field.Input type="password" autoComplete="new-password" autoFocus {...form.register('password')} />
+        </Field>
 
-          {!valid ? (
-            <>
-              <div className="mt-6 rounded-lg bg-red-50 border border-red-200 text-red-800 text-sm px-4 py-2.5">
-                This reset link is invalid or has expired.
-              </div>
-              <p className="mt-6 text-sm text-navy-600 text-center">
-                <Link to="/forgot-password" className="text-brand-700 font-semibold hover:underline">
-                  Request a new reset link
-                </Link>
-              </p>
-            </>
-          ) : (
-            <>
-              {error ? (
-                <div className="mt-6 rounded-lg bg-red-50 border border-red-200 text-red-800 text-sm px-4 py-2.5">
-                  {error}
-                </div>
-              ) : null}
+        <Field label="Confirm password" required error={form.formState.errors.confirm?.message}>
+          <Field.Input type="password" autoComplete="new-password" {...form.register('confirm')} />
+        </Field>
 
-              <form onSubmit={onSubmit} className="mt-6 space-y-4">
-                <div>
-                  <label className="label" htmlFor="password">New password</label>
-                  <input id="password" name="password" type="password" minLength={8} required className="input" placeholder="At least 8 characters" />
-                </div>
-                <div>
-                  <label className="label" htmlFor="confirm">Confirm password</label>
-                  <input id="confirm" name="confirm" type="password" minLength={8} required className="input" />
-                </div>
-                <button type="submit" disabled={submitting} className="btn-primary w-full">
-                  {submitting ? 'Saving…' : 'Set new password'}
-                </button>
-              </form>
-            </>
-          )}
-        </div>
-      </div>
-    </main>
+        <Button type="submit" size="lg" loading={submit.isPending} className="mt-1 w-full">
+          {welcome ? 'Set password and continue' : 'Save new password'}
+        </Button>
+      </form>
+    </AuthShell>
   )
 }

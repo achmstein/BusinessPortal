@@ -59,7 +59,9 @@ public sealed class ResendEmailSender(
     /// token, so the invite reuses the existing /reset-password page.</summary>
     public Task SendInviteAsync(ApplicationUser user, string email, string resetCode)
     {
-        var link = ResetLink(email, resetCode);
+        // welcome=1 tells the reset page this person is choosing a first
+        // password, not replacing a forgotten one — the copy differs.
+        var link = ResetLink(email, resetCode) + "&welcome=1";
         var name = NameOf(user);
         return SendAsync(email,
             "Your Business Portal account is ready",

@@ -1,109 +1,103 @@
-import { useState, type FormEvent } from 'react'
+import { useForm } from 'react-hook-form'
+import { zodResolver } from '@hookform/resolvers/zod'
+import { useMutation } from '@tanstack/react-query'
+import { z } from 'zod'
 import { Link, useNavigate } from 'react-router-dom'
-import { BrandLockup } from '../components/Brand'
-import { registerAccount } from '../api/generated'
-import { useAuth } from '../auth/AuthContext'
+import { registerAccount } from '@/api/generated'
+import { useAuth } from '@/auth/AuthContext'
+import { AuthShell } from '@/components/AuthShell'
+import { Button, Field } from '@/ui'
 
-// Markup ported verbatim from the original app/register/page.tsx. The server
-// action is replaced by a client submit against /api/account/register, which
-// seeds the profile + welcome message and starts the session.
+// Most people never see this page — an account is created for them when they
+// renew a business name. So it opens by saying so: someone who already has an
+// account and doesn't realise it would otherwise register a second one under a
+// different address and find none of their records in it.
+
+const schema = z.object({
+  firstName: z.string().trim().min(1, 'Enter your first name.'),
+  lastName: z.string().trim().min(1, 'Enter your last name.'),
+  email: z
+    .string()
+    .trim()
+    .min(1, 'Enter your email address.')
+    .email('That doesn’t look like an email address.'),
+  password: z.string().min(8, 'Use at least 8 characters.'),
+})
+
+type RegisterForm = z.infer<typeof schema>
+
 export function RegisterPage() {
   const navigate = useNavigate()
   const { refresh } = useAuth()
-  const [error, setError] = useState<string | null>(null)
-  const [submitting, setSubmitting] = useState(false)
 
-  async function onSubmit(e: FormEvent<HTMLFormElement>) {
-    e.preventDefault()
-    setError(null)
-    setSubmitting(true)
-    const form = new FormData(e.currentTarget)
-    try {
-      await registerAccount({
-        body: {
-          firstName: String(form.get('firstName') || '').trim(),
-          lastName: String(form.get('lastName') || '').trim(),
-          email: String(form.get('email') || '').trim().toLowerCase(),
-          password: String(form.get('password') || ''),
-        },
-      })
+  const form = useForm<RegisterForm>({
+    resolver: zodResolver(schema),
+    defaultValues: { firstName: '', lastName: '', email: '', password: '' },
+  })
+
+  const create = useMutation({
+    mutationFn: (values: RegisterForm) =>
+      registerAccount({ body: { ...values, email: values.email.toLowerCase() } }),
+    onSuccess: async () => {
       await refresh()
-      navigate('/dashboard')
-    } catch (e) {
-      const message = (e as { error?: string })?.error
-      setError(message || 'Could not create the account. Try again shortly.')
-      setSubmitting(false)
-    }
-  }
+      navigate('/dashboard', { replace: true })
+    },
+    onError: () => {
+      form.setError('email', {
+        message: 'We couldn’t create that account. You may already have one — try signing in instead.',
+      })
+    },
+  })
 
   return (
-    <main className="min-h-dvh grid lg:grid-cols-2">
-      <section className="hidden lg:flex flex-col justify-between bg-navy-900 text-white p-12 relative overflow-hidden">
-        <div className="absolute -top-24 -right-24 w-96 h-96 rounded-full bg-brand-600/30 blur-3xl" />
-        <div className="absolute -bottom-24 -left-24 w-96 h-96 rounded-full bg-accent-500/20 blur-3xl" />
-        <BrandLockup inverted />
-        <div className="relative">
-          <h1 className="text-4xl font-bold leading-tight">
-            Set up your business portal in under a minute.
-          </h1>
-          <p className="mt-4 text-navy-300 max-w-md">
-            Free to create. Everything saved securely to your account, ready
-            when you log back in from any device.
-          </p>
+    <AuthShell
+      title="Create an account"
+      description="If you’ve renewed a business name with us before, you already have one — sign in rather than creating a second."
+      footer={
+        <>
+          Already have an account?{' '}
+          <Link to="/login" className="text-bottle-600 hover:underline">
+            Sign in
+          </Link>
+        </>
+      }
+    >
+      <form
+        className="flex flex-col gap-4"
+        onSubmit={form.handleSubmit((values) => create.mutate(values))}
+        noValidate
+      >
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <Field label="First name" required error={form.formState.errors.firstName?.message}>
+            <Field.Input autoComplete="given-name" autoFocus {...form.register('firstName')} />
+          </Field>
+          <Field label="Last name" required error={form.formState.errors.lastName?.message}>
+            <Field.Input autoComplete="family-name" {...form.register('lastName')} />
+          </Field>
         </div>
-        <div className="relative text-xs text-navy-400">
-          © {new Date().getFullYear()} Business Portal
-        </div>
-      </section>
 
-      <section className="flex items-center justify-center p-6 sm:p-12">
-        <div className="w-full max-w-md">
-          <div className="lg:hidden mb-8">
-            <BrandLockup />
-          </div>
-          <h2 className="text-2xl font-bold text-navy-900">Create your account</h2>
-          <p className="mt-1 text-sm text-navy-500">
-            Just the basics — you can fill in the rest after you log in.
-          </p>
+        <Field
+          label="Email"
+          required
+          hint="Use the address you gave us when you renewed."
+          error={form.formState.errors.email?.message}
+        >
+          <Field.Input type="email" autoComplete="email" {...form.register('email')} />
+        </Field>
 
-          {error ? (
-            <div className="mt-6 rounded-lg bg-red-50 border border-red-200 text-red-800 text-sm px-4 py-2.5">
-              {error}
-            </div>
-          ) : null}
+        <Field
+          label="Password"
+          required
+          hint="At least 8 characters."
+          error={form.formState.errors.password?.message}
+        >
+          <Field.Input type="password" autoComplete="new-password" {...form.register('password')} />
+        </Field>
 
-          <form onSubmit={onSubmit} className="mt-6 space-y-4">
-            <div className="form-grid">
-              <div>
-                <label className="label" htmlFor="firstName">First name</label>
-                <input id="firstName" name="firstName" required className="input" />
-              </div>
-              <div>
-                <label className="label" htmlFor="lastName">Last name</label>
-                <input id="lastName" name="lastName" required className="input" />
-              </div>
-            </div>
-            <div>
-              <label className="label" htmlFor="email">Email</label>
-              <input id="email" name="email" type="email" required className="input" placeholder="you@business.com" />
-            </div>
-            <div>
-              <label className="label" htmlFor="password">Password</label>
-              <input id="password" name="password" type="password" minLength={6} required className="input" placeholder="At least 6 characters" />
-            </div>
-            <button type="submit" disabled={submitting} className="btn-primary w-full">
-              {submitting ? 'Creating…' : 'Create account'}
-            </button>
-          </form>
-
-          <p className="mt-6 text-sm text-navy-600">
-            Already have an account?{' '}
-            <Link to="/login" className="text-brand-700 font-semibold hover:underline">
-              Sign in
-            </Link>
-          </p>
-        </div>
-      </section>
-    </main>
+        <Button type="submit" size="lg" loading={create.isPending} className="mt-1 w-full">
+          Create account
+        </Button>
+      </form>
+    </AuthShell>
   )
 }

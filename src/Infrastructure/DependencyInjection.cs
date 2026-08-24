@@ -63,9 +63,12 @@ public static class DependencyInjection
         services.AddIdentityCore<ApplicationUser>(options =>
             {
                 options.SignIn.RequireConfirmedAccount = false;
-                // Match the original portal's password rule: 6+ characters, no
-                // composition requirements (register enforced only length >= 6).
-                options.Password.RequiredLength = 6;
+                // 8+ characters, no composition requirements. Length beats
+                // symbol-juggling for memorability, and the original 6 was low
+                // for accounts holding a TFN. Existing passwords keep working —
+                // this applies when one is set or changed. Keep in step with the
+                // rule the reset and register screens state.
+                options.Password.RequiredLength = 8;
                 options.Password.RequireDigit = false;
                 options.Password.RequireLowercase = false;
                 options.Password.RequireUppercase = false;

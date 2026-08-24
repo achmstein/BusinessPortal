@@ -1,73 +1,103 @@
-import { useState, type FormEvent } from 'react'
-import { Link, useSearchParams } from 'react-router-dom'
-import { BrandLockup } from '../components/Brand'
-import { postApiForgotPassword } from '../api/generated'
+import { useForm } from 'react-hook-form'
+import { zodResolver } from '@hookform/resolvers/zod'
+import { useMutation } from '@tanstack/react-query'
+import { z } from 'zod'
+import { Link } from 'react-router-dom'
+import { postApiForgotPassword } from '@/api/generated'
+import { AuthShell } from '@/components/AuthShell'
+import { Button, Field } from '@/ui'
 
-// Markup ported verbatim from the original app/forgot-password/page.tsx. The
-// requestReset server action becomes a client submit against Identity's
-// /api/forgotPassword; the emailed link carries the reset code.
+const schema = z.object({
+  email: z
+    .string()
+    .trim()
+    .min(1, 'Enter your email address.')
+    .email('That doesn’t look like an email address.'),
+})
+
+type ForgotForm = z.infer<typeof schema>
+
 export function ForgotPasswordPage() {
-  const [params, setParams] = useSearchParams()
-  const [submitting, setSubmitting] = useState(false)
-  const error = params.get('error')
-  const ok = params.get('ok')
+  const form = useForm<ForgotForm>({ resolver: zodResolver(schema), defaultValues: { email: '' } })
 
-  async function onSubmit(e: FormEvent<HTMLFormElement>) {
-    e.preventDefault()
-    const email = String(new FormData(e.currentTarget).get('email') || '').trim().toLowerCase()
-    if (!email) {
-      setParams({ error: 'Please enter your email' })
-      return
-    }
-    setSubmitting(true)
-    try {
-      await postApiForgotPassword({ body: { email } })
-    } catch { /* same response either way — don't leak which emails exist */ }
-    setSubmitting(false)
-    // Always show the same response regardless of whether the email matched.
-    setParams({ ok: 'If the email is registered, a reset link has been sent.' })
+  const request = useMutation({
+    mutationFn: async (values: ForgotForm) => {
+      try {
+        await postApiForgotPassword({ body: { email: values.email.toLowerCase() } })
+      } catch {
+        // Deliberately identical outcome either way. Surfacing a failure here
+        // would let anyone test which of your customers' addresses have
+        // accounts, so the request never reports whether it matched one.
+      }
+    },
+  })
+
+  // A confirmation replaces the form rather than stacking a banner above a form
+  // that still invites another submit.
+  if (request.isSuccess) {
+    const email = form.getValues('email')
+    return (
+      <AuthShell
+        title="Check your email"
+        description={
+          <>
+            If <strong className="font-medium text-ink">{email}</strong> has an account, a link to choose a
+            new password is on its way. It works for 48 hours.
+          </>
+        }
+        footer={
+          <>
+            Nothing arrived? Check your spam folder, or{' '}
+            <button
+              type="button"
+              onClick={() => request.reset()}
+              className="text-bottle-600 underline-offset-2 hover:underline"
+            >
+              try a different address
+            </button>
+            .
+          </>
+        }
+      >
+        <Button asChild size="lg" className="w-full">
+          <Link to="/login">Back to sign in</Link>
+        </Button>
+      </AuthShell>
+    )
   }
 
   return (
-    <main className="min-h-dvh flex items-center justify-center p-6 bg-navy-50">
-      <div className="w-full max-w-md">
-        <div className="mb-8">
-          <BrandLockup />
-        </div>
-        <div className="card-pad">
-          <h1 className="text-2xl font-bold text-navy-900">Forgot your password?</h1>
-          <p className="mt-1 text-sm text-navy-500">
-            Enter your email and we'll send you a link to set a new password.
-          </p>
+    <AuthShell
+      title="Reset your password"
+      description="We’ll email you a link to choose a new one."
+      footer={
+        <>
+          Remembered it?{' '}
+          <Link to="/login" className="text-bottle-600 hover:underline">
+            Back to sign in
+          </Link>
+        </>
+      }
+    >
+      <form
+        className="flex flex-col gap-4"
+        onSubmit={form.handleSubmit((values) => request.mutate(values))}
+        noValidate
+      >
+        <Field label="Email" required error={form.formState.errors.email?.message}>
+          <Field.Input
+            type="email"
+            autoComplete="email"
+            autoFocus
+            {...form.register('email')}
+            placeholder="you@yourbusiness.com.au"
+          />
+        </Field>
 
-          {error ? (
-            <div className="mt-6 rounded-lg bg-red-50 border border-red-200 text-red-800 text-sm px-4 py-2.5">
-              {error}
-            </div>
-          ) : null}
-          {ok ? (
-            <div className="mt-6 rounded-lg bg-accent-50 border border-accent-200 text-accent-800 text-sm px-4 py-2.5">
-              {ok}
-            </div>
-          ) : null}
-
-          <form onSubmit={onSubmit} className="mt-6 space-y-4">
-            <div>
-              <label className="label" htmlFor="email">Email</label>
-              <input id="email" name="email" type="email" required className="input" />
-            </div>
-            <button type="submit" disabled={submitting} className="btn-primary w-full">
-              {submitting ? 'Sending…' : 'Send reset link'}
-            </button>
-          </form>
-
-          <p className="mt-6 text-sm text-navy-600 text-center">
-            <Link to="/login" className="text-brand-700 font-semibold hover:underline">
-              ← Back to sign in
-            </Link>
-          </p>
-        </div>
-      </div>
-    </main>
+        <Button type="submit" size="lg" loading={request.isPending} className="mt-1 w-full">
+          Email me a link
+        </Button>
+      </form>
+    </AuthShell>
   )
 }
