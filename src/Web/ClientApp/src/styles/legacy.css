@@ -1,0 +1,134 @@
+/* ═══════════════════════════════════════════════════════════════════════════
+   TEMPORARY — delete as screens migrate to the Registry system.
+
+   The 30 screens ported from the Next.js app reference a palette that no longer
+   exists (`navy-*` was Tailwind slate renamed, `brand-*` was Tailwind indigo)
+   and a handful of component classes. Rather than rewrite every screen in one
+   commit, this maps the old names onto Registry tokens so the app keeps
+   working, and each screen drops its dependency on this file as it is rebuilt.
+
+   Nothing new may use these — new work imports from src/ui. When the last
+   reference disappears, delete this file and its @import in index.css.
+
+   Note: Tailwind v4 cannot `@apply` a component class, so the shared button and
+   badge bases are written out in each rule rather than composed. That is the
+   correct v4 idiom and another reason this file is not worth keeping.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+@theme {
+  /* Old neutral ramp → Registry's warm neutrals. */
+  --color-navy-50: #fcfaf6;
+  --color-navy-100: #f5f1e8;
+  --color-navy-200: #e4ddcf;
+  --color-navy-300: #cfc5b2;
+  --color-navy-400: #9aa094;
+  --color-navy-500: #6e7a70;
+  --color-navy-600: #55504a;
+  --color-navy-700: #443f39;
+  --color-navy-800: #302c27;
+  --color-navy-900: #221f1a;
+  --color-navy-950: #171511;
+
+  /* Old indigo primary → bottle. */
+  --color-brand-50: #eaf0ea;
+  --color-brand-100: #d3e0d6;
+  --color-brand-200: #a9c2b0;
+  --color-brand-500: #2a6149;
+  --color-brand-600: #1c4634;
+  --color-brand-700: #143528;
+  --color-brand-800: #0e2419;
+  --color-brand-900: #0e2419;
+
+  /* Old emerald "accent" → bottle as well; Registry has no second green. */
+  --color-accent-50: #eaf0ea;
+  --color-accent-100: #d3e0d6;
+  --color-accent-500: #2a6149;
+  --color-accent-600: #1c4634;
+  --color-accent-700: #143528;
+  --color-accent-800: #143528;
+  --color-accent-900: #0e2419;
+
+  --shadow-card: 0 1px 2px rgb(34 31 26 / 0.04), 0 1px 3px rgb(34 31 26 / 0.06);
+  --shadow-soft: 0 4px 20px rgb(34 31 26 / 0.06);
+}
+
+@layer components {
+  .btn,
+  .btn-primary,
+  .btn-secondary,
+  .btn-accent,
+  .btn-danger,
+  .btn-ghost {
+    @apply inline-flex items-center justify-center gap-2 rounded-sm px-4 py-2.5 text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50;
+  }
+  .btn-primary {
+    @apply bg-ink text-paper hover:bg-ink/90;
+  }
+  .btn-secondary {
+    @apply bg-surface text-ink ring-1 ring-rule-firm hover:bg-surface-sunken;
+  }
+  .btn-accent {
+    @apply bg-bottle-600 text-paper hover:bg-bottle-700;
+  }
+  .btn-danger {
+    @apply bg-rust-600 text-paper hover:bg-rust-700;
+  }
+  .btn-ghost {
+    @apply text-ink-muted hover:bg-surface-sunken hover:text-ink;
+  }
+
+  .input {
+    @apply block w-full rounded-sm bg-surface px-3 py-2.5 text-sm text-ink ring-1 ring-rule-firm placeholder:text-sage/70 focus:outline-none focus-visible:ring-2 focus-visible:ring-bottle-500;
+  }
+  .label {
+    @apply mb-1.5 block text-sm font-medium text-ink-muted;
+  }
+  .card,
+  .card-pad {
+    @apply rounded-sm bg-surface ring-1 ring-rule;
+  }
+  .card-pad {
+    @apply p-5 sm:p-6;
+  }
+
+  .badge,
+  .badge-green,
+  .badge-amber,
+  .badge-red,
+  .badge-blue,
+  .badge-gray {
+    @apply inline-flex items-center gap-1 rounded-xs px-2 py-0.5 text-xs font-medium ring-1 ring-inset;
+  }
+  .badge-green {
+    @apply bg-surface-sunken text-ink-muted ring-rule-firm;
+  }
+  .badge-amber {
+    @apply bg-brass-50 text-brass-700 ring-brass-100;
+  }
+  .badge-red {
+    @apply bg-rust-50 text-rust-700 ring-rust-100;
+  }
+  .badge-blue {
+    @apply bg-bottle-50 text-bottle-700 ring-bottle-100;
+  }
+  .badge-gray {
+    @apply bg-surface-sunken text-sage ring-rule;
+  }
+
+  .nav-link {
+    @apply flex items-center gap-3 rounded-sm px-3 py-2 text-sm font-medium text-paper/70 transition-colors hover:bg-white/10 hover:text-paper;
+  }
+  .nav-link-active {
+    @apply bg-white/10 text-paper hover:bg-white/10;
+  }
+
+  .section-heading {
+    @apply font-display text-2xl font-medium tracking-tight text-ink sm:text-3xl;
+  }
+  .section-sub {
+    @apply mt-1 text-sm text-sage;
+  }
+  .form-grid {
+    @apply grid grid-cols-1 gap-4 sm:grid-cols-2;
+  }
+}

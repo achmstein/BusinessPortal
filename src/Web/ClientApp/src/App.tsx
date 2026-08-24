@@ -1,76 +1,107 @@
-import { Navigate, Route, Routes } from 'react-router-dom'
+import { lazy, Suspense } from 'react'
+import { Route, Routes } from 'react-router-dom'
 import { RequireAuth } from './auth/RequireAuth'
 import { RequireAdmin } from './auth/RequireAdmin'
 import { Layout } from './components/Layout'
 import { AdminLayout } from './components/AdminLayout'
+import { NotFoundPage } from './pages/NotFoundPage'
+
+// Auth screens load eagerly — they're the entry point, and a chunk fetch on the
+// way to sign-in is a visible stall. Everything behind the guard is split, so
+// the admin console never ships to a client and vice versa.
 import { LoginPage } from './pages/LoginPage'
 import { RegisterPage } from './pages/RegisterPage'
 import { ForgotPasswordPage } from './pages/ForgotPasswordPage'
 import { ResetPasswordPage } from './pages/ResetPasswordPage'
-import { DashboardPage } from './pages/DashboardPage'
-import { BusinessPage } from './pages/BusinessPage'
-import { BusinessNamesPage } from './pages/BusinessNamesPage'
-import { ProfilePage } from './pages/ProfilePage'
-import { MessagesPage } from './pages/MessagesPage'
-import { AsicRenewalsPage } from './pages/AsicRenewalsPage'
-import { RenewBusinessNamePage } from './pages/RenewBusinessNamePage'
-import { CancelBusinessNamePage } from './pages/CancelBusinessNamePage'
-import { AtoPortalPage } from './pages/AtoPortalPage'
-import { AtoLinkPage } from './pages/AtoLinkPage'
-import { AdminOverviewPage } from './pages/admin/AdminOverviewPage'
-import { AdminClientsPage } from './pages/admin/AdminClientsPage'
-import { AdminClientDetailPage } from './pages/admin/AdminClientDetailPage'
-import { AdminMessagesPage } from './pages/admin/AdminMessagesPage'
-import { AdminMessageThreadPage } from './pages/admin/AdminMessageThreadPage'
-import { AdminRegistryPage } from './pages/admin/AdminRegistryPage'
-import { AdminSettingsPage } from './pages/admin/AdminSettingsPage'
+
+const named = <T extends string>(name: T) =>
+  <M extends Record<T, React.ComponentType<unknown>>>(module: M) => ({ default: module[name] })
+
+const DashboardPage = lazy(() => import('./pages/DashboardPage').then(named('DashboardPage')))
+const ProfilePage = lazy(() => import('./pages/ProfilePage').then(named('ProfilePage')))
+const BusinessPage = lazy(() => import('./pages/BusinessPage').then(named('BusinessPage')))
+const BusinessNamesPage = lazy(() => import('./pages/BusinessNamesPage').then(named('BusinessNamesPage')))
+const AsicRenewalsPage = lazy(() => import('./pages/AsicRenewalsPage').then(named('AsicRenewalsPage')))
+const RenewBusinessNamePage = lazy(() =>
+  import('./pages/RenewBusinessNamePage').then(named('RenewBusinessNamePage')),
+)
+const CancelBusinessNamePage = lazy(() =>
+  import('./pages/CancelBusinessNamePage').then(named('CancelBusinessNamePage')),
+)
+const AtoPortalPage = lazy(() => import('./pages/AtoPortalPage').then(named('AtoPortalPage')))
+const AtoLinkPage = lazy(() => import('./pages/AtoLinkPage').then(named('AtoLinkPage')))
+const MessagesPage = lazy(() => import('./pages/MessagesPage').then(named('MessagesPage')))
+
+const AdminOverviewPage = lazy(() =>
+  import('./pages/admin/AdminOverviewPage').then(named('AdminOverviewPage')),
+)
+const AdminClientsPage = lazy(() => import('./pages/admin/AdminClientsPage').then(named('AdminClientsPage')))
+const AdminClientDetailPage = lazy(() =>
+  import('./pages/admin/AdminClientDetailPage').then(named('AdminClientDetailPage')),
+)
+const AdminRegistryPage = lazy(() =>
+  import('./pages/admin/AdminRegistryPage').then(named('AdminRegistryPage')),
+)
+const AdminSettingsPage = lazy(() =>
+  import('./pages/admin/AdminSettingsPage').then(named('AdminSettingsPage')),
+)
+const AdminMessagesPage = lazy(() =>
+  import('./pages/admin/AdminMessagesPage').then(named('AdminMessagesPage')),
+)
+const AdminMessageThreadPage = lazy(() =>
+  import('./pages/admin/AdminMessageThreadPage').then(named('AdminMessageThreadPage')),
+)
 
 export default function App() {
   return (
-    <Routes>
-      <Route path="/login" element={<LoginPage />} />
-      <Route path="/register" element={<RegisterPage />} />
-      <Route path="/forgot-password" element={<ForgotPasswordPage />} />
-      <Route path="/reset-password" element={<ResetPasswordPage />} />
+    <Suspense fallback={<div className="min-h-dvh bg-paper" aria-hidden />}>
+      <Routes>
+        <Route path="/login" element={<LoginPage />} />
+        <Route path="/register" element={<RegisterPage />} />
+        <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+        <Route path="/reset-password" element={<ResetPasswordPage />} />
 
-      {/* Client member area */}
-      <Route
-        element={
-          <RequireAuth>
-            <Layout />
-          </RequireAuth>
-        }
-      >
-        <Route path="/dashboard" element={<DashboardPage />} />
-        <Route path="/profile" element={<ProfilePage />} />
-        <Route path="/business" element={<BusinessPage />} />
-        <Route path="/business-names" element={<BusinessNamesPage />} />
-        <Route path="/asic-renewals" element={<AsicRenewalsPage />} />
-        <Route path="/asic-renewals/:bnId/renew" element={<RenewBusinessNamePage />} />
-        <Route path="/asic-renewals/:bnId/cancel" element={<CancelBusinessNamePage />} />
-        <Route path="/ato-portal" element={<AtoPortalPage />} />
-        <Route path="/ato-portal/link" element={<AtoLinkPage />} />
-        <Route path="/messages" element={<MessagesPage />} />
-      </Route>
+        {/* Client member area */}
+        <Route
+          element={
+            <RequireAuth>
+              <Layout />
+            </RequireAuth>
+          }
+        >
+          <Route path="/dashboard" element={<DashboardPage />} />
+          <Route path="/profile" element={<ProfilePage />} />
+          <Route path="/business" element={<BusinessPage />} />
+          <Route path="/business-names" element={<BusinessNamesPage />} />
+          <Route path="/asic-renewals" element={<AsicRenewalsPage />} />
+          <Route path="/asic-renewals/:bnId/renew" element={<RenewBusinessNamePage />} />
+          <Route path="/asic-renewals/:bnId/cancel" element={<CancelBusinessNamePage />} />
+          <Route path="/ato-portal" element={<AtoPortalPage />} />
+          <Route path="/ato-portal/link" element={<AtoLinkPage />} />
+          <Route path="/messages" element={<MessagesPage />} />
+        </Route>
 
-      {/* Admin console */}
-      <Route
-        element={
-          <RequireAdmin>
-            <AdminLayout />
-          </RequireAdmin>
-        }
-      >
-        <Route path="/admin" element={<AdminOverviewPage />} />
-        <Route path="/admin/clients" element={<AdminClientsPage />} />
-        <Route path="/admin/clients/:id" element={<AdminClientDetailPage />} />
-        <Route path="/admin/registry" element={<AdminRegistryPage />} />
-        <Route path="/admin/settings" element={<AdminSettingsPage />} />
-        <Route path="/admin/messages" element={<AdminMessagesPage />} />
-        <Route path="/admin/messages/:clientId" element={<AdminMessageThreadPage />} />
-      </Route>
+        {/* Admin console */}
+        <Route
+          element={
+            <RequireAdmin>
+              <AdminLayout />
+            </RequireAdmin>
+          }
+        >
+          <Route path="/admin" element={<AdminOverviewPage />} />
+          <Route path="/admin/clients" element={<AdminClientsPage />} />
+          <Route path="/admin/clients/:id" element={<AdminClientDetailPage />} />
+          <Route path="/admin/registry" element={<AdminRegistryPage />} />
+          <Route path="/admin/settings" element={<AdminSettingsPage />} />
+          <Route path="/admin/messages" element={<AdminMessagesPage />} />
+          <Route path="/admin/messages/:clientId" element={<AdminMessageThreadPage />} />
+        </Route>
 
-      <Route path="*" element={<Navigate to="/dashboard" replace />} />
-    </Routes>
+        {/* A wrong address says so, rather than bouncing through /dashboard to
+            the sign-in screen with no explanation. */}
+        <Route path="*" element={<NotFoundPage />} />
+      </Routes>
+    </Suspense>
   )
 }

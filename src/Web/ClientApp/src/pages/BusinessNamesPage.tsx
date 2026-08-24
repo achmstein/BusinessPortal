@@ -1,286 +1,403 @@
-import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react'
-import { PageHeader } from '../components/PageHeader'
+import { useEffect, useState } from 'react'
+import { useForm } from 'react-hook-form'
+import { zodResolver } from '@hookform/resolvers/zod'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { z } from 'zod'
+import { Pencil, Plus, RefreshCw, Trash2 } from 'lucide-react'
 import {
-  createBusinessName,
-  deleteBusinessName,
-  getAbnLookupStatus,
-  getBusinessNames,
-  startAbnLookup,
-  updateBusinessName,
-  type AbnLookupJobDto,
-  type BusinessNameDto,
-} from '../api/generated'
+  createBusinessNameMutation,
+  deleteBusinessNameMutation,
+  getAbnLookupStatusOptions,
+  getAbnLookupStatusQueryKey,
+  getBusinessNamesOptions,
+  getBusinessNamesQueryKey,
+  startAbnLookupMutation,
+  updateBusinessNameMutation,
+} from '@/api/generated/@tanstack/react-query.gen'
+import type { BusinessNameDto } from '@/api/generated'
+import { renewalStatus } from '@/lib/renewal'
+import {
+  Badge,
+  Button,
+  ConfirmDialog,
+  Dialog,
+  EmptyState,
+  ErrorState,
+  Field,
+  PageHeader,
+  Panel,
+  PanelTitle,
+  Record,
+  RecordList,
+  RecordSkeleton,
+  ValidityBand,
+  toastError,
+  toastSuccess,
+} from '@/ui'
 
-function renewalBadge(iso?: string) {
-  if (!iso) return <span className="badge-gray">—</span>
-  const days = Math.ceil((new Date(iso).getTime() - Date.now()) / (1000 * 60 * 60 * 24))
-  if (days < 0) return <span className="badge-red">Expired</span>
-  if (days <= 60) return <span className="badge-amber">{days}d to renew</span>
-  return <span className="badge-green">OK</span>
+// ─────────────────────────────────────────────────────────────────────────────
+// The thesis screen. A register is a list of entries, so this is a spine of
+// hairline-separated records rather than a grid of cards, and each record leads
+// with the one fact the customer came for: how long this name has left.
+//
+// Editing moved out of an inline <details> accordion (which had no
+// aria-expanded and used a decorative ▾ as its only affordance) into a proper
+// dialog, and removal now asks first.
+// ─────────────────────────────────────────────────────────────────────────────
+
+// Optional fields are empty strings rather than undefined: the API's commands
+// take non-nullable strings, and "" round-trips as "not supplied".
+const businessNameSchema = z.object({
+  name: z.string().trim().min(1, 'Enter the business name as ASIC has it registered.'),
+  dateRegistered: z.string(),
+  renewalDate: z.string(),
+  asicKey: z.string(),
+})
+
+type BusinessNameForm = z.infer<typeof businessNameSchema>
+
+const EMPTY_FORM: BusinessNameForm = { name: '', dateRegistered: '', renewalDate: '', asicKey: '' }
+
+function BusinessNameFields({
+  form,
+}: {
+  form: ReturnType<typeof useForm<BusinessNameForm>>
+}) {
+  const { register, formState } = form
+  return (
+    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+      <Field
+        label="Business name"
+        required
+        error={formState.errors.name?.message}
+        className="sm:col-span-2"
+      >
+        <Field.Input {...register('name')} placeholder="e.g. Acme Plumbing Co" />
+      </Field>
+      <Field label="Date registered" error={formState.errors.dateRegistered?.message}>
+        <Field.Input type="date" {...register('dateRegistered')} />
+      </Field>
+      <Field label="Renewal date" error={formState.errors.renewalDate?.message}>
+        <Field.Input type="date" {...register('renewalDate')} />
+      </Field>
+      <Field
+        label="ASIC key"
+        hint="Leave blank if you don’t have it — ASIC emails it to you."
+        error={formState.errors.asicKey?.message}
+        className="sm:col-span-2"
+      >
+        <Field.Input {...register('asicKey')} placeholder="ASIC key for online services" />
+      </Field>
+    </div>
+  )
 }
 
-function JobBanner({ job, onDismiss }: { job: AbnLookupJobDto; onDismiss: () => void }) {
-  if (job.status === 'Running') {
-    const total = Number(job.totalAbns) || 0
-    const done = Number(job.abnsProcessed) || 0
-    const pct = total > 0 ? Math.round((done / total) * 100) : 0
-    return (
-      <section className="mb-4 rounded-lg border border-brand-200 bg-brand-50 p-4">
-        <div className="flex items-center justify-between gap-3">
-          <div>
-            <div className="font-semibold text-brand-900">Looking up your business names…</div>
-            <div className="text-sm text-brand-800 mt-0.5">
-              Processed {done} of {total} ABN(s). You can navigate away and come back later.
-            </div>
-          </div>
-          <div className="text-2xl font-bold text-brand-700">{pct}%</div>
-        </div>
-        <div className="mt-3 h-2 w-full rounded-full bg-brand-100 overflow-hidden">
-          <div className="h-full bg-brand-600 transition-all" style={{ width: `${pct}%` }} />
-        </div>
-      </section>
-    )
-  }
-
-  if (job.status === 'Failed') {
-    return (
-      <section className="mb-4 rounded-lg border border-red-200 bg-red-50 p-4">
-        <div className="flex items-center justify-between gap-3">
-          <div>
-            <div className="font-semibold text-red-900">ABN Lookup failed</div>
-            <div className="text-sm text-red-800 mt-0.5">{job.error || 'Something went wrong. Try again.'}</div>
-          </div>
-          <button onClick={onDismiss} className="btn-ghost text-xs">Dismiss</button>
-        </div>
-      </section>
-    )
-  }
+function LookupProgress({ job }: { job: { status?: string; totalAbns?: number | string; abnsProcessed?: number | string } }) {
+  const total = Number(job.totalAbns) || 0
+  const done = Number(job.abnsProcessed) || 0
+  const percent = total > 0 ? Math.round((done / total) * 100) : 0
 
   return (
-    <section className="mb-4 rounded-lg border border-accent-200 bg-accent-50 p-4">
-      <div className="flex items-center justify-between gap-3">
-        <div>
-          <div className="font-semibold text-accent-900">ABN Lookup finished</div>
-          <div className="text-sm text-accent-800 mt-0.5">
-            Checked {Number(job.totalAbns) || 0} ABN(s) — added {Number(job.addedCount) || 0} new name(s)
-            {Number(job.enrichedCount) > 0 ? `, filled in ${job.enrichedCount} renewal date(s)` : ''}.
-          </div>
-        </div>
-        <button onClick={onDismiss} className="btn-ghost text-xs">Dismiss</button>
+    <Panel className="flex flex-col gap-3" aria-live="polite">
+      <div className="flex items-baseline justify-between gap-4">
+        <PanelTitle as="h2" className="text-lg">
+          Checking your ABNs with ABN Lookup
+        </PanelTitle>
+        <span className="text-sm text-sage" data-numeric>
+          {done} of {total}
+        </span>
       </div>
-    </section>
+      <div className="h-px w-full bg-rule-firm">
+        <div className="h-px bg-bottle-600 transition-all" style={{ width: `${percent}%` }} />
+      </div>
+      <p className="text-sm text-sage">
+        This runs in the background — you can leave this page and come back.
+      </p>
+    </Panel>
   )
 }
 
 export function BusinessNamesPage() {
-  const [list, setList] = useState<BusinessNameDto[]>([])
-  const [job, setJob] = useState<AbnLookupJobDto | null>(null)
-  const [flash, setFlash] = useState<{ tone: 'ok' | 'err'; text: string } | null>(null)
-  const pollRef = useRef<number | null>(null)
+  const queryClient = useQueryClient()
+  const [editing, setEditing] = useState<BusinessNameDto | null>(null)
+  const [removing, setRemoving] = useState<BusinessNameDto | null>(null)
+  const [adding, setAdding] = useState(false)
 
-  const load = useCallback(async () => {
-    try {
-      const { data } = await getBusinessNames()
-      setList([...(data ?? [])].sort((a, b) => (a.name ?? '').localeCompare(b.name ?? '')))
-    } catch { /* ignore */ }
-  }, [])
+  const names = useQuery(getBusinessNamesOptions())
 
-  const loadJob = useCallback(async () => {
-    try {
-      const { data } = await getAbnLookupStatus()
-      setJob(data ?? null)
-      return data ?? null
-    } catch {
-      setJob(null)
-      return null
-    }
-  }, [])
+  const lookup = useQuery({
+    ...getAbnLookupStatusOptions(),
+    // Poll only while work is actually in flight, then stop. The old version
+    // ran a bare 4-second setInterval regardless of state.
+    refetchInterval: (query) => (query.state.data?.status === 'Running' ? 4000 : false),
+  })
 
+  const running = lookup.data?.status === 'Running'
+
+  // When the lookup finishes it has added or enriched names, so the list is stale.
   useEffect(() => {
-    void load()
-    void loadJob()
-  }, [load, loadJob])
-
-  // Poll while a job is running; reload names when it finishes.
-  useEffect(() => {
-    if (job?.status !== 'Running') {
-      if (pollRef.current) { window.clearInterval(pollRef.current); pollRef.current = null }
-      return
+    if (lookup.data && lookup.data.status !== 'Running') {
+      void queryClient.invalidateQueries({ queryKey: getBusinessNamesQueryKey() })
     }
-    pollRef.current = window.setInterval(async () => {
-      const j = await loadJob()
-      if (j && j.status !== 'Running') { await load(); }
-    }, 4000)
-    return () => { if (pollRef.current) { window.clearInterval(pollRef.current); pollRef.current = null } }
-  }, [job?.status, load, loadJob])
+  }, [lookup.data, queryClient])
 
-  async function onRequestLookup() {
-    try {
-      await startAbnLookup()
-      setFlash({ tone: 'ok', text: 'Started ABN lookup — this runs in the background.' })
-      await loadJob()
-    } catch {
-      setFlash({ tone: 'err', text: 'Could not start the lookup. Try again shortly.' })
-    }
-  }
+  const invalidate = () => queryClient.invalidateQueries({ queryKey: getBusinessNamesQueryKey() })
 
-  async function onAdd(e: FormEvent<HTMLFormElement>) {
-    e.preventDefault()
-    const form = e.currentTarget
-    const f = new FormData(form)
-    const name = String(f.get('name') || '').trim()
-    if (!name) { setFlash({ tone: 'err', text: 'Please enter a business name' }); return }
-    await createBusinessName({
-      body: {
-        name,
-        dateRegistered: String(f.get('dateRegistered') || ''),
-        renewalDate: String(f.get('renewalDate') || ''),
-        asicKey: String(f.get('asicKey') || ''),
-      },
+  const addForm = useForm<BusinessNameForm>({
+    resolver: zodResolver(businessNameSchema),
+    defaultValues: EMPTY_FORM,
+  })
+  const editForm = useForm<BusinessNameForm>({
+    resolver: zodResolver(businessNameSchema),
+    defaultValues: EMPTY_FORM,
+  })
+
+  const create = useMutation({
+    ...createBusinessNameMutation(),
+    onSuccess: async () => {
+      await invalidate()
+      addForm.reset(EMPTY_FORM)
+      setAdding(false)
+      toastSuccess('Business name added')
+    },
+    onError: () => toastError('Could not add that name', 'Check the details and try again.'),
+  })
+
+  const update = useMutation({
+    ...updateBusinessNameMutation(),
+    onSuccess: async () => {
+      await invalidate()
+      setEditing(null)
+      toastSuccess('Changes saved')
+    },
+    onError: () => toastError('Could not save your changes', 'Check the details and try again.'),
+  })
+
+  const remove = useMutation({
+    ...deleteBusinessNameMutation(),
+    onSuccess: async () => {
+      await invalidate()
+      setRemoving(null)
+      toastSuccess('Business name removed')
+    },
+    onError: () => toastError('Could not remove that name', 'Try again in a moment.'),
+  })
+
+  const startLookup = useMutation({
+    ...startAbnLookupMutation(),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: getAbnLookupStatusQueryKey() })
+      toastSuccess('Looking up your business names', 'This runs in the background.')
+    },
+    onError: () => toastError('Could not start the lookup', 'Try again shortly.'),
+  })
+
+  function openEdit(name: BusinessNameDto) {
+    editForm.reset({
+      name: name.name ?? '',
+      dateRegistered: name.dateRegistered ?? '',
+      renewalDate: name.renewalDate ?? '',
+      asicKey: name.asicKey ?? '',
     })
-    form.reset()
-    setFlash({ tone: 'ok', text: 'Business name added' })
-    await load()
+    setEditing(name)
   }
 
-  async function onUpdate(id: string, e: FormEvent<HTMLFormElement>) {
-    e.preventDefault()
-    const f = new FormData(e.currentTarget)
-    await updateBusinessName({
-      path: { id },
-      body: {
-        id,
-        name: String(f.get('name') || ''),
-        dateRegistered: String(f.get('dateRegistered') || ''),
-        renewalDate: String(f.get('renewalDate') || ''),
-        asicKey: String(f.get('asicKey') || ''),
-      },
-    })
-    setFlash({ tone: 'ok', text: 'Business name updated' })
-    await load()
-  }
-
-  async function onRemove(id: string) {
-    await deleteBusinessName({ path: { id } })
-    setFlash({ tone: 'ok', text: 'Business name removed' })
-    await load()
-  }
+  const list = [...(names.data ?? [])].sort((a, b) => (a.name ?? '').localeCompare(b.name ?? ''))
+  const dueCount = list.filter((b) => renewalStatus(b.renewalDate).needsAction).length
 
   return (
-    <>
+    <div className="flex flex-col gap-6">
       <PageHeader
-        title="Business Names"
-        subtitle="List the business names you currently have registered. Add as many as you need."
+        title="Your business names"
+        description="Every name you hold with ASIC, and when each one next needs renewing."
         actions={
-          <button onClick={onRequestLookup} className="btn-primary">
-            Request information from ABN Lookup
-          </button>
+          <>
+            <Button
+              variant="secondary"
+              onClick={() => startLookup.mutate({})}
+              loading={startLookup.isPending || running}
+            >
+              <RefreshCw aria-hidden className="size-4" />
+              {running ? 'Checking…' : 'Check ABN Lookup'}
+            </Button>
+            <Button onClick={() => setAdding(true)}>
+              <Plus aria-hidden className="size-4" />
+              Add a name
+            </Button>
+          </>
         }
       />
 
-      {flash ? (
-        <div className={`mb-4 rounded-lg border px-4 py-2.5 text-sm ${flash.tone === 'ok' ? 'bg-accent-50 border-accent-200 text-accent-800' : 'bg-red-50 border-red-200 text-red-800'}`}>
-          {flash.text}
-        </div>
+      {running ? <LookupProgress job={lookup.data ?? {}} /> : null}
+
+      {dueCount > 0 ? (
+        <p className="text-sm text-brass-700">
+          {dueCount === 1 ? 'One name needs' : `${dueCount} names need`} renewing soon.
+        </p>
       ) : null}
 
-      {job ? <JobBanner job={job} onDismiss={() => setJob(null)} /> : null}
-
-      <section className="card-pad">
-        <div className="flex items-center justify-between">
-          <h3 className="font-semibold text-navy-900">Your business names</h3>
-          <span className="badge-gray">{list.length} {list.length === 1 ? 'name' : 'names'}</span>
-        </div>
-
-        {list.length === 0 ? (
-          <p className="mt-3 text-sm text-navy-500 italic">No business names added yet.</p>
-        ) : (
-          <ul className="mt-4 space-y-4">
-            {list.map((b) => (
-              <li key={b.id} className="rounded-lg border border-navy-100 p-4 bg-white">
-                <details>
-                  <summary className="flex items-center justify-between gap-3 cursor-pointer list-none">
-                    <div className="min-w-0 flex-1 flex items-center gap-2 flex-wrap text-sm">
-                      <span className="font-semibold text-navy-900 truncate">{b.name}</span>
-                      <span className="text-navy-400">·</span>
-                      <span className="text-navy-600">Registered {b.dateRegistered ? new Date(b.dateRegistered).toLocaleDateString() : '—'}</span>
-                      <span className="text-navy-400">·</span>
-                      <span className="text-navy-600">Renews {b.renewalDate ? new Date(b.renewalDate).toLocaleDateString() : '—'}</span>
+      {names.isPending ? (
+        <RecordList aria-busy="true">
+          <RecordSkeleton />
+          <RecordSkeleton />
+        </RecordList>
+      ) : names.isError ? (
+        // Distinct from the empty state on purpose: a failed request used to
+        // render as "No business names added yet."
+        <ErrorState
+          description="We couldn’t load your business names just now."
+          action={
+            <Button variant="secondary" onClick={() => void names.refetch()}>
+              Try again
+            </Button>
+          }
+        />
+      ) : list.length === 0 ? (
+        <EmptyState
+          title="No business names yet"
+          description="Add a name you hold with ASIC, or let us find them from your ABN."
+          action={
+            <div className="flex flex-wrap justify-center gap-2">
+              <Button onClick={() => setAdding(true)}>Add a name</Button>
+              <Button variant="secondary" onClick={() => startLookup.mutate({})} loading={startLookup.isPending}>
+                Check ABN Lookup
+              </Button>
+            </div>
+          }
+        />
+      ) : (
+        <RecordList>
+          {list.map((name) => {
+            const status = renewalStatus(name.renewalDate)
+            return (
+              <Record key={name.id} className="flex flex-col gap-1.5">
+                <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-2">
+                  <h2 className="font-display min-w-0 flex-1 text-2xl leading-tight font-medium text-ink">
+                    {name.name}
+                  </h2>
+                  <div className="flex shrink-0 items-center gap-3">
+                    {status.needsAction ? (
+                      <Badge tone={status.tone}>{status.label}</Badge>
+                    ) : (
+                      <span className="text-sm text-sage">{status.label}</span>
+                    )}
+                    <div className="flex items-center gap-1">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        aria-label={`Edit ${name.name}`}
+                        onClick={() => openEdit(name)}
+                      >
+                        <Pencil aria-hidden className="size-3.5" />
+                        Edit
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        aria-label={`Remove ${name.name}`}
+                        onClick={() => setRemoving(name)}
+                      >
+                        <Trash2 aria-hidden className="size-3.5" />
+                      </Button>
                     </div>
-                    <div className="flex items-center gap-2 shrink-0">
-                      {renewalBadge(b.renewalDate)}
-                      <span className="text-navy-400 text-xs">Edit ▾</span>
-                    </div>
-                  </summary>
-
-                  <form onSubmit={(e) => onUpdate(b.id!, e)} className="mt-4 space-y-4 border-t border-navy-100 pt-4">
-                    <div className="form-grid">
-                      <div className="sm:col-span-2">
-                        <label className="label">Business name</label>
-                        <input name="name" defaultValue={b.name} required className="input" />
-                      </div>
-                      <div>
-                        <label className="label">Date registered</label>
-                        <input name="dateRegistered" type="date" defaultValue={b.dateRegistered} className="input" />
-                      </div>
-                      <div>
-                        <label className="label">Renewal date</label>
-                        <input name="renewalDate" type="date" defaultValue={b.renewalDate} className="input" />
-                      </div>
-                      <div className="sm:col-span-2">
-                        <label className="label flex flex-wrap items-baseline gap-x-2">
-                          <span>ASIC key</span>
-                          <span className="text-xs font-normal text-navy-500 italic">If unknown, leave blank and it will be emailed to you from ASIC.</span>
-                        </label>
-                        <input name="asicKey" defaultValue={b.asicKey} className="input" />
-                      </div>
-                    </div>
-                    <div className="flex flex-col sm:flex-row gap-2 justify-end">
-                      <button type="submit" className="btn-primary">Save changes</button>
-                    </div>
-                  </form>
-
-                  <div className="mt-2 flex justify-end">
-                    <button onClick={() => onRemove(b.id!)} className="btn-ghost text-red-700 hover:bg-red-50">
-                      Remove this business name
-                    </button>
                   </div>
-                </details>
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
+                </div>
 
-      <section className="card-pad mt-6">
-        <h3 className="font-semibold text-navy-900">Add a business name</h3>
-        <form onSubmit={onAdd} className="mt-4 space-y-4">
-          <div className="form-grid">
-            <div className="sm:col-span-2">
-              <label className="label">Business name</label>
-              <input name="name" required className="input" placeholder="e.g. Acme Plumbing Co" />
-            </div>
-            <div>
-              <label className="label">Date registered</label>
-              <input name="dateRegistered" type="date" className="input" />
-            </div>
-            <div>
-              <label className="label">Renewal date</label>
-              <input name="renewalDate" type="date" className="input" />
-            </div>
-            <div className="sm:col-span-2">
-              <label className="label flex flex-wrap items-baseline gap-x-2">
-                <span>ASIC key</span>
-                <span className="text-xs font-normal text-navy-500 italic">If unknown, leave blank and it will be emailed to you from ASIC.</span>
-              </label>
-              <input name="asicKey" className="input" placeholder="ASIC key for online services" />
-            </div>
-          </div>
-          <div className="flex justify-end">
-            <button type="submit" className="btn-primary">Add business name</button>
-          </div>
+                {name.asicKey ? (
+                  <p className="text-sm text-sage" data-numeric>
+                    ASIC key {name.asicKey}
+                  </p>
+                ) : null}
+
+                <ValidityBand
+                  className="mt-3"
+                  registeredDate={name.dateRegistered}
+                  renewalDate={name.renewalDate}
+                  status={status}
+                />
+              </Record>
+            )
+          })}
+        </RecordList>
+      )}
+
+      {/* ── Add ── */}
+      <Dialog
+        open={adding}
+        onOpenChange={(open) => {
+          setAdding(open)
+          if (!open) addForm.reset(EMPTY_FORM)
+        }}
+        title="Add a business name"
+        description="Enter it exactly as ASIC has it registered."
+        footer={
+          <>
+            <Button variant="ghost" onClick={() => setAdding(false)}>
+              Cancel
+            </Button>
+            <Button
+              loading={create.isPending}
+              onClick={addForm.handleSubmit((values) => create.mutate({ body: values }))}
+            >
+              Add name
+            </Button>
+          </>
+        }
+      >
+        <form onSubmit={addForm.handleSubmit((values) => create.mutate({ body: values }))}>
+          <BusinessNameFields form={addForm} />
         </form>
-      </section>
-    </>
+      </Dialog>
+
+      {/* ── Edit ── */}
+      <Dialog
+        open={editing !== null}
+        onOpenChange={(open) => {
+          if (!open) setEditing(null)
+        }}
+        title="Edit business name"
+        footer={
+          <>
+            <Button variant="ghost" onClick={() => setEditing(null)}>
+              Cancel
+            </Button>
+            <Button
+              loading={update.isPending}
+              onClick={editForm.handleSubmit((values) =>
+                update.mutate({ path: { id: editing!.id! }, body: { id: editing!.id!, ...values } }),
+              )}
+            >
+              Save changes
+            </Button>
+          </>
+        }
+      >
+        <form
+          onSubmit={editForm.handleSubmit((values) =>
+            update.mutate({ path: { id: editing!.id! }, body: { id: editing!.id!, ...values } }),
+          )}
+        >
+          <BusinessNameFields form={editForm} />
+        </form>
+      </Dialog>
+
+      {/* ── Remove ── */}
+      <ConfirmDialog
+        open={removing !== null}
+        onOpenChange={(open) => {
+          if (!open) setRemoving(null)
+        }}
+        title="Remove this business name?"
+        description={
+          <>
+            <strong className="text-ink">{removing?.name}</strong> will be removed from your portal. This
+            doesn’t cancel the registration with ASIC.
+          </>
+        }
+        confirmLabel="Remove name"
+        loading={remove.isPending}
+        onConfirm={() => remove.mutate({ path: { id: removing!.id! } })}
+      />
+    </div>
   )
 }
