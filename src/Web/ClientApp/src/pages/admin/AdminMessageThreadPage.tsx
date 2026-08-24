@@ -1,181 +1,278 @@
-import { useCallback, useEffect, useState, type FormEvent } from 'react'
-import { Link, useParams, useSearchParams } from 'react-router-dom'
-import { PageHeader } from '../../components/PageHeader'
-import { Flash } from '../../components/Flash'
+import { useEffect, useState } from 'react'
+import { useForm } from 'react-hook-form'
+import { zodResolver } from '@hookform/resolvers/zod'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { z } from 'zod'
+import { Link, useParams } from 'react-router-dom'
+import { ArrowLeft, UserRound } from 'lucide-react'
 import {
-  adminMarkAllRead,
-  adminReplyToClient,
-  getAdminClientThreads,
-  type AdminClientThreadsResponse,
-} from '../../api/generated'
+  adminMarkAllReadMutation,
+  adminReplyToClientMutation,
+  getAdminClientThreadsOptions,
+  getAdminClientThreadsQueryKey,
+  getAdminMessagesQueryKey,
+  getAdminOverviewQueryKey,
+} from '@/api/generated/@tanstack/react-query.gen'
+import { formatDateTime } from '@/lib/dates'
+import { cn } from '@/lib/cn'
+import {
+  Button,
+  Dialog,
+  EmptyState,
+  ErrorState,
+  Field,
+  PageHeader,
+  Skeleton,
+  toastError,
+  toastSuccess,
+} from '@/ui'
 
-// Markup ported verbatim from the original app/admin/messages/[clientId]/page.tsx.
-// startThread / replyToThread both map onto POST /api/admin/clients/{id}/reply
-// (no threadId starts a new thread); markAllRead has its own endpoint.
-export function AdminMessageThreadPage() {
-  const { clientId } = useParams<{ clientId: string }>()
-  const [params, setParams] = useSearchParams()
-  const [data, setData] = useState<AdminClientThreadsResponse | null>(null)
+// ─────────────────────────────────────────────────────────────────────────────
+// Replying to one client.
+//
+// Opening this page marks their messages read, which is the honest meaning of
+// "read" and removes the separate button staff had to remember to press. The
+// badge in the sidebar and the inbox both re-fetch afterwards, so the unread
+// count can't disagree with what's on screen.
+//
+// The reply box lives at the bottom of the conversation it belongs to, and
+// starting a new subject is a dialog rather than a second form competing for
+// attention above the thread.
+// ─────────────────────────────────────────────────────────────────────────────
 
-  const load = useCallback(async () => {
-    try {
-      const { data } = await getAdminClientThreads({ path: { clientId: clientId! } })
-      setData(data ?? null)
-    } catch { /* ignore */ }
-  }, [clientId])
+const replySchema = z.object({ body: z.string().trim().min(1, 'Write a reply before sending.') })
+const newSchema = z.object({
+  subject: z.string().trim().min(1, 'Give it a subject.'),
+  body: z.string().trim().min(1, 'Write the message.'),
+})
 
-  useEffect(() => { void load() }, [load])
+type ReplyForm = z.infer<typeof replySchema>
+type NewForm = z.infer<typeof newSchema>
 
-  if (!data) return null
+function Reply({
+  clientId,
+  threadId,
+  subject,
+  onSent,
+}: {
+  clientId: string
+  threadId: string
+  subject: string
+  onSent: () => void
+}) {
+  const form = useForm<ReplyForm>({ resolver: zodResolver(replySchema), defaultValues: { body: '' } })
 
-  const fullName = data.name || data.email || ''
-  const threads = data.threads ?? []
-  const unread = threads.reduce((n, t) => n + Number(t.unreadForAdmin ?? 0), 0)
-
-  async function onStartThread(e: FormEvent<HTMLFormElement>) {
-    e.preventDefault()
-    const form = e.currentTarget
-    const fields = new FormData(form)
-    const subject = String(fields.get('subject') || '').trim()
-    const body = String(fields.get('body') || '').trim()
-    if (!subject || !body) {
-      setParams({ err: 'Please fill in both fields' })
-      return
-    }
-    await adminReplyToClient({ path: { id: clientId! }, body: { threadId: null, subject, body } })
-    form.reset()
-    setParams({ ok: 'New message sent' })
-    await load()
-  }
-
-  async function onReply(threadId: string, subject: string, e: FormEvent<HTMLFormElement>) {
-    e.preventDefault()
-    const form = e.currentTarget
-    const body = String(new FormData(form).get('body') || '').trim()
-    if (!body) {
-      setParams({ err: 'Please enter a reply' })
-      return
-    }
-    await adminReplyToClient({ path: { id: clientId! }, body: { threadId, subject, body } })
-    form.reset()
-    setParams({ ok: 'Reply sent' })
-    await load()
-  }
-
-  async function onMarkAllRead() {
-    await adminMarkAllRead({ path: { clientId: clientId! } })
-    setParams({ ok: 'Marked as read' })
-    await load()
-  }
+  const reply = useMutation({
+    ...adminReplyToClientMutation(),
+    onSuccess: () => {
+      form.reset({ body: '' })
+      onSent()
+      toastSuccess('Reply sent')
+    },
+    onError: () => toastError('Couldn’t send that reply', 'Try again in a moment.'),
+  })
 
   return (
-    <>
-      <div className="mb-2">
-        <Link to="/admin/messages" className="text-sm text-brand-700 hover:underline">← Inbox</Link>
-      </div>
+    <form
+      className="flex flex-col gap-3 border-t border-rule pt-4"
+      onSubmit={form.handleSubmit((values) =>
+        reply.mutate({ path: { id: clientId }, body: { threadId, subject, body: values.body } }),
+      )}
+      noValidate
+    >
+      <Field label="Reply" error={form.formState.errors.body?.message}>
+        <Field.Textarea rows={3} placeholder="Type your reply…" {...form.register('body')} />
+      </Field>
+      <Button type="submit" size="sm" className="self-end" loading={reply.isPending}>
+        Send reply
+      </Button>
+    </form>
+  )
+}
 
-      <PageHeader
-        title={fullName}
-        subtitle={`${data.email}${unread ? ` · ${unread} unread` : ''}`}
-        actions={
-          <div className="flex flex-wrap gap-2">
-            <Link to={`/admin/clients/${data.id}`} className="btn-secondary">Client profile</Link>
-            {unread > 0 ? (
-              <button onClick={onMarkAllRead} className="btn-ghost">Mark all read</button>
-            ) : null}
-          </div>
+export function AdminMessageThreadPage() {
+  const { clientId } = useParams<{ clientId: string }>()
+  const queryClient = useQueryClient()
+  const [composing, setComposing] = useState(false)
+
+  const conversation = useQuery(getAdminClientThreadsOptions({ path: { clientId: clientId! } }))
+
+  const refresh = async () => {
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: getAdminClientThreadsQueryKey({ path: { clientId: clientId! } }) }),
+      queryClient.invalidateQueries({ queryKey: getAdminMessagesQueryKey() }),
+      queryClient.invalidateQueries({ queryKey: getAdminOverviewQueryKey() }),
+    ])
+  }
+
+  const markAllRead = useMutation({ ...adminMarkAllReadMutation(), onSuccess: refresh })
+  const markAllReadMutate = markAllRead.mutate
+
+  const unread = (conversation.data?.threads ?? []).reduce(
+    (n, thread) => n + Number(thread.unreadForAdmin ?? 0),
+    0,
+  )
+
+  // Opening the conversation is reading it.
+  useEffect(() => {
+    if (unread > 0 && clientId) markAllReadMutate({ path: { clientId } })
+  }, [unread, clientId, markAllReadMutate])
+
+  const newForm = useForm<NewForm>({ resolver: zodResolver(newSchema), defaultValues: { subject: '', body: '' } })
+
+  const start = useMutation({
+    ...adminReplyToClientMutation(),
+    onSuccess: async () => {
+      await refresh()
+      setComposing(false)
+      newForm.reset({ subject: '', body: '' })
+      toastSuccess('Message sent')
+    },
+    onError: () => toastError('Couldn’t send that message', 'Try again in a moment.'),
+  })
+
+  if (conversation.isPending) {
+    return (
+      <div className="flex flex-col gap-4">
+        <Skeleton className="h-10 w-1/2" />
+        <Skeleton className="h-64 w-full" />
+      </div>
+    )
+  }
+
+  if (conversation.isError || !conversation.data) {
+    return (
+      <ErrorState
+        description="We couldn’t open this conversation."
+        action={
+          <Button asChild variant="secondary">
+            <Link to="/admin/messages">Back to the inbox</Link>
+          </Button>
         }
       />
-      <Flash ok={params.get('ok')} err={params.get('err')} />
+    )
+  }
 
-      {/* Start a new thread to this client */}
-      <section className="card-pad mb-6">
-        <h3 className="font-semibold text-navy-900">Start a new conversation with {fullName}</h3>
-        <form onSubmit={onStartThread} className="mt-4 space-y-3">
-          <div>
-            <label className="label">Subject</label>
-            <input name="subject" required className="input" />
-          </div>
-          <div>
-            <label className="label">Message</label>
-            <textarea name="body" rows={4} required className="input" />
-          </div>
-          <div className="flex justify-end">
-            <button type="submit" className="btn-primary">Send to client</button>
-          </div>
+  const client = conversation.data
+  const name = client.name || client.email || 'Client'
+  const threads = [...(client.threads ?? [])].sort((a, b) =>
+    (b.lastActivityAt ?? '').localeCompare(a.lastActivityAt ?? ''),
+  )
+
+  return (
+    <div className="flex flex-col gap-6">
+      <Link
+        to="/admin/messages"
+        className="inline-flex items-center gap-1.5 self-start text-sm text-bottle-600 hover:underline"
+      >
+        <ArrowLeft aria-hidden className="size-3.5" />
+        Inbox
+      </Link>
+
+      <PageHeader
+        title={name}
+        description={client.email ?? undefined}
+        actions={
+          <>
+            <Button asChild variant="ghost">
+              <Link to={`/admin/clients/${client.id}`}>
+                <UserRound aria-hidden className="size-4" />
+                Client record
+              </Link>
+            </Button>
+            <Button onClick={() => setComposing(true)}>New message</Button>
+          </>
+        }
+      />
+
+      {threads.length === 0 ? (
+        <EmptyState
+          title="No conversation yet"
+          description={`Nothing has been sent to or from ${name}.`}
+          action={<Button onClick={() => setComposing(true)}>Send the first message</Button>}
+        />
+      ) : (
+        <div className="flex flex-col gap-5">
+          {threads.map((thread) => (
+            <section
+              key={thread.threadId}
+              className="flex flex-col gap-4 rounded-sm bg-surface px-5 py-5 ring-1 ring-rule sm:px-6"
+            >
+              <div className="flex flex-wrap items-baseline justify-between gap-2">
+                <h2 className="font-display text-lg leading-tight font-medium text-ink">{thread.subject}</h2>
+                <span className="text-xs text-sage">{formatDateTime(thread.lastActivityAt)}</span>
+              </div>
+
+              <ul className="flex flex-col gap-4">
+                {(thread.messages ?? []).map((message) => {
+                  const fromClient = message.direction === 'Outbound'
+                  return (
+                    <li
+                      key={message.id}
+                      className={cn(
+                        'flex flex-col gap-1 border-l-2 pl-3',
+                        fromClient ? 'border-brass-500' : 'border-rule',
+                      )}
+                    >
+                      <p className="text-xs text-sage">
+                        {fromClient ? name : 'You'} · {formatDateTime(message.createdAt)}
+                      </p>
+                      <p className="text-sm leading-relaxed whitespace-pre-wrap text-ink">{message.body}</p>
+                    </li>
+                  )
+                })}
+              </ul>
+
+              <Reply
+                clientId={client.id}
+                threadId={thread.threadId ?? ''}
+                subject={thread.subject ?? ''}
+                onSent={() => void refresh()}
+              />
+            </section>
+          ))}
+        </div>
+      )}
+
+      <Dialog
+        open={composing}
+        onOpenChange={(open) => {
+          setComposing(open)
+          if (!open) newForm.reset({ subject: '', body: '' })
+        }}
+        title={`New message to ${name}`}
+        description="This starts a new conversation rather than replying to an existing one."
+        footer={
+          <>
+            <Button variant="ghost" onClick={() => setComposing(false)}>
+              Cancel
+            </Button>
+            <Button
+              loading={start.isPending}
+              onClick={newForm.handleSubmit((values) =>
+                start.mutate({ path: { id: client.id }, body: { threadId: null, ...values } }),
+              )}
+            >
+              Send message
+            </Button>
+          </>
+        }
+      >
+        <form
+          className="flex flex-col gap-4"
+          onSubmit={newForm.handleSubmit((values) =>
+            start.mutate({ path: { id: client.id }, body: { threadId: null, ...values } }),
+          )}
+          noValidate
+        >
+          <Field label="Subject" required error={newForm.formState.errors.subject?.message}>
+            <Field.Input {...newForm.register('subject')} />
+          </Field>
+          <Field label="Message" required error={newForm.formState.errors.body?.message}>
+            <Field.Textarea rows={5} {...newForm.register('body')} />
+          </Field>
         </form>
-      </section>
-
-      {/* Threads */}
-      <section>
-        <h3 className="font-semibold text-navy-900 mb-3">Conversations</h3>
-        {threads.length === 0 ? (
-          <div className="card-pad">
-            <p className="text-sm text-navy-500 italic">No conversations yet.</p>
-          </div>
-        ) : (
-          <ul className="space-y-4">
-            {threads.map((thread) => (
-              <li key={thread.threadId} className="card-pad">
-                <div className="flex items-center justify-between gap-3">
-                  <h4 className="font-semibold text-navy-900 truncate">{thread.subject}</h4>
-                  <div className="flex items-center gap-2 shrink-0">
-                    {Number(thread.unreadForAdmin ?? 0) > 0 ? (
-                      <span className="badge-blue">{thread.unreadForAdmin} new</span>
-                    ) : null}
-                    <span className="text-[11px] text-navy-400">
-                      {thread.lastActivityAt ? new Date(thread.lastActivityAt).toLocaleString() : ''}
-                    </span>
-                  </div>
-                </div>
-
-                <ul className="mt-4 space-y-3">
-                  {(thread.messages ?? []).map((m) => {
-                    const fromClient = m.direction === 'Outbound'
-                    return (
-                      <li
-                        key={m.id}
-                        className={`rounded-lg border p-3 ${
-                          fromClient
-                            ? 'bg-brand-50/50 border-brand-100'
-                            : 'bg-white border-navy-100'
-                        }`}
-                      >
-                        <div className="flex items-start justify-between gap-3">
-                          <div className="min-w-0">
-                            <div className="text-xs uppercase tracking-wider text-navy-500">
-                              {fromClient ? `From ${fullName}` : 'From You (support)'} ·{' '}
-                              {m.createdAt ? new Date(m.createdAt).toLocaleString() : ''}
-                            </div>
-                            <div className="text-sm text-navy-700 mt-1 whitespace-pre-wrap">{m.body}</div>
-                          </div>
-                          {fromClient && !m.adminRead ? (
-                            <span className="badge-blue shrink-0">New</span>
-                          ) : null}
-                        </div>
-                      </li>
-                    )
-                  })}
-                </ul>
-
-                {/* Reply */}
-                <form
-                  onSubmit={(e) => onReply(thread.threadId!, `Re: ${thread.subject}`, e)}
-                  className="mt-4 border-t border-navy-100 pt-4 space-y-3"
-                >
-                  <div>
-                    <label className="label">Reply to {fullName}</label>
-                    <textarea name="body" rows={3} required className="input" />
-                  </div>
-                  <div className="flex justify-end">
-                    <button type="submit" className="btn-primary">Send reply</button>
-                  </div>
-                </form>
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
-    </>
+      </Dialog>
+    </div>
   )
 }

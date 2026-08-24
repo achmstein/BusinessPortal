@@ -1,9 +1,5 @@
 @import 'tailwindcss';
 
-/* Compatibility shim for screens not yet rebuilt. Delete when unused — see the
-   header of that file for the migration rule. */
-@import './styles/legacy.css';
-
 /* ─────────────────────────────────────────────────────────────────────────
    Registry — the Business Portal design system.
 

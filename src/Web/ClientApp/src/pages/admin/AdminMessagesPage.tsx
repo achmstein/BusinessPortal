@@ -1,105 +1,174 @@
-import { useEffect, useState } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
-import { PageHeader } from '../../components/PageHeader'
-import { getAdminMessages } from '../../api/generated'
+import { getAdminMessagesOptions } from '@/api/generated/@tanstack/react-query.gen'
+import { formatDateTime } from '@/lib/dates'
+import { cn } from '@/lib/cn'
+import { Button, EmptyState, ErrorState, PageHeader, Skeleton } from '@/ui'
 
-interface Msg { id: string; direction: string; subject: string; body: string; createdAt: string }
-interface Thread { threadId: string; subject: string; messages: Msg[]; lastActivityAt: string; unreadForAdmin: number }
-interface ClientThreads { clientId: string; email: string; name: string; threads: Thread[] }
+// ─────────────────────────────────────────────────────────────────────────────
+// The shared inbox. One question: who is waiting on a reply?
+//
+// So the answer is the heading, and the rows that need something are separated
+// from the rows that don't rather than being one undifferentiated list with a
+// badge somewhere in each. Within each group, most recent first.
+//
+// The preview says who spoke last, because a thread where we replied last is
+// waiting on the client, not on us — the same row otherwise looks identical.
+// ─────────────────────────────────────────────────────────────────────────────
 
-interface Row {
-  userId: string
-  userName: string
-  userEmail: string
-  lastMessage: { subject: string; body: string; createdAt: string; direction: string }
-  unread: number
+interface AdminMessage {
+  id: string
+  direction: string
+  subject: string
+  body: string
+  createdAt: string
 }
 
-// Markup ported verbatim from the original app/admin/messages/page.tsx — the
-// inbox list; each row opens the per-client thread page.
+interface AdminThread {
+  threadId: string
+  subject: string
+  messages: AdminMessage[]
+  lastActivityAt: string
+  unreadForAdmin: number
+}
+
+interface ClientThreads {
+  clientId: string
+  email: string
+  name: string
+  threads: AdminThread[]
+}
+
+interface Row {
+  clientId: string
+  name: string
+  email: string
+  unread: number
+  last: AdminMessage
+}
+
+function InboxRow({ row }: { row: Row }) {
+  const fromClient = row.last.direction === 'Outbound'
+  return (
+    <li>
+      <Link
+        to={`/admin/messages/${row.clientId}`}
+        className="flex items-start gap-3 px-5 py-4 hover:bg-surface-sunken/60"
+      >
+        <span
+          className={cn(
+            'mt-1.5 size-2 shrink-0 rounded-full',
+            row.unread > 0 ? 'bg-bottle-600' : 'bg-transparent',
+          )}
+          aria-hidden
+        />
+        <span className="min-w-0 flex-1">
+          <span className="flex flex-wrap items-baseline gap-x-2">
+            <span className={cn('truncate', row.unread > 0 ? 'font-medium text-ink' : 'text-ink-muted')}>
+              {row.name || row.email}
+            </span>
+            <span className="truncate text-xs text-sage">{row.email}</span>
+          </span>
+          <span className="mt-0.5 block truncate text-sm text-ink-muted">{row.last.subject}</span>
+          <span className="mt-0.5 block truncate text-sm text-sage">
+            {fromClient ? 'They wrote' : 'You replied'}: {row.last.body}
+          </span>
+        </span>
+        <span className="shrink-0 text-xs text-sage">{formatDateTime(row.last.createdAt)}</span>
+      </Link>
+    </li>
+  )
+}
+
 export function AdminMessagesPage() {
-  const [data, setData] = useState<ClientThreads[]>([])
+  const inbox = useQuery({
+    ...getAdminMessagesOptions(),
+    select: (data) => (data as unknown as ClientThreads[]) ?? [],
+  })
 
-  useEffect(() => {
-    getAdminMessages()
-      .then(({ data }) => setData((data as ClientThreads[]) ?? []))
-      .catch(() => setData([]))
-  }, [])
+  if (inbox.isPending) {
+    return (
+      <div className="flex flex-col gap-4">
+        <Skeleton className="h-10 w-1/3" />
+        <Skeleton className="h-56 w-full" />
+      </div>
+    )
+  }
 
-  const rows: Row[] = data
-    .filter((c) => c.threads.some((t) => t.messages.length > 0))
-    .map((c) => {
-      const all = c.threads.flatMap((t) => t.messages)
-      const sorted = [...all].sort(
-        (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-      )
-      const last = sorted[0]
+  if (inbox.isError) {
+    return (
+      <ErrorState
+        description="We couldn’t load the inbox."
+        action={
+          <Button variant="secondary" onClick={() => void inbox.refetch()}>
+            Try again
+          </Button>
+        }
+      />
+    )
+  }
+
+  const rows: Row[] = (inbox.data ?? [])
+    .map((client) => {
+      const messages = client.threads.flatMap((thread) => thread.messages)
+      if (messages.length === 0) return null
+      const last = [...messages].sort((a, b) => (b.createdAt ?? '').localeCompare(a.createdAt ?? ''))[0]
       return {
-        userId: c.clientId,
-        userName: c.name || c.email,
-        userEmail: c.email,
-        lastMessage: {
-          subject: last.subject,
-          body: last.body,
-          createdAt: last.createdAt,
-          direction: last.direction,
-        },
-        unread: c.threads.reduce((n, t) => n + t.unreadForAdmin, 0),
+        clientId: client.clientId,
+        name: client.name,
+        email: client.email,
+        unread: client.threads.reduce((n, t) => n + Number(t.unreadForAdmin ?? 0), 0),
+        last,
       }
     })
-    .sort((a, b) => {
-      // unread first, then by most recent
-      if ((a.unread > 0) !== (b.unread > 0)) return a.unread > 0 ? -1 : 1
-      return new Date(b.lastMessage.createdAt).getTime() - new Date(a.lastMessage.createdAt).getTime()
-    })
+    .filter((row): row is Row => row !== null)
+    .sort((a, b) => (b.last.createdAt ?? '').localeCompare(a.last.createdAt ?? ''))
 
-  const totalUnread = rows.reduce((n, r) => n + r.unread, 0)
+  const waiting = rows.filter((row) => row.unread > 0)
+  const settled = rows.filter((row) => row.unread === 0)
 
   return (
-    <>
+    <div className="flex flex-col gap-6">
       <PageHeader
-        title="Messages"
-        subtitle={`${rows.length} thread${rows.length === 1 ? '' : 's'} · ${totalUnread} unread`}
+        title={waiting.length === 0 ? 'Inbox clear' : `${waiting.length} waiting on a reply`}
+        description={
+          rows.length === 0
+            ? undefined
+            : `${rows.length} ${rows.length === 1 ? 'conversation' : 'conversations'} in total.`
+        }
       />
 
       {rows.length === 0 ? (
-        <div className="card-pad">
-          <p className="text-sm text-navy-500 italic">No client messages yet.</p>
-        </div>
+        <EmptyState
+          title="No client messages yet"
+          description="Conversations started from the client portal land here."
+        />
       ) : (
-        <div className="card-pad">
-          <ul className="divide-y divide-navy-100">
-            {rows.map((r) => (
-              <li key={r.userId}>
-                <Link
-                  to={`/admin/messages/${r.userId}`}
-                  className="block py-3 -mx-2 px-2 rounded hover:bg-navy-50"
-                >
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-2">
-                        <span className="font-semibold text-navy-900 truncate">{r.userName}</span>
-                        <span className="text-xs text-navy-500 truncate">{r.userEmail}</span>
-                        {r.unread > 0 ? <span className="badge-blue">{r.unread} new</span> : null}
-                      </div>
-                      <div className="mt-0.5 text-sm text-navy-700 truncate">
-                        <span className="text-navy-400">
-                          {r.lastMessage.direction === 'Outbound' ? 'Client:' : 'You:'}{' '}
-                        </span>
-                        {r.lastMessage.subject}
-                      </div>
-                      <div className="text-xs text-navy-500 truncate">{r.lastMessage.body}</div>
-                    </div>
-                    <div className="text-[11px] text-navy-400 shrink-0">
-                      {new Date(r.lastMessage.createdAt).toLocaleString()}
-                    </div>
-                  </div>
-                </Link>
-              </li>
-            ))}
-          </ul>
+        <div className="flex flex-col gap-6">
+          {waiting.length > 0 ? (
+            <ul className="flex flex-col rounded-sm bg-surface ring-1 ring-rule [&>*+*]:border-t [&>*+*]:border-rule">
+              {waiting.map((row) => (
+                <InboxRow key={row.clientId} row={row} />
+              ))}
+            </ul>
+          ) : null}
+
+          {settled.length > 0 ? (
+            <section className="flex flex-col gap-3">
+              {waiting.length > 0 ? (
+                <h2 className="text-xs font-semibold tracking-[0.12em] text-sage uppercase">
+                  Nothing outstanding
+                </h2>
+              ) : null}
+              <ul className="flex flex-col rounded-sm bg-surface ring-1 ring-rule [&>*+*]:border-t [&>*+*]:border-rule">
+                {settled.map((row) => (
+                  <InboxRow key={row.clientId} row={row} />
+                ))}
+              </ul>
+            </section>
+          ) : null}
         </div>
       )}
-    </>
+    </div>
   )
 }

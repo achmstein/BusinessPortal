@@ -1,369 +1,387 @@
-import { useEffect, useState, type FormEvent, type ReactNode } from 'react'
-import { PageHeader } from '../../components/PageHeader'
-import { Icon } from '../../components/Icon'
+import { useEffect, useState, type ReactNode } from 'react'
+import { useForm, type UseFormReturn, type DefaultValues, type FieldValues } from 'react-hook-form'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { Eye, EyeOff } from 'lucide-react'
 import {
-  getCaptchaSettings,
-  updateCaptchaSettings,
-  getOntraportSettings,
-  updateOntraportSettings,
-  getEmailSettings,
-  updateEmailSettings,
-  getAbnLookupSettings,
-  updateAbnLookupSettings,
-  getRenewtronSettings,
-  updateRenewtronSettings,
-  runRenewtronSyncNow,
-  type RenewtronSyncResult,
-} from '../../api/generated'
+  getAbnLookupSettingsOptions,
+  getAbnLookupSettingsQueryKey,
+  getCaptchaSettingsOptions,
+  getCaptchaSettingsQueryKey,
+  getEmailSettingsOptions,
+  getEmailSettingsQueryKey,
+  getOntraportSettingsOptions,
+  getOntraportSettingsQueryKey,
+  getRenewtronSettingsOptions,
+  getRenewtronSettingsQueryKey,
+  updateAbnLookupSettingsMutation,
+  updateCaptchaSettingsMutation,
+  updateEmailSettingsMutation,
+  updateOntraportSettingsMutation,
+  updateRenewtronSettingsMutation,
+} from '@/api/generated/@tanstack/react-query.gen'
+import { runRenewtronSyncNow } from '@/api/generated'
+import type { RenewtronSyncResult } from '@/api/generated'
+import { Button, Field, PageHeader, Panel, Skeleton, toastError, toastSuccess } from '@/ui'
+import { cn } from '@/lib/cn'
 
-// Modelled on Asictron's SettingsPage: integration credentials are stored on the
-// server (settings.overrides.json on the data volume) and take effect immediately.
-
-function StatusPill({ configured }: { configured: boolean }) {
-  return (
-    <span
-      className={`inline-flex items-center gap-1.5 text-xs font-medium ${configured ? 'text-accent-700' : 'text-navy-400'}`}
-      title={configured ? 'Credentials are set' : 'Credentials are missing'}
-    >
-      <span className={`inline-block h-2 w-2 rounded-full ${configured ? 'bg-accent-500' : 'bg-navy-300'}`} />
-      {configured ? 'Configured' : 'Not configured'}
-    </span>
-  )
-}
+// ─────────────────────────────────────────────────────────────────────────────
+// Integration credentials.
+//
+// Five independent forms that each save on their own, previously held together
+// by nineteen useState calls and a local hook. Each is now its own small form
+// with its own dirty state, so the Save button tells the truth about whether
+// there is anything to save — the old one was always live and would happily
+// report success for a form nobody had touched.
+//
+// Every section says what breaks while it is empty, because that is the actual
+// question someone has when they arrive: what stops working if I leave this
+// blank? The status word alone ("Not configured") doesn't answer it.
+// ─────────────────────────────────────────────────────────────────────────────
 
 function SecretInput({
-  id,
-  value,
-  onChange,
+  label,
+  hint,
   placeholder,
+  form,
+  name,
 }: {
-  id: string
-  value: string
-  onChange: (v: string) => void
+  label: string
+  hint?: ReactNode
   placeholder?: string
+  form: UseFormReturn<FieldValues>
+  name: string
 }) {
-  const [show, setShow] = useState(false)
+  const [shown, setShown] = useState(false)
   return (
-    <div className="relative">
-      <input
-        id={id}
-        type={show ? 'text' : 'password'}
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        className="input pr-10 font-mono"
-        placeholder={placeholder}
-        autoComplete="off"
-        spellCheck={false}
-      />
-      <button
-        type="button"
-        tabIndex={-1}
-        aria-label={show ? 'Hide value' : 'Show value'}
-        onClick={() => setShow((s) => !s)}
-        className="absolute inset-y-0 right-0 flex items-center px-3 text-navy-400 hover:text-navy-700"
-      >
-        <Icon name={show ? 'eye-off' : 'eye'} />
-      </button>
-    </div>
-  )
-}
-
-function SettingsSection({
-  title,
-  subtitle,
-  configured,
-  busy,
-  saved,
-  error,
-  onSubmit,
-  children,
-}: {
-  title: string
-  subtitle: string
-  configured?: boolean
-  busy: boolean
-  saved: boolean
-  error: string | null
-  onSubmit: (e: FormEvent) => void
-  children: ReactNode
-}) {
-  return (
-    <form onSubmit={onSubmit} className="card-pad">
-      <div className="flex items-center justify-between gap-3">
-        <h2 className="text-lg font-semibold text-navy-900">{title}</h2>
-        {configured !== undefined ? <StatusPill configured={configured} /> : null}
-      </div>
-      <p className="mt-0.5 text-sm text-navy-500">{subtitle}</p>
-
-      <div className="mt-4 space-y-4">{children}</div>
-
-      {error ? (
-        <div className="mt-4 rounded-lg bg-red-50 border border-red-200 text-red-800 text-sm px-4 py-2.5">{error}</div>
-      ) : null}
-
-      <div className="mt-5 flex items-center justify-end gap-3">
-        {saved ? <span className="text-sm text-accent-700">Saved — applies immediately.</span> : null}
-        <button type="submit" className="btn-primary" disabled={busy}>
-          {busy ? 'Saving…' : 'Save'}
+    <Field label={label} hint={hint}>
+      <div className="relative">
+        <Field.Input
+          type={shown ? 'text' : 'password'}
+          autoComplete="off"
+          spellCheck={false}
+          placeholder={placeholder}
+          className="pr-10 font-mono text-[0.8125rem]"
+          {...form.register(name)}
+        />
+        <button
+          type="button"
+          tabIndex={-1}
+          aria-label={shown ? `Hide ${label}` : `Show ${label}`}
+          onClick={() => setShown((s) => !s)}
+          className="absolute inset-y-0 right-0 flex items-center px-3 text-sage hover:text-ink"
+        >
+          {shown ? <EyeOff aria-hidden className="size-4" /> : <Eye aria-hidden className="size-4" />}
         </button>
       </div>
-    </form>
+    </Field>
   )
 }
 
-// Per-section save state, shared by the four forms below.
-function useSave(save: () => Promise<unknown>) {
-  const [busy, setBusy] = useState(false)
-  const [saved, setSaved] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+function Section({
+  title,
+  purpose,
+  whenEmpty,
+  configured,
+  form,
+  onSave,
+  saving,
+  children,
+  footer,
+}: {
+  title: string
+  purpose: string
+  whenEmpty: string
+  configured: boolean
+  form: UseFormReturn<FieldValues>
+  onSave: () => void
+  saving: boolean
+  children: ReactNode
+  footer?: ReactNode
+}) {
+  const dirty = form.formState.isDirty
+  return (
+    <Panel className="flex flex-col gap-4">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="flex flex-col gap-1">
+          <h2 className="font-display text-xl leading-tight font-medium text-ink">{title}</h2>
+          <p className="max-w-prose text-sm text-sage">{purpose}</p>
+        </div>
+        <span
+          className={cn(
+            'shrink-0 rounded-xs px-2 py-0.5 text-xs font-medium ring-1 ring-inset',
+            configured
+              ? 'bg-surface-sunken text-ink-muted ring-rule-firm'
+              : 'bg-brass-50 text-brass-700 ring-brass-100',
+          )}
+        >
+          {configured ? 'Set' : 'Not set'}
+        </span>
+      </div>
 
-  const onSubmit = async (e: FormEvent) => {
-    e.preventDefault()
-    setBusy(true)
-    setSaved(false)
-    setError(null)
-    try {
-      await save()
-      setSaved(true)
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to save')
-    } finally {
-      setBusy(false)
-    }
-  }
+      {!configured ? <p className="text-sm text-brass-700">{whenEmpty}</p> : null}
 
-  return { busy, saved, error, onSubmit }
+      <div className="flex flex-col gap-4">{children}</div>
+
+      <div className="flex flex-wrap items-center justify-end gap-3 border-t border-rule pt-4">
+        {footer}
+        {dirty ? <span className="text-sm text-sage">Unsaved changes</span> : null}
+        <Button onClick={onSave} disabled={!dirty} loading={saving}>
+          Save
+        </Button>
+      </div>
+    </Panel>
+  )
 }
 
 export function AdminSettingsPage() {
-  const [loadError, setLoadError] = useState<string | null>(null)
+  const queryClient = useQueryClient()
 
-  // 2Captcha
-  const [captchaKey, setCaptchaKey] = useState('')
-  // Ontraport webhooks
-  const [webhookSecret, setWebhookSecret] = useState('')
-  const [renewalSecret, setRenewalSecret] = useState('')
-  // Email (Resend or SendGrid)
-  const [emailFrom, setEmailFrom] = useState('')
-  const [resendApiKey, setResendApiKey] = useState('')
-  const [sendGridApiKey, setSendGridApiKey] = useState('')
-  const [siteUrl, setSiteUrl] = useState('')
-  // ABN Lookup
-  const [abnToken, setAbnToken] = useState('')
-  // Renewtron renewal sync
-  const [renewtronBaseUrl, setRenewtronBaseUrl] = useState('')
-  const [renewtronApiKey, setRenewtronApiKey] = useState('')
-  const [syncBusy, setSyncBusy] = useState(false)
+  const captcha = useQuery(getCaptchaSettingsOptions())
+  const ontraport = useQuery(getOntraportSettingsOptions())
+  const email = useQuery(getEmailSettingsOptions())
+  const abn = useQuery(getAbnLookupSettingsOptions())
+  const renewtron = useQuery(getRenewtronSettingsOptions())
+
+  const captchaForm = useForm<FieldValues>({ defaultValues: { apiKey: '' } })
+  const ontraportForm = useForm<FieldValues>({ defaultValues: { webhookSecret: '', renewalSecret: '' } })
+  const emailForm = useForm<FieldValues>({
+    defaultValues: { from: '', resendApiKey: '', sendGridApiKey: '', siteUrl: '' },
+  })
+  const abnForm = useForm<FieldValues>({ defaultValues: { apiToken: '' } })
+  const renewtronForm = useForm<FieldValues>({ defaultValues: { baseUrl: '', apiKey: '' } })
+
+  // Re-baseline each form once its values arrive, so isDirty means "you changed
+  // something" rather than "the data loaded".
+  useHydrate(captchaForm, captcha.data && { apiKey: captcha.data.apiKey ?? '' })
+  useHydrate(
+    ontraportForm,
+    ontraport.data && {
+      webhookSecret: ontraport.data.webhookSecret ?? '',
+      renewalSecret: ontraport.data.renewalSecret ?? '',
+    },
+  )
+  useHydrate(
+    emailForm,
+    email.data && {
+      from: email.data.from ?? '',
+      resendApiKey: email.data.resendApiKey ?? '',
+      sendGridApiKey: email.data.sendGridApiKey ?? '',
+      siteUrl: email.data.siteUrl ?? '',
+    },
+  )
+  useHydrate(abnForm, abn.data && { apiToken: abn.data.apiToken ?? '' })
+  useHydrate(
+    renewtronForm,
+    renewtron.data && { baseUrl: renewtron.data.baseUrl ?? '', apiKey: renewtron.data.apiKey ?? '' },
+  )
+
+  const saved = (label: string, key: readonly unknown[], form: UseFormReturn<FieldValues>) => ({
+    onSuccess: async (_data: unknown, variables: { body?: FieldValues }) => {
+      await queryClient.invalidateQueries({ queryKey: key })
+      if (variables.body) form.reset(variables.body)
+      toastSuccess(`${label} saved`, 'Applies immediately — no restart needed.')
+    },
+    onError: () => toastError(`Couldn’t save ${label.toLowerCase()}`, 'Try again in a moment.'),
+  })
+
+  const saveCaptcha = useMutation({
+    ...updateCaptchaSettingsMutation(),
+    ...saved('2Captcha key', getCaptchaSettingsQueryKey(), captchaForm),
+  })
+  const saveOntraport = useMutation({
+    ...updateOntraportSettingsMutation(),
+    ...saved('Ontraport secrets', getOntraportSettingsQueryKey(), ontraportForm),
+  })
+  const saveEmail = useMutation({
+    ...updateEmailSettingsMutation(),
+    ...saved('Email settings', getEmailSettingsQueryKey(), emailForm),
+  })
+  const saveAbn = useMutation({
+    ...updateAbnLookupSettingsMutation(),
+    ...saved('ABN Lookup token', getAbnLookupSettingsQueryKey(), abnForm),
+  })
+  const saveRenewtron = useMutation({
+    ...updateRenewtronSettingsMutation(),
+    ...saved('Renewtron settings', getRenewtronSettingsQueryKey(), renewtronForm),
+  })
+
   const [syncResult, setSyncResult] = useState<RenewtronSyncResult | null>(null)
-  const [syncError, setSyncError] = useState<string | null>(null)
-
-  useEffect(() => {
-    void (async () => {
-      try {
-        const [captcha, ontraport, email, abn, renewtron] = await Promise.all([
-          getCaptchaSettings(),
-          getOntraportSettings(),
-          getEmailSettings(),
-          getAbnLookupSettings(),
-          getRenewtronSettings(),
-        ])
-        setCaptchaKey(captcha.data?.apiKey ?? '')
-        setWebhookSecret(ontraport.data?.webhookSecret ?? '')
-        setRenewalSecret(ontraport.data?.renewalSecret ?? '')
-        setEmailFrom(email.data?.from ?? '')
-        setResendApiKey(email.data?.resendApiKey ?? '')
-        setSendGridApiKey(email.data?.sendGridApiKey ?? '')
-        setSiteUrl(email.data?.siteUrl ?? '')
-        setAbnToken(abn.data?.apiToken ?? '')
-        setRenewtronBaseUrl(renewtron.data?.baseUrl ?? '')
-        setRenewtronApiKey(renewtron.data?.apiKey ?? '')
-      } catch (err) {
-        setLoadError(err instanceof Error ? err.message : 'Failed to load settings')
+  const sync = useMutation({
+    mutationFn: async () => (await runRenewtronSyncNow({ throwOnError: true })).data,
+    onSuccess: (result) => {
+      setSyncResult(result ?? null)
+      if (result?.configured) {
+        toastSuccess(
+          result.created === 1 ? '1 login created' : `${result.created} logins created`,
+          `${result.fetched} completed renewals checked.`,
+        )
       }
-    })()
-  }, [])
+    },
+    onError: () => toastError('The sync didn’t finish', 'Check the API key and try again.'),
+  })
 
-  const runSyncNow = async () => {
-    setSyncBusy(true)
-    setSyncResult(null)
-    setSyncError(null)
-    try {
-      const res = await runRenewtronSyncNow({ throwOnError: true })
-      setSyncResult(res.data)
-    } catch (err) {
-      setSyncError(err instanceof Error ? err.message : 'Sync failed')
-    } finally {
-      setSyncBusy(false)
-    }
+  const loading =
+    captcha.isPending || ontraport.isPending || email.isPending || abn.isPending || renewtron.isPending
+
+  if (loading) {
+    return (
+      <div className="flex flex-col gap-5">
+        <Skeleton className="h-10 w-1/3" />
+        <Skeleton className="h-40 w-full" />
+        <Skeleton className="h-40 w-full" />
+      </div>
+    )
   }
-
-  const captcha = useSave(() =>
-    updateCaptchaSettings({ body: { apiKey: captchaKey.trim() || null } }))
-  const ontraport = useSave(() =>
-    updateOntraportSettings({
-      body: {
-        webhookSecret: webhookSecret.trim() || null,
-        renewalSecret: renewalSecret.trim() || null,
-      },
-    }))
-  const email = useSave(() =>
-    updateEmailSettings({
-      body: {
-        from: emailFrom.trim() || null,
-        resendApiKey: resendApiKey.trim() || null,
-        sendGridApiKey: sendGridApiKey.trim() || null,
-        siteUrl: siteUrl.trim() || null,
-      },
-    }))
-  const abn = useSave(() =>
-    updateAbnLookupSettings({ body: { apiToken: abnToken.trim() || null } }))
-  const renewtron = useSave(() =>
-    updateRenewtronSettings({
-      body: {
-        baseUrl: renewtronBaseUrl.trim() || null,
-        apiKey: renewtronApiKey.trim() || null,
-      },
-    }))
 
   const origin = window.location.origin
 
   return (
-    <>
+    <div className="flex max-w-3xl flex-col gap-5">
       <PageHeader
-        title="Settings"
-        subtitle="Integration credentials are stored on the server and take effect immediately — no restart or redeploy required."
+        title="Integrations"
+        description="Credentials live on the server and take effect immediately — nothing here needs a restart or a redeploy."
       />
 
-      {loadError ? (
-        <div className="mb-4 rounded-lg bg-red-50 border border-red-200 text-red-800 text-sm px-4 py-2.5">{loadError}</div>
-      ) : null}
-
-      <div className="max-w-2xl space-y-6">
-        <SettingsSection
-          title="2Captcha"
-          subtitle="Solves the invisible reCAPTCHA on ASIC Connect lookups (renewal-date enrichment). Each solve uses a small amount of 2Captcha credit."
-          configured={captchaKey.trim().length > 0}
-          {...captcha}
-        >
-          <div>
-            <label className="label" htmlFor="captchaKey">API key</label>
-            <SecretInput id="captchaKey" value={captchaKey} onChange={setCaptchaKey} placeholder="From your 2Captcha dashboard" />
-          </div>
-        </SettingsSection>
-
-        <SettingsSection
-          title="Ontraport webhooks"
-          subtitle="Shared secrets the Ontraport rules must send in the X-Ontraport-Secret header. An empty secret disables that webhook."
-          configured={webhookSecret.trim().length > 0 || renewalSecret.trim().length > 0}
-          {...ontraport}
-        >
-          <div>
-            <label className="label" htmlFor="webhookSecret">Contact-sync secret</label>
-            <SecretInput id="webhookSecret" value={webhookSecret} onChange={setWebhookSecret} />
-            <p className="mt-1 text-xs text-navy-500 font-mono break-all">POST {origin}/api/integrations/ontraport/webhook</p>
-          </div>
-          <div>
-            <label className="label" htmlFor="renewalSecret">Renewal-paid secret</label>
-            <SecretInput id="renewalSecret" value={renewalSecret} onChange={setRenewalSecret} />
-            <p className="mt-1 text-xs text-navy-500 font-mono break-all">POST {origin}/api/integrations/ontraport/renewal-paid</p>
-          </div>
-        </SettingsSection>
-
-        <SettingsSection
-          title="Email"
-          subtitle="Outbound email — password resets, invites, notifications. Resend or SendGrid (Resend wins if both are set). Without an API key, emails are logged to the server console instead of sent."
-          configured={resendApiKey.trim().length > 0 || sendGridApiKey.trim().length > 0}
-          {...email}
-        >
-          <div>
-            <label className="label" htmlFor="resendApiKey">Resend API key</label>
-            <SecretInput id="resendApiKey" value={resendApiKey} onChange={setResendApiKey} placeholder="re_..." />
-          </div>
-          <div>
-            <label className="label" htmlFor="sendGridApiKey">SendGrid API key</label>
-            <SecretInput id="sendGridApiKey" value={sendGridApiKey} onChange={setSendGridApiKey} placeholder="SG...." />
-            <p className="mt-1 text-xs text-navy-500">Alternative to Resend — e.g. reuse Renewtron's verified SendGrid sender.</p>
-          </div>
-          <div>
-            <label className="label" htmlFor="emailFrom">From address</label>
-            <input
-              id="emailFrom"
-              className="input"
-              value={emailFrom}
-              onChange={(e) => setEmailFrom(e.target.value)}
-              placeholder="Business Portal <no-reply@example.com>"
-              autoComplete="off"
-            />
-          </div>
-          <div>
-            <label className="label" htmlFor="siteUrl">Site URL</label>
-            <input
-              id="siteUrl"
-              className="input"
-              value={siteUrl}
-              onChange={(e) => setSiteUrl(e.target.value)}
-              placeholder="https://myportal.example.com"
-              autoComplete="off"
-            />
-            <p className="mt-1 text-xs text-navy-500">Base URL used in emailed links (e.g. password reset).</p>
-          </div>
-        </SettingsSection>
-
-        <SettingsSection
-          title="ABN Lookup"
-          subtitle="ABR web services token used to look up businesses by ABN. Register at abr.business.gov.au to get a GUID."
-          configured={abnToken.trim().length > 0}
-          {...abn}
-        >
-          <div>
-            <label className="label" htmlFor="abnToken">API token (GUID)</label>
-            <SecretInput id="abnToken" value={abnToken} onChange={setAbnToken} placeholder="00000000-0000-0000-0000-000000000000" />
-          </div>
-        </SettingsSection>
-
-        <SettingsSection
-          title="Renewtron renewal sync"
-          subtitle="Polls Renewtron every 10 minutes for completed business name renewals and creates a portal login for each customer (new accounts get a set-password invite email). An empty API key turns the sync off."
-          configured={renewtronApiKey.trim().length > 0}
-          {...renewtron}
-        >
-          <div>
-            <label className="label" htmlFor="renewtronBaseUrl">Base URL</label>
-            <input
-              id="renewtronBaseUrl"
-              className="input"
-              value={renewtronBaseUrl}
-              onChange={(e) => setRenewtronBaseUrl(e.target.value)}
-              placeholder="https://businessnames.applyforanabn.au"
-              autoComplete="off"
-            />
-          </div>
-          <div>
-            <label className="label" htmlFor="renewtronApiKey">API key</label>
-            <SecretInput id="renewtronApiKey" value={renewtronApiKey} onChange={setRenewtronApiKey} placeholder="Renewtron's X-Api-Key value" />
-          </div>
-          <div className="flex items-center gap-3">
-            <button
-              type="button"
-              className="btn-secondary"
-              disabled={syncBusy}
-              onClick={() => void runSyncNow()}
-            >
-              {syncBusy ? 'Syncing…' : 'Sync now'}
-            </button>
+      <Section
+        title="Renewtron"
+        purpose="Checks Renewtron every 10 minutes for completed business name renewals and creates a portal login for each customer, emailing new ones a link to set a password."
+        whenEmpty="Without an API key the sync is off, and customers who renew won't get a portal account."
+        configured={Boolean(renewtron.data?.apiKey)}
+        form={renewtronForm}
+        saving={saveRenewtron.isPending}
+        onSave={renewtronForm.handleSubmit((values) =>
+          saveRenewtron.mutate({ body: { baseUrl: values.baseUrl || null, apiKey: values.apiKey || null } }),
+        )}
+        footer={
+          <div className="mr-auto flex flex-wrap items-center gap-3">
+            <Button variant="secondary" loading={sync.isPending} onClick={() => sync.mutate()}>
+              Sync now
+            </Button>
             {syncResult ? (
-              <span className="text-sm text-navy-600">
+              <span className="text-sm text-sage">
                 {syncResult.configured
-                  ? `${syncResult.fetched} completed renewals — ${syncResult.created} logins created, ${syncResult.updated} updated, ${syncResult.skipped} skipped, ${syncResult.failed} failed.`
+                  ? `${syncResult.fetched} checked · ${syncResult.created} created · ${syncResult.updated} updated · ${syncResult.skipped} skipped${Number(syncResult.failed) > 0 ? ` · ${syncResult.failed} failed` : ''}`
                   : (syncResult.message ?? 'Not configured.')}
               </span>
             ) : null}
           </div>
-          {syncError ? (
-            <div className="rounded-lg bg-red-50 border border-red-200 text-red-800 text-sm px-4 py-2.5">{syncError}</div>
-          ) : null}
-        </SettingsSection>
-      </div>
-    </>
+        }
+      >
+        <Field label="Base URL">
+          <Field.Input placeholder="https://businessnames.applyforanabn.au" {...renewtronForm.register('baseUrl')} />
+        </Field>
+        <SecretInput
+          label="API key"
+          hint="The same X-Api-Key value Renewtron accepts from Mastertron."
+          form={renewtronForm}
+          name="apiKey"
+        />
+      </Section>
+
+      <Section
+        title="Email"
+        purpose="Sends password resets, portal invites and notifications."
+        whenEmpty="Without a key, emails are written to the server log instead of sent — invited customers never receive their link."
+        configured={Boolean(email.data?.resendApiKey || email.data?.sendGridApiKey)}
+        form={emailForm}
+        saving={saveEmail.isPending}
+        onSave={emailForm.handleSubmit((values) =>
+          saveEmail.mutate({
+            body: {
+              from: values.from || null,
+              resendApiKey: values.resendApiKey || null,
+              sendGridApiKey: values.sendGridApiKey || null,
+              siteUrl: values.siteUrl || null,
+            },
+          }),
+        )}
+      >
+        <SecretInput label="Resend API key" placeholder="re_…" form={emailForm} name="resendApiKey" />
+        <SecretInput
+          label="SendGrid API key"
+          hint="An alternative to Resend — Resend wins if both are set."
+          placeholder="SG.…"
+          form={emailForm}
+          name="sendGridApiKey"
+        />
+        <Field label="From address">
+          <Field.Input placeholder="Business Portal <no-reply@example.com>" {...emailForm.register('from')} />
+        </Field>
+        <Field label="Site URL" hint="Used to build emailed links, so it must be the address customers can reach.">
+          <Field.Input placeholder="https://myportal.idealbusiness.au" {...emailForm.register('siteUrl')} />
+        </Field>
+      </Section>
+
+      <Section
+        title="Ontraport webhooks"
+        purpose="Shared secrets the Ontraport rules must send in the X-Ontraport-Secret header."
+        whenEmpty="An empty secret rejects every request to that webhook."
+        configured={Boolean(ontraport.data?.webhookSecret || ontraport.data?.renewalSecret)}
+        form={ontraportForm}
+        saving={saveOntraport.isPending}
+        onSave={ontraportForm.handleSubmit((values) =>
+          saveOntraport.mutate({
+            body: {
+              webhookSecret: values.webhookSecret || null,
+              renewalSecret: values.renewalSecret || null,
+            },
+          }),
+        )}
+      >
+        <SecretInput
+          label="Contact sync secret"
+          hint={<code className="text-xs">POST {origin}/api/integrations/ontraport/webhook</code>}
+          form={ontraportForm}
+          name="webhookSecret"
+        />
+        <SecretInput
+          label="Renewal paid secret"
+          hint={<code className="text-xs">POST {origin}/api/integrations/ontraport/renewal-paid</code>}
+          form={ontraportForm}
+          name="renewalSecret"
+        />
+      </Section>
+
+      <Section
+        title="ABN Lookup"
+        purpose="Looks up businesses by ABN against the Australian Business Register."
+        whenEmpty="Without a token, the “Check ABN Lookup” button on a client's business names does nothing."
+        configured={Boolean(abn.data?.apiToken)}
+        form={abnForm}
+        saving={saveAbn.isPending}
+        onSave={abnForm.handleSubmit((values) => saveAbn.mutate({ body: { apiToken: values.apiToken || null } }))}
+      >
+        <SecretInput
+          label="API token"
+          hint="A GUID from abr.business.gov.au."
+          placeholder="00000000-0000-0000-0000-000000000000"
+          form={abnForm}
+          name="apiToken"
+        />
+      </Section>
+
+      <Section
+        title="2Captcha"
+        purpose="Solves the reCAPTCHA on ASIC Connect when enriching renewal dates."
+        whenEmpty="Without a key, ASIC lookups are skipped and renewal dates must be entered by hand."
+        configured={Boolean(captcha.data?.apiKey)}
+        form={captchaForm}
+        saving={saveCaptcha.isPending}
+        onSave={captchaForm.handleSubmit((values) =>
+          saveCaptcha.mutate({ body: { apiKey: values.apiKey || null } }),
+        )}
+      >
+        <SecretInput label="API key" hint="Each solve spends 2Captcha credit." form={captchaForm} name="apiKey" />
+      </Section>
+    </div>
   )
+}
+
+/** Reset a form to server values once, so isDirty tracks edits, not loading. */
+function useHydrate(form: UseFormReturn<FieldValues>, values: FieldValues | undefined | null | false) {
+  const { reset } = form
+  useEffect(() => {
+    if (values) reset(values as DefaultValues<FieldValues>)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [JSON.stringify(values ?? null), reset])
 }
