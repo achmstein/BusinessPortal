@@ -695,16 +695,6 @@
         "responses": {
           "204": {
             "description": "No Content"
-          },
-          "400": {
-            "description": "Bad Request",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
           }
         }
       }
@@ -951,9 +941,51 @@
           "Admin"
         ],
         "operationId": "GetAdminClients",
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "pattern": "^-?(?:0|[1-9]\\d*)$",
+              "type": [
+                "integer",
+                "string"
+              ],
+              "format": "int32"
+            }
+          },
+          {
+            "name": "pageSize",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "pattern": "^-?(?:0|[1-9]\\d*)$",
+              "type": [
+                "integer",
+                "string"
+              ],
+              "format": "int32"
+            }
+          }
+        ],
         "responses": {
           "200": {
-            "description": "OK"
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminClientsPage"
+                }
+              }
+            }
           }
         }
       }
@@ -1047,19 +1079,184 @@
         }
       }
     },
-    "/api/admin/registry": {
+    "/api/admin/registry/summary": {
       "get": {
         "tags": [
           "Admin"
         ],
-        "operationId": "GetAdminRegistry",
+        "operationId": "GetRegistrySummary",
         "responses": {
           "200": {
             "description": "OK",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/AdminRegistryResponse"
+                  "$ref": "#/components/schemas/RegistrySummaryResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/registry/business-names": {
+      "get": {
+        "tags": [
+          "Admin"
+        ],
+        "operationId": "GetRegistryBusinessNames",
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "pattern": "^-?(?:0|[1-9]\\d*)$",
+              "type": [
+                "integer",
+                "string"
+              ],
+              "format": "int32"
+            }
+          },
+          {
+            "name": "pageSize",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "pattern": "^-?(?:0|[1-9]\\d*)$",
+              "type": [
+                "integer",
+                "string"
+              ],
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RegistryBusinessNamesPage"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/registry/entities": {
+      "get": {
+        "tags": [
+          "Admin"
+        ],
+        "operationId": "GetRegistryEntities",
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "pattern": "^-?(?:0|[1-9]\\d*)$",
+              "type": [
+                "integer",
+                "string"
+              ],
+              "format": "int32"
+            }
+          },
+          {
+            "name": "pageSize",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "pattern": "^-?(?:0|[1-9]\\d*)$",
+              "type": [
+                "integer",
+                "string"
+              ],
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RegistryEntitiesPage"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/registry/companies": {
+      "get": {
+        "tags": [
+          "Admin"
+        ],
+        "operationId": "GetRegistryCompanies",
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "pattern": "^-?(?:0|[1-9]\\d*)$",
+              "type": [
+                "integer",
+                "string"
+              ],
+              "format": "int32"
+            }
+          },
+          {
+            "name": "pageSize",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "pattern": "^-?(?:0|[1-9]\\d*)$",
+              "type": [
+                "integer",
+                "string"
+              ],
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RegistryCompaniesPage"
                 }
               }
             }
@@ -1304,6 +1501,67 @@
         }
       }
     },
+    "/api/admin/settings/renewtron": {
+      "get": {
+        "tags": [
+          "Settings"
+        ],
+        "operationId": "GetRenewtronSettings",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RenewtronSettings"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "Settings"
+        ],
+        "operationId": "UpdateRenewtronSettings",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RenewtronSettings"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "No Content"
+          }
+        }
+      }
+    },
+    "/api/admin/settings/renewtron/sync-now": {
+      "post": {
+        "tags": [
+          "Settings"
+        ],
+        "operationId": "RunRenewtronSyncNow",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RenewtronSyncResult"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/integrations/ontraport/webhook": {
       "post": {
         "tags": [
@@ -1493,67 +1751,6 @@
           }
         }
       }
-    },
-    "/api/admin/settings/renewtron": {
-      "get": {
-        "tags": [
-          "Settings"
-        ],
-        "operationId": "GetRenewtronSettings",
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/RenewtronSettings"
-                }
-              }
-            }
-          }
-        }
-      },
-      "put": {
-        "tags": [
-          "Settings"
-        ],
-        "operationId": "UpdateRenewtronSettings",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/RenewtronSettings"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "204": {
-            "description": "No Content"
-          }
-        }
-      }
-    },
-    "/api/admin/settings/renewtron/sync-now": {
-      "post": {
-        "tags": [
-          "Settings"
-        ],
-        "operationId": "RunRenewtronSyncNow",
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/RenewtronSyncResult"
-                }
-              }
-            }
-          }
-        }
-      }
     }
   },
   "components": {
@@ -1659,6 +1856,82 @@
           }
         }
       },
+      "AdminClientRow": {
+        "required": [
+          "id",
+          "email",
+          "firstName",
+          "lastName",
+          "atoConnected",
+          "createdAt"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "email": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "firstName": {
+            "type": "string"
+          },
+          "lastName": {
+            "type": "string"
+          },
+          "atoConnected": {
+            "type": "boolean"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "AdminClientsPage": {
+        "required": [
+          "totalCount",
+          "page",
+          "pageSize",
+          "items"
+        ],
+        "type": "object",
+        "properties": {
+          "totalCount": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "page": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "pageSize": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AdminClientRow"
+            }
+          }
+        }
+      },
       "AdminClientThreadsResponse": {
         "required": [
           "id",
@@ -1731,43 +2004,6 @@
               "string"
             ],
             "format": "int32"
-          }
-        }
-      },
-      "AdminRegistryResponse": {
-        "required": [
-          "clients",
-          "businessNames",
-          "entities",
-          "companies"
-        ],
-        "type": "object",
-        "properties": {
-          "clients": {
-            "pattern": "^-?(?:0|[1-9]\\d*)$",
-            "type": [
-              "integer",
-              "string"
-            ],
-            "format": "int32"
-          },
-          "businessNames": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/RegistryBusinessNameRow"
-            }
-          },
-          "entities": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/RegistryEntityRow"
-            }
-          },
-          "companies": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/RegistryCompanyRow"
-            }
           }
         }
       },
@@ -2632,6 +2868,47 @@
           }
         }
       },
+      "RegistryBusinessNamesPage": {
+        "required": [
+          "totalCount",
+          "page",
+          "pageSize",
+          "items"
+        ],
+        "type": "object",
+        "properties": {
+          "totalCount": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "page": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "pageSize": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RegistryBusinessNameRow"
+            }
+          }
+        }
+      },
       "RegistryClientRef": {
         "required": [
           "id",
@@ -2651,6 +2928,47 @@
               "null",
               "string"
             ]
+          }
+        }
+      },
+      "RegistryCompaniesPage": {
+        "required": [
+          "totalCount",
+          "page",
+          "pageSize",
+          "items"
+        ],
+        "type": "object",
+        "properties": {
+          "totalCount": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "page": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "pageSize": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RegistryCompanyRow"
+            }
           }
         }
       },
@@ -2678,6 +2996,47 @@
           },
           "client": {
             "$ref": "#/components/schemas/RegistryClientRef"
+          }
+        }
+      },
+      "RegistryEntitiesPage": {
+        "required": [
+          "totalCount",
+          "page",
+          "pageSize",
+          "items"
+        ],
+        "type": "object",
+        "properties": {
+          "totalCount": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "page": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "pageSize": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RegistryEntityRow"
+            }
           }
         }
       },
@@ -2717,13 +3076,40 @@
           }
         }
       },
-      "RenewBody": {
+      "RegistrySummaryResponse": {
         "required": [
-          "years"
+          "clients",
+          "businessNames",
+          "entities",
+          "companies"
         ],
         "type": "object",
         "properties": {
-          "years": {
+          "clients": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "businessNames": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "entities": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "companies": {
             "pattern": "^-?(?:0|[1-9]\\d*)$",
             "type": [
               "integer",
@@ -2741,6 +3127,22 @@
         "properties": {
           "renewalDate": {
             "type": "string"
+          }
+        }
+      },
+      "RenewBody": {
+        "required": [
+          "years"
+        ],
+        "type": "object",
+        "properties": {
+          "years": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
           }
         }
       },
@@ -2781,23 +3183,43 @@
             "type": "boolean"
           },
           "fetched": {
-            "type": "integer",
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
             "format": "int32"
           },
           "created": {
-            "type": "integer",
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
             "format": "int32"
           },
           "updated": {
-            "type": "integer",
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
             "format": "int32"
           },
           "skipped": {
-            "type": "integer",
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
             "format": "int32"
           },
           "failed": {
-            "type": "integer",
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
             "format": "int32"
           },
           "message": {

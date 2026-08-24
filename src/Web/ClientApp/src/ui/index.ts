@@ -5,6 +5,7 @@ export { Button, type ButtonProps } from './Button'
 export { Field } from './Field'
 export { Checkbox } from './Checkbox'
 export { Badge } from './Badge'
+export { DataTable, Pagination, type DataTableColumn } from './DataTable'
 export { Dialog, ConfirmDialog } from './Dialog'
 export { ValidityBand } from './ValidityBand'
 export {

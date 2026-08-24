@@ -1,50 +1,73 @@
-import { useEffect, useState } from 'react'
-import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom'
-import { Icon } from './Icon'
-import { useAuth } from '../auth/AuthContext'
-import { getAdminOverview } from '../api/generated'
+import { useState } from 'react'
+import { Dialog as ArkDialog } from '@ark-ui/react/dialog'
+import { Portal } from '@ark-ui/react/portal'
+import { useQuery } from '@tanstack/react-query'
+import { Link, NavLink, Outlet, useNavigate } from 'react-router-dom'
+import { BookMarked, LayoutGrid, LogOut, Menu, MessageSquare, Settings, Users, X } from 'lucide-react'
+import { getAdminOverviewOptions } from '@/api/generated/@tanstack/react-query.gen'
+import { useAuth } from '@/auth/AuthContext'
+import { cn } from '@/lib/cn'
 
-// Ported verbatim from the original components/admin-nav.tsx AdminSidebar +
-// app/admin/layout.tsx shell: navy rail with icons, mobile drawer, inbox unread
-// footer, and the red Admin indicator.
-const ADMIN_NAV = [
-  { href: '/admin', label: 'Overview', icon: 'home' },
-  { href: '/admin/clients', label: 'Clients', icon: 'users' },
-  { href: '/admin/registry', label: 'Registry', icon: 'book' },
-  { href: '/admin/messages', label: 'Messages', icon: 'chat' },
-  { href: '/admin/settings', label: 'Settings', icon: 'settings' },
+// ─────────────────────────────────────────────────────────────────────────────
+// The admin shell.
+//
+// This is where the two halves of the product deliberately diverge. The client
+// portal dropped its sidebar for a top bar because customers visit twice a year
+// and scan; staff are in here every day, moving between the same five places,
+// so a persistent rail that builds muscle memory is the right call — the same
+// reasoning, applied to a different audience, reaching the opposite answer.
+//
+// It stays light rather than reverting to a dark rail: the density comes from
+// tighter spacing, not from inverting the palette.
+//
+// The mobile drawer is a real dialog now. The old one was a bare fixed div with
+// a click-only backdrop — no focus trap, no Escape, no focus restore.
+// ─────────────────────────────────────────────────────────────────────────────
+
+const NAV = [
+  { to: '/admin', label: 'Overview', icon: LayoutGrid, end: true },
+  { to: '/admin/clients', label: 'Clients', icon: Users },
+  { to: '/admin/registry', label: 'Registry', icon: BookMarked },
+  { to: '/admin/messages', label: 'Messages', icon: MessageSquare },
+  { to: '/admin/settings', label: 'Settings', icon: Settings },
 ]
 
-function AdminBrand({ inverted = false }: { inverted?: boolean }) {
+function NavItems({ onNavigate, unread }: { onNavigate?: () => void; unread: number }) {
   return (
-    <div className="leading-tight">
-      <div className={`text-base font-bold tracking-tight ${inverted ? 'text-white' : 'text-navy-900'}`}>
-        Admin Console
-      </div>
-      <div className={`text-[11px] uppercase tracking-wider ${inverted ? 'text-navy-300' : 'text-navy-500'}`}>
-        Internal staff use
-      </div>
-    </div>
-  )
-}
-
-function NavList({ pathname, onNavigate }: { pathname: string; onNavigate?: () => void }) {
-  return (
-    <nav className="space-y-1">
-      {ADMIN_NAV.map((item) => {
-        const active = pathname === item.href || pathname.startsWith(item.href + '/')
-        return (
-          <Link
-            key={item.href}
-            to={item.href}
-            onClick={onNavigate}
-            className={`nav-link ${active ? 'nav-link-active' : ''}`}
-          >
-            <Icon name={item.icon} />
-            <span>{item.label}</span>
-          </Link>
-        )
-      })}
+    <nav aria-label="Admin sections" className="flex flex-col gap-0.5">
+      {NAV.map((item) => (
+        <NavLink
+          key={item.to}
+          to={item.to}
+          end={item.end}
+          onClick={onNavigate}
+          className={({ isActive }) =>
+            cn(
+              'flex items-center gap-2.5 rounded-sm px-3 py-2 text-sm transition-colors',
+              isActive
+                ? 'bg-surface-sunken font-medium text-ink'
+                : 'text-ink-muted hover:bg-surface-sunken/60 hover:text-ink',
+            )
+          }
+        >
+          {({ isActive }) => (
+            <>
+              <item.icon aria-hidden className="size-4 shrink-0" strokeWidth={1.75} />
+              <span aria-current={isActive ? 'page' : undefined} className="flex-1">
+                {item.label}
+              </span>
+              {item.to === '/admin/messages' && unread > 0 ? (
+                <span
+                  data-numeric
+                  className="rounded-xs bg-bottle-600 px-1.5 py-0.5 text-[0.6875rem] font-medium text-paper"
+                >
+                  {unread}
+                </span>
+              ) : null}
+            </>
+          )}
+        </NavLink>
+      ))}
     </nav>
   )
 }
@@ -52,89 +75,102 @@ function NavList({ pathname, onNavigate }: { pathname: string; onNavigate?: () =
 export function AdminLayout() {
   const { user, logout } = useAuth()
   const navigate = useNavigate()
-  const { pathname } = useLocation()
-  const [open, setOpen] = useState(false)
-  const [unreadCount, setUnreadCount] = useState(0)
+  const [drawerOpen, setDrawerOpen] = useState(false)
 
-  // The original layout summed unread across all clients server-side; the
-  // overview endpoint exposes the same number.
-  useEffect(() => {
-    getAdminOverview()
-      .then(({ data }) => setUnreadCount(Number(data?.unreadMessages ?? 0)))
-      .catch(() => setUnreadCount(0))
-  }, [pathname])
+  // Was refetched on every route change just to keep a badge current; the query
+  // cache handles that now, and staleness of a minute is fine for an inbox count.
+  const overview = useQuery(getAdminOverviewOptions())
+  const unread = Number(overview.data?.unreadMessages ?? 0)
 
-  const userName = `${user?.firstName ?? ''} ${user?.lastName ?? ''}`.trim() || user?.email || ''
-  const userEmail = user?.email ?? ''
+  const name = `${user?.firstName ?? ''} ${user?.lastName ?? ''}`.trim() || (user?.email ?? '')
 
   async function onLogout() {
     await logout()
     navigate('/login')
   }
 
-  const adminFooter = (
-    <>
-      <div className="rounded-lg bg-navy-800 px-3 py-2 mb-3">
-        <div className="text-[11px] uppercase tracking-wider text-navy-400">Inbox</div>
-        <div className="text-sm font-semibold text-white">
-          {unreadCount === 0 ? 'All caught up' : `${unreadCount} unread`}
-        </div>
-      </div>
+  const identity = (
+    <div className="flex flex-col gap-3 border-t border-rule pt-4">
       <div className="px-3">
-        <div className="text-[11px] uppercase tracking-wider text-navy-400">Signed in as</div>
-        <div className="text-sm font-medium text-white truncate">{userName || userEmail}</div>
-        <div className="text-xs text-navy-400 truncate">{userEmail}</div>
-        <div className="mt-1 inline-flex items-center gap-1 text-[11px] text-red-300">
-          <span className="inline-block h-1.5 w-1.5 rounded-full bg-red-500"></span> Admin
-        </div>
+        <p className="truncate text-sm font-medium text-ink">{name}</p>
+        <p className="truncate text-xs text-sage">{user?.email}</p>
+        <p className="mt-1 text-xs tracking-[0.1em] text-brass-700 uppercase">Staff access</p>
       </div>
-      <div className="mt-3 px-1">
-        <button onClick={onLogout} className="nav-link w-full">
-          <Icon name="logout" />
-          <span>Sign out</span>
-        </button>
-      </div>
-    </>
+      <button
+        type="button"
+        onClick={() => void onLogout()}
+        className="flex items-center gap-2.5 rounded-sm px-3 py-2 text-sm text-ink-muted hover:bg-surface-sunken hover:text-ink"
+      >
+        <LogOut aria-hidden className="size-4" strokeWidth={1.75} />
+        Sign out
+      </button>
+    </div>
+  )
+
+  const brand = (
+    <Link to="/admin" className="flex flex-col px-3 leading-none">
+      <span className="font-display text-lg font-medium text-ink">Admin</span>
+      <span className="text-[0.7rem] tracking-[0.12em] text-sage uppercase">Business Portal</span>
+    </Link>
   )
 
   return (
-    <div className="min-h-dvh lg:flex bg-navy-50">
-      {/* Top bar (mobile) */}
-      <div className="lg:hidden sticky top-0 z-30 flex items-center justify-between bg-navy-900 text-white px-4 py-3 shadow">
-        <AdminBrand inverted />
-        <button aria-label="Open menu" onClick={() => setOpen(true)} className="rounded-md p-2 hover:bg-navy-800">
-          <Icon name="menu" />
+    <div className="min-h-dvh bg-paper lg:flex">
+      <a
+        href="#admin-main"
+        className="sr-only focus:not-sr-only focus:absolute focus:top-2 focus:left-2 focus:z-50 focus:rounded-sm focus:bg-ink focus:px-3 focus:py-2 focus:text-sm focus:text-paper"
+      >
+        Skip to content
+      </a>
+
+      {/* Mobile bar */}
+      <div className="sticky top-0 z-30 flex items-center justify-between border-b border-rule bg-paper px-4 py-3 lg:hidden">
+        {brand}
+        <button
+          type="button"
+          aria-label="Open menu"
+          onClick={() => setDrawerOpen(true)}
+          className="rounded-sm p-2 text-ink-muted hover:bg-surface-sunken"
+        >
+          <Menu aria-hidden className="size-5" />
         </button>
       </div>
 
-      {open ? (
-        <div className="lg:hidden fixed inset-0 z-40">
-          <div className="absolute inset-0 bg-black/50" onClick={() => setOpen(false)} />
-          <aside className="absolute left-0 top-0 bottom-0 w-72 max-w-[85%] bg-navy-900 text-white p-4 overflow-y-auto">
-            <div className="flex items-center justify-between mb-6">
-              <AdminBrand inverted />
-              <button aria-label="Close menu" onClick={() => setOpen(false)} className="rounded-md p-2 hover:bg-navy-800">
-                <Icon name="close" />
-              </button>
-            </div>
-            <NavList pathname={pathname} onNavigate={() => setOpen(false)} />
-            <div className="mt-6 border-t border-navy-800 pt-4">{adminFooter}</div>
-          </aside>
-        </div>
-      ) : null}
+      <ArkDialog.Root
+        open={drawerOpen}
+        onOpenChange={(details) => setDrawerOpen(details.open)}
+        lazyMount
+        unmountOnExit
+      >
+        <Portal>
+          <ArkDialog.Backdrop className="fixed inset-0 z-40 bg-ink/40 lg:hidden" />
+          <ArkDialog.Positioner className="fixed inset-y-0 left-0 z-50 lg:hidden">
+            <ArkDialog.Content className="flex h-dvh w-72 max-w-[85vw] flex-col gap-4 bg-paper p-4 ring-1 ring-rule">
+              <div className="flex items-center justify-between">
+                {brand}
+                <ArkDialog.CloseTrigger
+                  aria-label="Close menu"
+                  className="rounded-sm p-2 text-ink-muted hover:bg-surface-sunken"
+                >
+                  <X aria-hidden className="size-5" />
+                </ArkDialog.CloseTrigger>
+              </div>
+              <NavItems unread={unread} onNavigate={() => setDrawerOpen(false)} />
+              <div className="mt-auto">{identity}</div>
+            </ArkDialog.Content>
+          </ArkDialog.Positioner>
+        </Portal>
+      </ArkDialog.Root>
 
-      <aside className="hidden lg:flex lg:flex-col lg:w-72 bg-navy-900 text-white p-4 sticky top-0 h-dvh">
-        <div className="px-2 py-2">
-          <AdminBrand inverted />
-        </div>
-        <div className="mt-4 flex-1 overflow-y-auto pr-1">
-          <NavList pathname={pathname} />
-        </div>
-        <div className="border-t border-navy-800 pt-3 mt-3">{adminFooter}</div>
+      {/* Desktop rail */}
+      <aside className="sticky top-0 hidden h-dvh w-60 shrink-0 flex-col gap-4 border-r border-rule bg-paper p-4 lg:flex">
+        {brand}
+        <NavItems unread={unread} />
+        <div className="mt-auto">{identity}</div>
       </aside>
 
-      <main className="flex-1 min-w-0">
-        <div className="max-w-6xl mx-auto p-4 sm:p-6 lg:p-10">
+      <main id="admin-main" className="min-w-0 flex-1 px-4 py-8 sm:px-6 lg:px-10">
+        <div className="mx-auto max-w-6xl">
           <Outlet />
         </div>
       </main>

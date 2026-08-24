@@ -38,19 +38,40 @@ public static class AdminEndpoints
             return Results.Ok(new AdminOverviewResponse(clients, activeThreads, unread, renewalsDue));
         }).WithName("GetAdminOverview").Produces<AdminOverviewResponse>();
 
-        group.MapGet("/clients", async (UserManager<ApplicationUser> users, CancellationToken ct) =>
+        // Searched and paged on the server. The console previously fetched every
+        // client and filtered in the browser, which is fine at a hundred clients
+        // and not at ten thousand. Returns a named shape so the generated client
+        // is typed — the page used to hand-declare its own interface and cast.
+        group.MapGet("/clients", async (
+            UserManager<ApplicationUser> users,
+            string? q,
+            int page,
+            int pageSize,
+            CancellationToken ct) =>
         {
-            var clients = await users.Users
-                .OrderBy(u => u.Email)
-                .Select(u => new
-                {
-                    id = u.Id, email = u.Email,
-                    firstName = u.Profile.FirstName, lastName = u.Profile.LastName,
-                    atoConnected = u.AtoConnected, createdAt = u.CreatedAt,
-                })
+            page = Math.Max(1, page);
+            pageSize = Math.Clamp(pageSize == 0 ? 25 : pageSize, 1, 200);
+
+            var query = users.Users.AsQueryable();
+            if (!string.IsNullOrWhiteSpace(q))
+            {
+                var term = q.Trim();
+                query = query.Where(u =>
+                    (u.Email != null && EF.Functions.ILike(u.Email, $"%{term}%")) ||
+                    EF.Functions.ILike(u.Profile.FirstName, $"%{term}%") ||
+                    EF.Functions.ILike(u.Profile.LastName, $"%{term}%"));
+            }
+
+            var total = await query.CountAsync(ct);
+            var items = await query
+                .OrderBy(u => u.Profile.LastName).ThenBy(u => u.Email)
+                .Skip((page - 1) * pageSize).Take(pageSize)
+                .Select(u => new AdminClientRow(
+                    u.Id, u.Email, u.Profile.FirstName, u.Profile.LastName, u.AtoConnected, u.CreatedAt))
                 .ToListAsync(ct);
-            return Results.Ok(clients);
-        }).WithName("GetAdminClients");
+
+            return Results.Ok(new AdminClientsPage(total, page, pageSize, items));
+        }).WithName("GetAdminClients").Produces<AdminClientsPage>();
 
         group.MapGet("/clients/{id}", async (string id, UserManager<ApplicationUser> users, IApplicationDbContext context, CancellationToken ct) =>
         {
@@ -124,48 +145,145 @@ public static class AdminEndpoints
             return Results.NoContent();
         }).WithName("AdminMarkAllRead").Produces(StatusCodes.Status204NoContent);
 
-        // Cross-client registry — every business name, entity, and company/trust.
-        group.MapGet("/registry", async (UserManager<ApplicationUser> users, IApplicationDbContext context, CancellationToken ct) =>
+        // ── Cross-client registry ──
+        //
+        // This used to be a single unparameterised call returning every business
+        // name, entity and company across every client in one payload, which the
+        // browser then filtered in render with no memoisation and no paging. It
+        // degraded directly with customer count. Each tab is now its own searched,
+        // paged query, and the tab counts come from three COUNTs rather than from
+        // materialising every row in order to length it.
+        //
+        // Admin accounts are excluded throughout: the registry is about clients.
+
+        static async Task<List<string>> ClientIdsAsync(UserManager<ApplicationUser> users, CancellationToken ct)
         {
-            // Registry is about clients — exclude admin accounts, like the original.
-            var adminIds = (await users.GetUsersInRoleAsync(Roles.Admin)).Select(u => u.Id).ToList();
-            var clients = await users.Users
-                .Where(u => !adminIds.Contains(u.Id))
+            var adminIds = (await users.GetUsersInRoleAsync(Roles.Admin)).Select(u => u.Id).ToHashSet();
+            return await users.Users.Where(u => !adminIds.Contains(u.Id)).Select(u => u.Id).ToListAsync(ct);
+        }
+
+        static async Task<Dictionary<string, RegistryClientRef>> ClientRefsAsync(
+            UserManager<ApplicationUser> users, IEnumerable<string> ids, CancellationToken ct)
+        {
+            var set = ids.ToHashSet();
+            var rows = await users.Users
+                .Where(u => set.Contains(u.Id))
                 .Select(u => new { u.Id, u.Email, u.Profile.FirstName, u.Profile.LastName })
                 .ToListAsync(ct);
-            var refs = clients.ToDictionary(
-                c => c.Id,
-                c =>
-                {
-                    var name = $"{c.FirstName} {c.LastName}".Trim();
-                    return new RegistryClientRef(c.Id, string.IsNullOrEmpty(name) ? c.Email ?? "" : name, c.Email);
-                });
-            var clientIds = clients.Select(c => c.Id).ToList();
+            return rows.ToDictionary(c => c.Id, c =>
+            {
+                var name = $"{c.FirstName} {c.LastName}".Trim();
+                return new RegistryClientRef(c.Id, string.IsNullOrEmpty(name) ? c.Email ?? "" : name, c.Email);
+            });
+        }
 
-            var names = await context.BusinessNames.AsNoTracking()
-                .Where(b => clientIds.Contains(b.UserId)).ToListAsync(ct);
-            var entities = await context.BusinessEntities.AsNoTracking()
-                .Where(e => clientIds.Contains(e.UserId)).ToListAsync(ct);
+        static (int Page, int Size) Paging(int page, int pageSize) =>
+            (Math.Max(1, page), Math.Clamp(pageSize == 0 ? 25 : pageSize, 1, 200));
 
-            var nameRows = names
-                .Select(b => new RegistryBusinessNameRow(b.Id, b.Name, b.AsicKey, b.DateRegistered, b.RenewalDate, refs[b.UserId]))
+        group.MapGet("/registry/summary", async (
+            UserManager<ApplicationUser> users, IApplicationDbContext context, CancellationToken ct) =>
+        {
+            var clientIds = await ClientIdsAsync(users, ct);
+            var names = await context.BusinessNames.CountAsync(b => clientIds.Contains(b.UserId), ct);
+            var entities = await context.BusinessEntities.CountAsync(e => clientIds.Contains(e.UserId), ct);
+            var companies = await context.BusinessEntities.CountAsync(
+                e => clientIds.Contains(e.UserId) &&
+                     (e.EntityType == EntityType.Company || e.EntityType == EntityType.Trust), ct);
+            return Results.Ok(new RegistrySummaryResponse(clientIds.Count, names, entities, companies));
+        }).WithName("GetRegistrySummary").Produces<RegistrySummaryResponse>();
+
+        group.MapGet("/registry/business-names", async (
+            UserManager<ApplicationUser> users, IApplicationDbContext context,
+            string? q, int page, int pageSize, CancellationToken ct) =>
+        {
+            var (p, size) = Paging(page, pageSize);
+            var clientIds = await ClientIdsAsync(users, ct);
+
+            var query = context.BusinessNames.AsNoTracking().Where(b => clientIds.Contains(b.UserId));
+            if (!string.IsNullOrWhiteSpace(q))
+            {
+                var term = q.Trim();
+                query = query.Where(b =>
+                    EF.Functions.ILike(b.Name, $"%{term}%") || EF.Functions.ILike(b.AsicKey, $"%{term}%"));
+            }
+
+            var total = await query.CountAsync(ct);
+            var rows = await query.OrderBy(b => b.Name).Skip((p - 1) * size).Take(size).ToListAsync(ct);
+            var refs = await ClientRefsAsync(users, rows.Select(r => r.UserId), ct);
+
+            var items = rows
+                .Select(b => new RegistryBusinessNameRow(
+                    b.Id, b.Name, b.AsicKey, b.DateRegistered, b.RenewalDate,
+                    refs.GetValueOrDefault(b.UserId, new RegistryClientRef(b.UserId, "Unknown", null))))
                 .ToList();
-            var entityRows = entities
+
+            return Results.Ok(new RegistryBusinessNamesPage(total, p, size, items));
+        }).WithName("GetRegistryBusinessNames").Produces<RegistryBusinessNamesPage>();
+
+        group.MapGet("/registry/entities", async (
+            UserManager<ApplicationUser> users, IApplicationDbContext context,
+            string? q, int page, int pageSize, CancellationToken ct) =>
+        {
+            var (p, size) = Paging(page, pageSize);
+            var clientIds = await ClientIdsAsync(users, ct);
+
+            var query = context.BusinessEntities.AsNoTracking().Where(e => clientIds.Contains(e.UserId));
+            if (!string.IsNullOrWhiteSpace(q))
+            {
+                var term = q.Trim();
+                query = query.Where(e =>
+                    EF.Functions.ILike(e.Name, $"%{term}%") ||
+                    EF.Functions.ILike(e.Abn, $"%{term}%") ||
+                    EF.Functions.ILike(e.Acn, $"%{term}%") ||
+                    EF.Functions.ILike(e.Industry, $"%{term}%"));
+            }
+
+            var total = await query.CountAsync(ct);
+            var rows = await query.OrderBy(e => e.Name).Skip((p - 1) * size).Take(size).ToListAsync(ct);
+            var refs = await ClientRefsAsync(users, rows.Select(r => r.UserId), ct);
+
+            var items = rows
                 .Select(e => new RegistryEntityRow(
                     e.Id, e.Name,
                     e.EntityType == EntityType.Unspecified ? "" : e.EntityType.ToString(),
-                    e.Abn, e.Acn, e.Industry, refs[e.UserId]))
-                .ToList();
-            // The original also folded in the legacy "primary business" — that concept
-            // wasn't ported (entities are the single source), so companies come from
-            // entities alone and Source is always "Entity".
-            var companyRows = entities
-                .Where(e => e.EntityType is EntityType.Company or EntityType.Trust)
-                .Select(e => new RegistryCompanyRow(e.Name, e.Acn, e.Abn, "Entity", refs[e.UserId]))
+                    e.Abn, e.Acn, e.Industry,
+                    refs.GetValueOrDefault(e.UserId, new RegistryClientRef(e.UserId, "Unknown", null))))
                 .ToList();
 
-            return Results.Ok(new AdminRegistryResponse(clients.Count, nameRows, entityRows, companyRows));
-        }).WithName("GetAdminRegistry").Produces<AdminRegistryResponse>();
+            return Results.Ok(new RegistryEntitiesPage(total, p, size, items));
+        }).WithName("GetRegistryEntities").Produces<RegistryEntitiesPage>();
+
+        group.MapGet("/registry/companies", async (
+            UserManager<ApplicationUser> users, IApplicationDbContext context,
+            string? q, int page, int pageSize, CancellationToken ct) =>
+        {
+            var (p, size) = Paging(page, pageSize);
+            var clientIds = await ClientIdsAsync(users, ct);
+
+            var query = context.BusinessEntities.AsNoTracking()
+                .Where(e => clientIds.Contains(e.UserId) &&
+                            (e.EntityType == EntityType.Company || e.EntityType == EntityType.Trust));
+            if (!string.IsNullOrWhiteSpace(q))
+            {
+                var term = q.Trim();
+                query = query.Where(e =>
+                    EF.Functions.ILike(e.Name, $"%{term}%") ||
+                    EF.Functions.ILike(e.Abn, $"%{term}%") ||
+                    EF.Functions.ILike(e.Acn, $"%{term}%"));
+            }
+
+            var total = await query.CountAsync(ct);
+            var rows = await query.OrderBy(e => e.Name).Skip((p - 1) * size).Take(size).ToListAsync(ct);
+            var refs = await ClientRefsAsync(users, rows.Select(r => r.UserId), ct);
+
+            var items = rows
+                .Select(e => new RegistryCompanyRow(
+                    e.Name, e.Acn, e.Abn, "Entity",
+                    refs.GetValueOrDefault(e.UserId, new RegistryClientRef(e.UserId, "Unknown", null))))
+                .ToList();
+
+            return Results.Ok(new RegistryCompaniesPage(total, p, size, items));
+        }).WithName("GetRegistryCompanies").Produces<RegistryCompaniesPage>();
 
         // Admin sends a message to a client (support -> client = inbound for the client).
         group.MapPost("/clients/{id}/reply", async (string id, AdminReplyBody body, IApplicationDbContext context, CancellationToken ct) =>

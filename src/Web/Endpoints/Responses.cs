@@ -17,11 +17,19 @@ public record RegistryClientRef(string Id, string Name, string? Email);
 public record RegistryBusinessNameRow(Guid Id, string Name, string AsicKey, string DateRegistered, string RenewalDate, RegistryClientRef Client);
 public record RegistryEntityRow(Guid Id, string Name, string EntityType, string Abn, string Acn, string Industry, RegistryClientRef Client);
 public record RegistryCompanyRow(string Name, string Acn, string Abn, string Source, RegistryClientRef Client);
-public record AdminRegistryResponse(
-    int Clients,
-    IReadOnlyList<RegistryBusinessNameRow> BusinessNames,
-    IReadOnlyList<RegistryEntityRow> Entities,
-    IReadOnlyList<RegistryCompanyRow> Companies);
+// Counts for the registry's tab labels — three cheap COUNTs rather than
+// materialising every row just to length them.
+public record RegistrySummaryResponse(int Clients, int BusinessNames, int Entities, int Companies);
+
+// One page of registry rows. Concrete records per row type rather than a generic
+// Page<T>, so the OpenAPI schema (and the generated client) stays specific.
+public record RegistryBusinessNamesPage(int TotalCount, int Page, int PageSize, IReadOnlyList<RegistryBusinessNameRow> Items);
+public record RegistryEntitiesPage(int TotalCount, int Page, int PageSize, IReadOnlyList<RegistryEntityRow> Items);
+public record RegistryCompaniesPage(int TotalCount, int Page, int PageSize, IReadOnlyList<RegistryCompanyRow> Items);
+
+// ─── Admin clients list ───
+public record AdminClientRow(string Id, string? Email, string FirstName, string LastName, bool AtoConnected, DateTimeOffset CreatedAt);
+public record AdminClientsPage(int TotalCount, int Page, int PageSize, IReadOnlyList<AdminClientRow> Items);
 
 // ─── Admin per-client conversation view ───
 public record AdminClientThreadsResponse(string Id, string? Email, string? Name, IReadOnlyList<ThreadDto> Threads);

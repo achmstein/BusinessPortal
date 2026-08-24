@@ -1,261 +1,329 @@
-import { useEffect, useState, type FormEvent, type ReactNode } from 'react'
-import { Link, useSearchParams } from 'react-router-dom'
-import { PageHeader } from '../../components/PageHeader'
+import { useMemo, useState } from 'react'
+import { keepPreviousData, useQuery } from '@tanstack/react-query'
+import { Link, useNavigate } from 'react-router-dom'
+import { Search } from 'lucide-react'
 import {
-  getAdminRegistry,
-  type AdminRegistryResponse,
-  type RegistryBusinessNameRow,
-  type RegistryCompanyRow,
-  type RegistryEntityRow,
-} from '../../api/generated'
+  getRegistryBusinessNamesOptions,
+  getRegistryCompaniesOptions,
+  getRegistryEntitiesOptions,
+  getRegistrySummaryOptions,
+} from '@/api/generated/@tanstack/react-query.gen'
+import type { RegistryBusinessNameRow, RegistryCompanyRow, RegistryEntityRow } from '@/api/generated'
+import { useDebouncedValue } from '@/lib/useDebouncedValue'
+import { formatDate } from '@/lib/dates'
+import { formatAbn, formatAcn } from '@/lib/format'
+import { renewalStatus } from '@/lib/renewal'
+import { cn } from '@/lib/cn'
+import {
+  Badge,
+  Button,
+  DataTable,
+  EmptyState,
+  ErrorState,
+  PageHeader,
+  Pagination,
+  type DataTableColumn,
+} from '@/ui'
 
-// Markup ported verbatim from the original app/admin/registry/page.tsx.
-// The server-side flatten lives in GET /api/admin/registry; the ?q= search
-// filters the fetched rows with the same haystack matching.
+// ─────────────────────────────────────────────────────────────────────────────
+// Every client's records in one place.
+//
+// This page used to call one unparameterised endpoint returning every business
+// name, entity and company across every client, then filter all three sets in
+// render — unmemoised, per row, per keystroke — with no paging at all. It got
+// slower with every customer signed up. Each tab is now its own searched, paged
+// server query.
+//
+// Three tabs rather than three stacked tables: they answer different questions,
+// and stacking meant scrolling past two to reach the third. Tab counts come from
+// three COUNTs, so they stay honest without loading rows to length them.
+//
+// Renewal urgency uses the same renewalStatus() the client portal uses, so what
+// staff see on a name matches what its owner sees.
+// ─────────────────────────────────────────────────────────────────────────────
+
+const PAGE_SIZE = 25
+
+type Tab = 'names' | 'entities' | 'companies'
+
+function ClientLink({ id, name }: { id: string; name: string }) {
+  return (
+    <Link
+      to={`/admin/clients/${id}`}
+      onClick={(event) => event.stopPropagation()}
+      className="text-bottle-600 hover:underline"
+    >
+      {name}
+    </Link>
+  )
+}
+
 export function AdminRegistryPage() {
-  const [params, setParams] = useSearchParams()
-  const [data, setData] = useState<AdminRegistryResponse | null>(null)
-  const q = (params.get('q') || '').trim().toLowerCase()
+  const navigate = useNavigate()
+  const [tab, setTab] = useState<Tab>('names')
+  const [search, setSearch] = useState('')
+  const [page, setPage] = useState(1)
+  const debounced = useDebouncedValue(search)
+  const query = { q: debounced || undefined, page, pageSize: PAGE_SIZE }
 
-  useEffect(() => {
-    getAdminRegistry()
-      .then(({ data }) => setData(data ?? null))
-      .catch(() => setData(null))
-  }, [])
+  const summary = useQuery(getRegistrySummaryOptions())
 
-  function onSearch(e: FormEvent<HTMLFormElement>) {
-    e.preventDefault()
-    const next = String(new FormData(e.currentTarget).get('q') || '').trim()
-    setParams(next ? { q: next } : {})
-  }
+  const names = useQuery({
+    ...getRegistryBusinessNamesOptions({ query }),
+    enabled: tab === 'names',
+    placeholderData: keepPreviousData,
+  })
+  const entities = useQuery({
+    ...getRegistryEntitiesOptions({ query }),
+    enabled: tab === 'entities',
+    placeholderData: keepPreviousData,
+  })
+  const companies = useQuery({
+    ...getRegistryCompaniesOptions({ query }),
+    enabled: tab === 'companies',
+    placeholderData: keepPreviousData,
+  })
 
-  function matches(haystack: (string | null | undefined)[]): boolean {
-    if (!q) return true
-    return haystack.map((h) => h || '').join(' ').toLowerCase().includes(q)
-  }
+  const active = tab === 'names' ? names : tab === 'entities' ? entities : companies
 
-  const allBusinessNames = data?.businessNames ?? []
-  const allEntities = data?.entities ?? []
-  const allCompanies = data?.companies ?? []
-
-  const businessNameRows = allBusinessNames.filter((r: RegistryBusinessNameRow) =>
-    matches([r.name, r.asicKey, r.client?.name, r.client?.email])
+  const nameColumns = useMemo<DataTableColumn<RegistryBusinessNameRow>[]>(
+    () => [
+      {
+        id: 'name',
+        header: 'Business name',
+        accessorFn: (row) => row.name,
+        cell: ({ row }) => <span className="font-medium text-ink">{row.original.name}</span>,
+      },
+      {
+        id: 'client',
+        header: 'Client',
+        accessorFn: (row) => row.client.name,
+        cell: ({ row }) => <ClientLink id={row.original.client.id} name={row.original.client.name} />,
+      },
+      {
+        id: 'renews',
+        header: 'Renews',
+        accessorFn: (row) => row.renewalDate,
+        cell: ({ row }) => {
+          const status = renewalStatus(row.original.renewalDate)
+          return (
+            <div className="flex flex-wrap items-center gap-2">
+              <span data-numeric className="text-ink">
+                {formatDate(row.original.renewalDate)}
+              </span>
+              {status.needsAction ? <Badge tone={status.tone}>{status.label}</Badge> : null}
+            </div>
+          )
+        },
+      },
+      {
+        id: 'asicKey',
+        header: 'ASIC key',
+        accessorFn: (row) => row.asicKey,
+        cell: ({ row }) => (
+          <span className="text-sage" data-numeric>
+            {row.original.asicKey || '—'}
+          </span>
+        ),
+        meta: { className: 'hidden lg:table-cell' },
+      },
+    ],
+    [],
   )
-  const entityRows = allEntities.filter((r: RegistryEntityRow) =>
-    matches([r.name, r.abn, r.acn, r.industry, r.client?.name, r.client?.email])
+
+  const entityColumns = useMemo<DataTableColumn<RegistryEntityRow>[]>(
+    () => [
+      {
+        id: 'name',
+        header: 'Entity',
+        accessorFn: (row) => row.name,
+        cell: ({ row }) => (
+          <div className="flex flex-col">
+            <span className="font-medium text-ink">{row.original.name}</span>
+            {row.original.entityType ? (
+              <span className="text-xs text-sage">{row.original.entityType}</span>
+            ) : null}
+          </div>
+        ),
+      },
+      {
+        id: 'client',
+        header: 'Client',
+        accessorFn: (row) => row.client.name,
+        cell: ({ row }) => <ClientLink id={row.original.client.id} name={row.original.client.name} />,
+      },
+      {
+        id: 'abn',
+        header: 'ABN',
+        accessorFn: (row) => row.abn,
+        cell: ({ row }) => (
+          <span data-numeric className="text-ink">
+            {formatAbn(row.original.abn) || '—'}
+          </span>
+        ),
+      },
+      {
+        id: 'industry',
+        header: 'Industry',
+        accessorFn: (row) => row.industry,
+        cell: ({ row }) => <span className="text-sage">{row.original.industry || '—'}</span>,
+        meta: { className: 'hidden lg:table-cell' },
+      },
+    ],
+    [],
   )
-  const companyRows = allCompanies.filter((r: RegistryCompanyRow) =>
-    matches([r.name, r.acn, r.abn, r.client?.name, r.client?.email])
+
+  const companyColumns = useMemo<DataTableColumn<RegistryCompanyRow>[]>(
+    () => [
+      {
+        id: 'name',
+        header: 'Company or trust',
+        accessorFn: (row) => row.name,
+        cell: ({ row }) => <span className="font-medium text-ink">{row.original.name}</span>,
+      },
+      {
+        id: 'client',
+        header: 'Client',
+        accessorFn: (row) => row.client.name,
+        cell: ({ row }) => <ClientLink id={row.original.client.id} name={row.original.client.name} />,
+      },
+      {
+        id: 'acn',
+        header: 'ACN',
+        accessorFn: (row) => row.acn,
+        cell: ({ row }) => (
+          <span data-numeric className="text-ink">
+            {formatAcn(row.original.acn) || '—'}
+          </span>
+        ),
+      },
+      {
+        id: 'abn',
+        header: 'ABN',
+        accessorFn: (row) => row.abn,
+        cell: ({ row }) => (
+          <span data-numeric className="text-sage">
+            {formatAbn(row.original.abn) || '—'}
+          </span>
+        ),
+        meta: { className: 'hidden lg:table-cell' },
+      },
+    ],
+    [],
+  )
+
+  const tabs: { id: Tab; label: string; count: number }[] = [
+    { id: 'names', label: 'Business names', count: Number(summary.data?.businessNames ?? NaN) },
+    { id: 'entities', label: 'Entities', count: Number(summary.data?.entities ?? NaN) },
+    { id: 'companies', label: 'Companies & trusts', count: Number(summary.data?.companies ?? NaN) },
+  ]
+
+  const emptyState = (
+    <EmptyState
+      title={debounced ? 'No matches' : 'Nothing here yet'}
+      description={debounced ? `Nothing matches “${debounced}”.` : 'Records appear as clients add them.'}
+      className="border-0 bg-transparent"
+    />
   )
 
   return (
-    <>
+    <div className="flex flex-col gap-5">
       <PageHeader
         title="Registry"
-        subtitle="Every business name, entity and company across all clients."
+        description={
+          summary.data
+            ? `Across ${summary.data.clients} ${Number(summary.data.clients) === 1 ? 'client' : 'clients'}.`
+            : undefined
+        }
       />
 
-      {/* Search */}
-      <form onSubmit={onSearch} className="mb-6">
-        <div className="flex gap-2">
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-rule">
+        <div role="tablist" aria-label="Registry sections" className="-mb-px flex gap-1">
+          {tabs.map((item) => (
+            <button
+              key={item.id}
+              type="button"
+              role="tab"
+              aria-selected={tab === item.id}
+              onClick={() => {
+                setTab(item.id)
+                setPage(1)
+              }}
+              className={cn(
+                'flex items-center gap-2 border-b-2 px-3 py-2.5 text-sm whitespace-nowrap transition-colors',
+                tab === item.id
+                  ? 'border-bottle-600 font-medium text-ink'
+                  : 'border-transparent text-sage hover:border-rule-firm hover:text-ink',
+              )}
+            >
+              {item.label}
+              {Number.isFinite(item.count) ? (
+                <span data-numeric className="text-xs text-sage">
+                  {item.count}
+                </span>
+              ) : null}
+            </button>
+          ))}
+        </div>
+
+        <div className="relative mb-2 w-full max-w-xs">
+          <Search aria-hidden className="absolute top-1/2 left-3 size-4 -translate-y-1/2 text-sage" />
           <input
             type="search"
-            name="q"
-            defaultValue={q}
-            placeholder="Search any name, ABN, ACN, ASIC key, client name or email…"
-            className="input flex-1"
+            value={search}
+            onChange={(event) => {
+              setSearch(event.target.value)
+              setPage(1)
+            }}
+            placeholder="Search this tab"
+            aria-label="Search the registry"
+            className="h-9 w-full rounded-sm bg-surface pr-3 pl-9 text-sm text-ink ring-1 ring-rule-firm placeholder:text-sage/70 focus:outline-none focus-visible:ring-2 focus-visible:ring-bottle-500"
           />
-          <button type="submit" className="btn-primary">Search</button>
-          {q ? <Link to="/admin/registry" className="btn-secondary">Clear</Link> : null}
         </div>
-      </form>
-
-      {/* Summary */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-8">
-        <Counter label="Clients" value={Number(data?.clients ?? 0)} href="/admin/clients" />
-        <Counter label="Business names" value={allBusinessNames.length} />
-        <Counter label="Entities" value={allEntities.length} />
-        <Counter label="Companies" value={allCompanies.length} />
       </div>
 
-      {/* All business names */}
-      <section className="card-pad mb-6">
-        <div className="flex items-center justify-between">
-          <h3 className="font-semibold text-navy-900">All business names</h3>
-          <span className="badge-gray">{businessNameRows.length}</span>
-        </div>
+      {active.isError ? (
+        <ErrorState
+          description="We couldn’t load that part of the registry."
+          action={
+            <Button variant="secondary" onClick={() => void active.refetch()}>
+              Try again
+            </Button>
+          }
+        />
+      ) : (
+        <>
+          {tab === 'names' ? (
+            <DataTable
+              columns={nameColumns}
+              data={names.data?.items ?? []}
+              empty={emptyState}
+              onRowClick={(row) => navigate(`/admin/clients/${row.client.id}`)}
+            />
+          ) : tab === 'entities' ? (
+            <DataTable
+              columns={entityColumns}
+              data={entities.data?.items ?? []}
+              empty={emptyState}
+              onRowClick={(row) => navigate(`/admin/clients/${row.client.id}`)}
+            />
+          ) : (
+            <DataTable
+              columns={companyColumns}
+              data={companies.data?.items ?? []}
+              empty={emptyState}
+              onRowClick={(row) => navigate(`/admin/clients/${row.client.id}`)}
+            />
+          )}
 
-        {businessNameRows.length === 0 ? (
-          <p className="mt-3 text-sm text-navy-500 italic">
-            {q ? 'No matches.' : 'No business names registered yet.'}
-          </p>
-        ) : (
-          <div className="mt-3 overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead className="text-left text-navy-500 border-b border-navy-100">
-                <tr>
-                  <th className="py-2 pr-4">Business name</th>
-                  <th className="py-2 pr-4">Client</th>
-                  <th className="py-2 pr-4">ASIC key</th>
-                  <th className="py-2 pr-4">Registered</th>
-                  <th className="py-2 pr-4">Renews</th>
-                  <th className="py-2 pr-4">Status</th>
-                  <th className="py-2 pr-4" />
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-navy-100">
-                {businessNameRows.map((r) => (
-                  <tr key={`${r.client?.id}-${r.id}`}>
-                    <td className="py-2.5 pr-4 font-medium text-navy-900">{r.name}</td>
-                    <td className="py-2.5 pr-4">
-                      <Link to={`/admin/clients/${r.client?.id}`} className="text-brand-700 hover:underline">
-                        {r.client?.name}
-                      </Link>
-                      <div className="text-xs text-navy-500">{r.client?.email}</div>
-                    </td>
-                    <td className="py-2.5 pr-4">{r.asicKey || '—'}</td>
-                    <td className="py-2.5 pr-4 text-navy-600">
-                      {r.dateRegistered ? new Date(r.dateRegistered).toLocaleDateString() : '—'}
-                    </td>
-                    <td className="py-2.5 pr-4 text-navy-600">
-                      {r.renewalDate ? new Date(r.renewalDate).toLocaleDateString() : '—'}
-                    </td>
-                    <td className="py-2.5 pr-4">{renewalBadge(r.renewalDate ?? '')}</td>
-                    <td className="py-2.5 pr-4 text-right">
-                      <Link to={`/admin/clients/${r.client?.id}`} className="btn-ghost">Open client</Link>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </section>
-
-      {/* All entities */}
-      <section className="card-pad mb-6">
-        <div className="flex items-center justify-between">
-          <h3 className="font-semibold text-navy-900">All entities</h3>
-          <span className="badge-gray">{entityRows.length}</span>
-        </div>
-
-        {entityRows.length === 0 ? (
-          <p className="mt-3 text-sm text-navy-500 italic">
-            {q ? 'No matches.' : 'No entities added by clients yet.'}
-          </p>
-        ) : (
-          <div className="mt-3 overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead className="text-left text-navy-500 border-b border-navy-100">
-                <tr>
-                  <th className="py-2 pr-4">Entity name</th>
-                  <th className="py-2 pr-4">Type</th>
-                  <th className="py-2 pr-4">ABN</th>
-                  <th className="py-2 pr-4">ACN</th>
-                  <th className="py-2 pr-4">Industry</th>
-                  <th className="py-2 pr-4">Client</th>
-                  <th className="py-2 pr-4" />
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-navy-100">
-                {entityRows.map((r) => (
-                  <tr key={`${r.client?.id}-${r.id}`}>
-                    <td className="py-2.5 pr-4 font-medium text-navy-900">{r.name}</td>
-                    <td className="py-2.5 pr-4">
-                      {r.entityType ? <span className="badge-blue">{r.entityType}</span> : <span className="badge-gray">—</span>}
-                    </td>
-                    <td className="py-2.5 pr-4">{r.abn || '—'}</td>
-                    <td className="py-2.5 pr-4">{r.acn || '—'}</td>
-                    <td className="py-2.5 pr-4">{r.industry || '—'}</td>
-                    <td className="py-2.5 pr-4">
-                      <Link to={`/admin/clients/${r.client?.id}`} className="text-brand-700 hover:underline">
-                        {r.client?.name}
-                      </Link>
-                      <div className="text-xs text-navy-500">{r.client?.email}</div>
-                    </td>
-                    <td className="py-2.5 pr-4 text-right">
-                      <Link to={`/admin/clients/${r.client?.id}`} className="btn-ghost">Open client</Link>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </section>
-
-      {/* All companies (ACN holders) */}
-      <section className="card-pad mb-6">
-        <div className="flex items-center justify-between">
-          <h3 className="font-semibold text-navy-900">All companies &amp; trusts (with ACN)</h3>
-          <span className="badge-gray">{companyRows.length}</span>
-        </div>
-
-        {companyRows.length === 0 ? (
-          <p className="mt-3 text-sm text-navy-500 italic">
-            {q ? 'No matches.' : 'No companies or trusts on record.'}
-          </p>
-        ) : (
-          <div className="mt-3 overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead className="text-left text-navy-500 border-b border-navy-100">
-                <tr>
-                  <th className="py-2 pr-4">Name</th>
-                  <th className="py-2 pr-4">ACN</th>
-                  <th className="py-2 pr-4">ABN</th>
-                  <th className="py-2 pr-4">Source</th>
-                  <th className="py-2 pr-4">Start date</th>
-                  <th className="py-2 pr-4">Client</th>
-                  <th className="py-2 pr-4" />
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-navy-100">
-                {companyRows.map((r, idx) => (
-                  <tr key={`${r.client?.id}-${r.acn || r.name}-${idx}`}>
-                    <td className="py-2.5 pr-4 font-medium text-navy-900">{r.name}</td>
-                    <td className="py-2.5 pr-4">{r.acn || '—'}</td>
-                    <td className="py-2.5 pr-4">{r.abn || '—'}</td>
-                    <td className="py-2.5 pr-4 text-navy-600">{r.source}</td>
-                    <td className="py-2.5 pr-4 text-navy-600">—</td>
-                    <td className="py-2.5 pr-4">
-                      <Link to={`/admin/clients/${r.client?.id}`} className="text-brand-700 hover:underline">
-                        {r.client?.name}
-                      </Link>
-                      <div className="text-xs text-navy-500">{r.client?.email}</div>
-                    </td>
-                    <td className="py-2.5 pr-4 text-right">
-                      <Link to={`/admin/clients/${r.client?.id}`} className="btn-ghost">Open client</Link>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </section>
-    </>
-  )
-}
-
-function renewalBadge(iso: string) {
-  if (!iso) return <span className="badge-gray">No date</span>
-  const days = Math.ceil((new Date(iso).getTime() - Date.now()) / (1000 * 60 * 60 * 24))
-  if (days < 0) return <span className="badge-red">Overdue · {Math.abs(days)}d</span>
-  if (days <= 30) return <span className="badge-amber">Due in {days}d</span>
-  if (days <= 90) return <span className="badge-amber">{days}d</span>
-  return <span className="badge-green">OK</span>
-}
-
-function Counter({ label, value, href }: { label: string; value: number; href?: string }) {
-  const inner: ReactNode = (
-    <>
-      <div className="text-[11px] uppercase tracking-wider text-navy-500">{label}</div>
-      <div className="mt-2 text-3xl font-bold text-navy-900">{value}</div>
-    </>
-  )
-  return href ? (
-    <Link to={href} className="card-pad hover:shadow-soft transition">{inner}</Link>
-  ) : (
-    <div className="card-pad">{inner}</div>
+          <Pagination
+            page={page}
+            pageSize={PAGE_SIZE}
+            total={Number(active.data?.totalCount ?? 0)}
+            onPage={setPage}
+          />
+        </>
+      )}
+    </div>
   )
 }

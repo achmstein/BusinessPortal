@@ -26,6 +26,22 @@ export type AccessTokenResponse = {
     refreshToken: string;
 };
 
+export type AdminClientRow = {
+    id: string;
+    email: null | string;
+    firstName: string;
+    lastName: string;
+    atoConnected: boolean;
+    createdAt: string;
+};
+
+export type AdminClientsPage = {
+    totalCount: number | string;
+    page: number | string;
+    pageSize: number | string;
+    items: Array<AdminClientRow>;
+};
+
 export type AdminClientThreadsResponse = {
     id: string;
     email: null | string;
@@ -38,13 +54,6 @@ export type AdminOverviewResponse = {
     activeThreads: number | string;
     unreadMessages: number | string;
     renewalsDue: number | string;
-};
-
-export type AdminRegistryResponse = {
-    clients: number | string;
-    businessNames: Array<RegistryBusinessNameRow>;
-    entities: Array<RegistryEntityRow>;
-    companies: Array<RegistryCompanyRow>;
 };
 
 export type AdminReplyBody = {
@@ -279,10 +288,24 @@ export type RegistryBusinessNameRow = {
     client: RegistryClientRef;
 };
 
+export type RegistryBusinessNamesPage = {
+    totalCount: number | string;
+    page: number | string;
+    pageSize: number | string;
+    items: Array<RegistryBusinessNameRow>;
+};
+
 export type RegistryClientRef = {
     id: string;
     name: string;
     email: null | string;
+};
+
+export type RegistryCompaniesPage = {
+    totalCount: number | string;
+    page: number | string;
+    pageSize: number | string;
+    items: Array<RegistryCompanyRow>;
 };
 
 export type RegistryCompanyRow = {
@@ -291,6 +314,13 @@ export type RegistryCompanyRow = {
     abn: string;
     source: string;
     client: RegistryClientRef;
+};
+
+export type RegistryEntitiesPage = {
+    totalCount: number | string;
+    page: number | string;
+    pageSize: number | string;
+    items: Array<RegistryEntityRow>;
 };
 
 export type RegistryEntityRow = {
@@ -303,12 +333,19 @@ export type RegistryEntityRow = {
     client: RegistryClientRef;
 };
 
-export type RenewBody = {
-    years: number | string;
+export type RegistrySummaryResponse = {
+    clients: number | string;
+    businessNames: number | string;
+    entities: number | string;
+    companies: number | string;
 };
 
 export type RenewalResponse = {
     renewalDate: string;
+};
+
+export type RenewBody = {
+    years: number | string;
 };
 
 export type RenewtronSettings = {
@@ -318,11 +355,11 @@ export type RenewtronSettings = {
 
 export type RenewtronSyncResult = {
     configured: boolean;
-    fetched: number;
-    created: number;
-    updated: number;
-    skipped: number;
-    failed: number;
+    fetched: number | string;
+    created: number | string;
+    updated: number | string;
+    skipped: number | string;
+    failed: number | string;
     message: null | string;
 };
 
@@ -864,15 +901,6 @@ export type CancelBusinessNameData = {
     url: '/api/business-names/{id}/cancel';
 };
 
-export type CancelBusinessNameErrors = {
-    /**
-     * Bad Request
-     */
-    400: ErrorResponse;
-};
-
-export type CancelBusinessNameError = CancelBusinessNameErrors[keyof CancelBusinessNameErrors];
-
 export type CancelBusinessNameResponses = {
     /**
      * No Content
@@ -1039,7 +1067,11 @@ export type GetAdminOverviewResponse = GetAdminOverviewResponses[keyof GetAdminO
 export type GetAdminClientsData = {
     body?: never;
     path?: never;
-    query?: never;
+    query: {
+        q?: string;
+        page: number | string;
+        pageSize: number | string;
+    };
     url: '/api/admin/clients';
 };
 
@@ -1047,8 +1079,10 @@ export type GetAdminClientsResponses = {
     /**
      * OK
      */
-    200: unknown;
+    200: AdminClientsPage;
 };
+
+export type GetAdminClientsResponse = GetAdminClientsResponses[keyof GetAdminClientsResponses];
 
 export type GetAdminClientData = {
     body?: never;
@@ -1116,21 +1150,81 @@ export type AdminMarkAllReadResponses = {
 
 export type AdminMarkAllReadResponse = AdminMarkAllReadResponses[keyof AdminMarkAllReadResponses];
 
-export type GetAdminRegistryData = {
+export type GetRegistrySummaryData = {
     body?: never;
     path?: never;
     query?: never;
-    url: '/api/admin/registry';
+    url: '/api/admin/registry/summary';
 };
 
-export type GetAdminRegistryResponses = {
+export type GetRegistrySummaryResponses = {
     /**
      * OK
      */
-    200: AdminRegistryResponse;
+    200: RegistrySummaryResponse;
 };
 
-export type GetAdminRegistryResponse = GetAdminRegistryResponses[keyof GetAdminRegistryResponses];
+export type GetRegistrySummaryResponse = GetRegistrySummaryResponses[keyof GetRegistrySummaryResponses];
+
+export type GetRegistryBusinessNamesData = {
+    body?: never;
+    path?: never;
+    query: {
+        q?: string;
+        page: number | string;
+        pageSize: number | string;
+    };
+    url: '/api/admin/registry/business-names';
+};
+
+export type GetRegistryBusinessNamesResponses = {
+    /**
+     * OK
+     */
+    200: RegistryBusinessNamesPage;
+};
+
+export type GetRegistryBusinessNamesResponse = GetRegistryBusinessNamesResponses[keyof GetRegistryBusinessNamesResponses];
+
+export type GetRegistryEntitiesData = {
+    body?: never;
+    path?: never;
+    query: {
+        q?: string;
+        page: number | string;
+        pageSize: number | string;
+    };
+    url: '/api/admin/registry/entities';
+};
+
+export type GetRegistryEntitiesResponses = {
+    /**
+     * OK
+     */
+    200: RegistryEntitiesPage;
+};
+
+export type GetRegistryEntitiesResponse = GetRegistryEntitiesResponses[keyof GetRegistryEntitiesResponses];
+
+export type GetRegistryCompaniesData = {
+    body?: never;
+    path?: never;
+    query: {
+        q?: string;
+        page: number | string;
+        pageSize: number | string;
+    };
+    url: '/api/admin/registry/companies';
+};
+
+export type GetRegistryCompaniesResponses = {
+    /**
+     * OK
+     */
+    200: RegistryCompaniesPage;
+};
+
+export type GetRegistryCompaniesResponse = GetRegistryCompaniesResponses[keyof GetRegistryCompaniesResponses];
 
 export type AdminReplyToClientData = {
     body: AdminReplyBody;
@@ -1294,6 +1388,54 @@ export type UpdateAbnLookupSettingsResponses = {
 
 export type UpdateAbnLookupSettingsResponse = UpdateAbnLookupSettingsResponses[keyof UpdateAbnLookupSettingsResponses];
 
+export type GetRenewtronSettingsData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/admin/settings/renewtron';
+};
+
+export type GetRenewtronSettingsResponses = {
+    /**
+     * OK
+     */
+    200: RenewtronSettings;
+};
+
+export type GetRenewtronSettingsResponse = GetRenewtronSettingsResponses[keyof GetRenewtronSettingsResponses];
+
+export type UpdateRenewtronSettingsData = {
+    body: RenewtronSettings;
+    path?: never;
+    query?: never;
+    url: '/api/admin/settings/renewtron';
+};
+
+export type UpdateRenewtronSettingsResponses = {
+    /**
+     * No Content
+     */
+    204: void;
+};
+
+export type UpdateRenewtronSettingsResponse = UpdateRenewtronSettingsResponses[keyof UpdateRenewtronSettingsResponses];
+
+export type RunRenewtronSyncNowData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/admin/settings/renewtron/sync-now';
+};
+
+export type RunRenewtronSyncNowResponses = {
+    /**
+     * OK
+     */
+    200: RenewtronSyncResult;
+};
+
+export type RunRenewtronSyncNowResponse = RunRenewtronSyncNowResponses[keyof RunRenewtronSyncNowResponses];
+
 export type PostApiIntegrationsOntraportWebhookData = {
     body?: never;
     path?: never;
@@ -1433,51 +1575,3 @@ export type UnlinkAtoResponses = {
 };
 
 export type UnlinkAtoResponse = UnlinkAtoResponses[keyof UnlinkAtoResponses];
-
-export type GetRenewtronSettingsData = {
-    body?: never;
-    path?: never;
-    query?: never;
-    url: '/api/admin/settings/renewtron';
-};
-
-export type GetRenewtronSettingsResponses = {
-    /**
-     * OK
-     */
-    200: RenewtronSettings;
-};
-
-export type GetRenewtronSettingsResponse = GetRenewtronSettingsResponses[keyof GetRenewtronSettingsResponses];
-
-export type UpdateRenewtronSettingsData = {
-    body: RenewtronSettings;
-    path?: never;
-    query?: never;
-    url: '/api/admin/settings/renewtron';
-};
-
-export type UpdateRenewtronSettingsResponses = {
-    /**
-     * No Content
-     */
-    204: void;
-};
-
-export type UpdateRenewtronSettingsResponse = UpdateRenewtronSettingsResponses[keyof UpdateRenewtronSettingsResponses];
-
-export type RunRenewtronSyncNowData = {
-    body?: never;
-    path?: never;
-    query?: never;
-    url: '/api/admin/settings/renewtron/sync-now';
-};
-
-export type RunRenewtronSyncNowResponses = {
-    /**
-     * OK
-     */
-    200: RenewtronSyncResult;
-};
-
-export type RunRenewtronSyncNowResponse = RunRenewtronSyncNowResponses[keyof RunRenewtronSyncNowResponses];
