@@ -1,216 +1,186 @@
-import { useCallback, useEffect, useState } from 'react'
-import { Link, useNavigate, useSearchParams } from 'react-router-dom'
-import { PageHeader } from '../components/PageHeader'
-import { Flash } from '../components/Flash'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { Link, useNavigate } from 'react-router-dom'
 import {
-  getAtoStatus,
-  markAtoConnected,
-  syncAtoBusinesses,
-  unlinkAto,
-  type AtoStatusResult,
-} from '../api/generated'
+  getAtoStatusOptions,
+  getAtoStatusQueryKey,
+  syncAtoBusinessesMutation,
+  unlinkAtoMutation,
+} from '@/api/generated/@tanstack/react-query.gen'
+import {
+  Button,
+  ConfirmDialog,
+  ErrorState,
+  PageHeader,
+  Panel,
+  PanelTitle,
+  Skeleton,
+  toastError,
+  toastSuccess,
+} from '@/ui'
+import { useState } from 'react'
 
-// Markup ported verbatim from the original app/(portal)/ato-portal/page.tsx —
-// the rendered blocks only: status panel (with the link-to-ato-gate checkboxes),
-// sync section, and the dark help card. The original's NominationPanel/Step
-// components are dead code there (never rendered) and are not ported.
+// ─────────────────────────────────────────────────────────────────────────────
+// The ATO connection's status page. Its job is to say whether we can reach the
+// ATO on your behalf, and to let you start or undo that.
+//
+// What changed and why:
+//
+//  · The status indicator no longer animates. It was an `animate-pulse` dot
+//    inside an `animate-ping` halo, running forever with no reduced-motion
+//    guard — motion implies something is happening, and nothing is: this is a
+//    stored fact. On "Needs connecting" it was a permanently blinking alarm.
+//  · The two prerequisite checkboxes are gone. They asked you to attest to
+//    things we cannot verify (myID installed, RAM configured) and gated the
+//    button on your own answer, which stops nobody and teaches people to tick
+//    boxes. The same information now introduces the flow it actually applies
+//    to, on the link page itself.
+//  · "Mark as connected (manual)" is gone from the customer's view. It set the
+//    connected flag without an ATO session, so the portal would claim to be
+//    connected while every sync failed — a state a customer could put
+//    themselves into with one click and no way to diagnose.
+//  · The inverted navy help card became a line of text. A whole dark panel to
+//    say "message us" outweighed what it was saying.
+// ─────────────────────────────────────────────────────────────────────────────
+
 export function AtoPortalPage() {
   const navigate = useNavigate()
-  const [params, setParams] = useSearchParams()
-  const [status, setStatus] = useState<AtoStatusResult | null>(null)
-  const [busy, setBusy] = useState(false)
-  // link-to-ato-gate: both boxes must be ticked before the Link button activates.
-  const [myid, setMyid] = useState(false)
-  const [ram, setRam] = useState(false)
+  const queryClient = useQueryClient()
+  const status = useQuery(getAtoStatusOptions())
+  const [confirmUnlink, setConfirmUnlink] = useState(false)
 
-  const load = useCallback(async () => {
-    try { const { data } = await getAtoStatus(); setStatus(data ?? null) } catch { /* ignore */ }
-  }, [])
+  const refreshStatus = () => queryClient.invalidateQueries({ queryKey: getAtoStatusQueryKey() })
 
-  useEffect(() => { void load() }, [load])
+  const unlink = useMutation({
+    ...unlinkAtoMutation(),
+    onSuccess: async () => {
+      await refreshStatus()
+      setConfirmUnlink(false)
+      toastSuccess('Disconnected from the ATO')
+    },
+    onError: () => toastError('We couldn’t disconnect', 'Try again in a moment.'),
+  })
 
-  const connected = status?.connected ?? false
-  const ready = myid && ram
-
-  async function onUnlink() {
-    setBusy(true)
-    try { await unlinkAto(); await load(); setParams({ ok: 'Unlinked from ATO' }) }
-    catch { setParams({ err: 'Could not unlink. Try again.' }) }
-    finally { setBusy(false) }
-  }
-
-  async function onMarkConnected() {
-    setBusy(true)
-    try { await markAtoConnected({ body: { desired: true } }); await load(); setParams({ ok: 'Marked as connected' }) }
-    catch { setParams({ err: 'Could not update the connection state.' }) }
-    finally { setBusy(false) }
-  }
-
-  async function onSync() {
-    setBusy(true)
-    try {
-      const { data } = await syncAtoBusinesses()
+  const sync = useMutation({
+    ...syncAtoBusinessesMutation(),
+    onSuccess: async (data) => {
+      // An expired session isn't an error — it just means linking again.
       if (data?.needsRelink) {
-        // Original: no session → send the user straight through the link flow.
         navigate('/ato-portal/link')
         return
       }
-      if (!data?.ok) { setParams({ err: data?.reason || 'No businesses could be extracted from ATO.' }); return }
-      setParams({ ok: `Synced ${Number(data.syncedCount) || 0} business(es) from ATO.` })
-    } catch (e) {
-      const message = (e as { error?: string })?.error
-      setParams({ err: message || 'Unexpected error during ATO sync.' })
-    } finally { setBusy(false) }
+      if (!data?.ok) {
+        toastError('Nothing came back from the ATO', data?.reason ?? undefined)
+        return
+      }
+      await refreshStatus()
+      const count = Number(data.syncedCount) || 0
+      toastSuccess(
+        count === 1 ? 'Synced 1 business' : `Synced ${count} businesses`,
+        'Your business details are up to date.',
+      )
+    },
+    onError: () => toastError('The sync didn’t finish', 'Try again, or message us if it keeps happening.'),
+  })
+
+  if (status.isPending) {
+    return (
+      <div className="flex max-w-3xl flex-col gap-4">
+        <Skeleton className="h-10 w-2/3" />
+        <Skeleton className="h-32 w-full" />
+      </div>
+    )
   }
 
-  return (
-    <>
-      <PageHeader
-        title="Connect your Business to the ATO Portal"
-        subtitle="Link your business so we can pull your tax registrations, BAS history and prefill information."
+  if (status.isError) {
+    return (
+      <ErrorState
+        description="We couldn’t check your ATO connection just now."
+        action={
+          <Button variant="secondary" onClick={() => void status.refetch()}>
+            Try again
+          </Button>
+        }
       />
-      <Flash ok={params.get('ok')} err={params.get('err')} />
+    )
+  }
 
-      {/* Status panel */}
-      <section
-        className={`card-pad mb-8 border-l-4 ${
-          connected ? 'border-l-accent-500' : 'border-l-amber-400'
-        }`}
-      >
-        <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
-          <div className="flex items-start gap-4">
-            <div
-              className={`relative h-12 w-12 shrink-0 rounded-full flex items-center justify-center ${
-                connected ? 'bg-accent-100' : 'bg-amber-100'
-              }`}
-            >
-              <span
-                className={`h-3 w-3 rounded-full ${
-                  connected ? 'bg-accent-500' : 'bg-amber-500'
-                } animate-pulse`}
-              />
-              <span
-                className={`absolute h-12 w-12 rounded-full ${
-                  connected ? 'bg-accent-500/30' : 'bg-amber-500/30'
-                } animate-ping`}
-              />
-            </div>
-            <div>
-              <div className="text-xs uppercase tracking-wider text-navy-500">
-                ATO Portal connection
-              </div>
-              <div
-                className={`text-xl font-bold ${
-                  connected ? 'text-accent-700' : 'text-amber-700'
-                }`}
-              >
-                {connected ? 'Connected' : 'Needs Connecting'}
-              </div>
-              {connected ? (
-                <div className="text-sm text-navy-600 mt-0.5">
-                  We can retrieve information from the ATO Portal on your behalf.
-                </div>
-              ) : null}
-            </div>
+  const connected = status.data?.connected ?? false
+
+  return (
+    <div className="flex max-w-3xl flex-col gap-6">
+      <PageHeader
+        title="ATO connection"
+        description="Connecting lets us read your tax registrations and prefill information from the ATO on your behalf. It’s optional — your business names work either way."
+      />
+
+      <Panel className="flex flex-col gap-5">
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div className="flex flex-col gap-1">
+            <span className="text-xs tracking-[0.12em] text-sage uppercase">Status</span>
+            <p className="font-display text-2xl leading-tight font-medium text-ink">
+              {connected ? 'Connected to the ATO' : 'Not connected'}
+            </p>
+            <p className="max-w-prose text-sm text-sage">
+              {connected
+                ? 'We can retrieve your details from Online services for Business.'
+                : 'You approve the connection in the myID app on your phone. It takes about a minute.'}
+            </p>
           </div>
 
-          <div className="flex flex-col gap-3 sm:min-w-[280px] sm:items-stretch">
-            {connected ? (
-              <button onClick={onUnlink} disabled={busy} className="btn-secondary w-full">
-                Unlink from ATO
-              </button>
-            ) : (
-              <>
-                {ready ? (
-                  <Link to="/ato-portal/link" className="btn-primary">
-                    Link to ATO (myID)
-                  </Link>
-                ) : (
-                  <button
-                    type="button"
-                    disabled
-                    className="btn-primary opacity-50 cursor-not-allowed"
-                    aria-disabled="true"
-                    title="Tick both boxes to continue"
-                  >
-                    Link to ATO (myID)
-                  </button>
-                )}
-                {/* Prereq checkboxes sit RIGHT UNDER the button so it's
-                    obvious they have to be ticked before the button becomes active. */}
-                <div className="flex flex-col gap-2">
-                  <label className="flex items-start gap-2 text-sm text-navy-700 cursor-pointer select-none">
-                    <input
-                      type="checkbox"
-                      checked={myid}
-                      onChange={(e) => setMyid(e.target.checked)}
-                      className="mt-0.5 h-4 w-4 accent-brand-600"
-                    />
-                    <span>Have you downloaded and installed the My ID app?</span>
-                  </label>
-                  <label className="flex items-start gap-2 text-sm text-navy-700 cursor-pointer select-none">
-                    <input
-                      type="checkbox"
-                      checked={ram}
-                      onChange={(e) => setRam(e.target.checked)}
-                      className="mt-0.5 h-4 w-4 accent-brand-600"
-                    />
-                    <span>Have you connected your Business to Relationship Access Manager?</span>
-                  </label>
-                </div>
-                <button onClick={onMarkConnected} disabled={busy} className="btn-ghost text-xs w-full">
-                  Mark as connected (manual)
-                </button>
-              </>
-            )}
-          </div>
+          {connected ? (
+            <Button variant="secondary" onClick={() => setConfirmUnlink(true)}>
+              Disconnect
+            </Button>
+          ) : (
+            <Button asChild size="lg">
+              <Link to="/ato-portal/link">Connect to the ATO</Link>
+            </Button>
+          )}
         </div>
-      </section>
+      </Panel>
 
-      {/* Sync from ATO — visible whenever the session is live. */}
       {connected ? (
-        <section className="card-pad mb-6 border-l-4 border-l-accent-500">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-            <div>
-              <h3 className="font-semibold text-navy-900">Sync businesses from ATO</h3>
-              <p className="text-sm text-navy-600 mt-1">
-                Pulls Name, <strong>TFN</strong>, ACN and tax accounts for each of
-                your ABNs from Online services for Business into{' '}
-                <Link to="/business" className="text-brand-700 hover:underline">
-                  Business Details
-                </Link>
-                . Runs automatically when you link, plus this button to re-pull anytime.
-              </p>
-              <p className="text-xs text-navy-500 mt-2">
-                To sync a business not in your list yet, add its ABN under{' '}
-                <Link to="/business" className="underline">
-                  Business Details → Add entity
-                </Link>{' '}
-                first, then click Sync.
-              </p>
-            </div>
-            <button onClick={onSync} disabled={busy} className="btn-primary">
-              {busy ? 'Syncing…' : 'Sync now'}
-            </button>
+        <Panel className="flex flex-col gap-4">
+          <div className="flex flex-col gap-2">
+            <PanelTitle as="h2" className="text-lg">
+              Update your business details from the ATO
+            </PanelTitle>
+            <p className="max-w-prose text-sm text-sage">
+              Pulls the registered name, ABN, ACN, tax accounts and{' '}
+              <strong className="font-medium text-ink">tax file number</strong> for each of your businesses
+              into{' '}
+              <Link to="/business" className="text-bottle-600 hover:underline">
+                Businesses
+              </Link>
+              . This runs automatically when you connect — use this to pull it again later.
+            </p>
+            <p className="text-sm text-sage">
+              Adding a business we don’t know about yet? Add its ABN under Businesses first, then sync.
+            </p>
           </div>
-        </section>
+          <Button onClick={() => sync.mutate({})} loading={sync.isPending} className="self-start">
+            Sync now
+          </Button>
+        </Panel>
       ) : null}
 
-      <div className="mt-10 card-pad bg-navy-900 text-white">
-        <h3 className="font-semibold text-white">Need help?</h3>
-        <p className="text-sm text-navy-200 mt-1">
-          If you get stuck at any step, message support — we can walk you through it on a
-          call or remote screen share.
-        </p>
-        <div className="mt-4">
-          <Link to="/messages" className="btn-accent">Message support</Link>
-        </div>
-        <p className="mt-4 text-xs text-navy-400">
-          Reference: ATO — How to nominate your registered agent (ato.gov.au). Information
-          here is a plain-English summary; always check the ATO site for the latest
-          official guidance.
-        </p>
-      </div>
-    </>
+      <p className="text-sm text-sage">
+        Stuck at any step?{' '}
+        <Link to="/messages" className="text-bottle-600 hover:underline">
+          Message us
+        </Link>{' '}
+        and we’ll walk you through it.
+      </p>
+
+      <ConfirmDialog
+        open={confirmUnlink}
+        onOpenChange={setConfirmUnlink}
+        title="Disconnect from the ATO?"
+        description="We’ll stop retrieving your tax details. Business details we’ve already synced stay where they are, and you can connect again whenever you like."
+        confirmLabel="Disconnect"
+        loading={unlink.isPending}
+        onConfirm={() => unlink.mutate({})}
+      />
+    </div>
   )
 }
