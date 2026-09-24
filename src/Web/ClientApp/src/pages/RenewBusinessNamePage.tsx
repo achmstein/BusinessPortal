@@ -1,4 +1,3 @@
-import { RadioGroup } from '@ark-ui/react/radio-group'
 import { useQuery } from '@tanstack/react-query'
 import { Link, Navigate, useParams, useSearchParams } from 'react-router-dom'
 import { ArrowLeft } from 'lucide-react'
@@ -6,8 +5,7 @@ import { getBusinessNamesOptions } from '@/api/generated/@tanstack/react-query.g
 import { useAuth } from '@/auth/AuthContext'
 import { formatDate } from '@/lib/dates'
 import { extendedRenewalDate, renewalStatus } from '@/lib/renewal'
-import { cn } from '@/lib/cn'
-import { Button, ErrorState, PageHeader, Panel, Skeleton } from '@/ui'
+import { Button, ErrorState, PageHeader, Panel, RadioGroup, Skeleton } from '@/ui'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Paying to renew.
@@ -81,7 +79,7 @@ export function RenewBusinessNamePage() {
     <div className="flex max-w-3xl flex-col gap-6">
       <Link
         to="/asic-renewals"
-        className="inline-flex items-center gap-1.5 self-start text-sm text-bottle-600 hover:underline"
+        className="inline-flex items-center gap-1.5 self-start text-sm text-accent-600 hover:underline"
       >
         <ArrowLeft aria-hidden className="size-3.5" />
         Back to renewals
@@ -113,41 +111,24 @@ export function RenewBusinessNamePage() {
             {(Object.keys(TERMS) as Term[]).map((key) => {
               const option = TERMS[key]
               const until = extendedRenewalDate(name.renewalDate, option.years)
-              const isSelected = key === term
               return (
-                <RadioGroup.Item
-                  key={key}
-                  value={key}
-                  className={cn(
-                    'flex cursor-pointer flex-col gap-1 rounded-sm p-4 text-left ring-1 transition-colors',
-                    isSelected
-                      ? 'bg-surface-sunken ring-ink'
-                      : 'bg-surface ring-rule-firm hover:bg-surface-sunken/60',
-                  )}
-                >
+                <RadioGroup.Card key={key} value={key} className="flex-col gap-1">
                   <span className="flex items-center gap-2">
-                    <RadioGroup.ItemControl
-                      className={cn(
-                        'grid size-4 shrink-0 place-items-center rounded-full ring-1',
-                        isSelected ? 'ring-ink' : 'ring-rule-firm',
-                      )}
-                    >
-                      {isSelected ? <span className="size-2 rounded-full bg-ink" /> : null}
-                    </RadioGroup.ItemControl>
-                    <RadioGroup.ItemText className="text-sm text-sage">
+                    <RadioGroup.Dot />
+                    <RadioGroup.Text className="text-ink-faint">
                       {option.years} year{option.years > 1 ? 's' : ''}
-                    </RadioGroup.ItemText>
+                    </RadioGroup.Text>
                   </span>
 
                   {/* The date is what's being bought, so it leads. */}
-                  <span className="font-display text-2xl leading-tight font-medium text-ink">
+                  <span className="font-display text-2xl leading-tight font-semibold text-ink">
                     Yours until {formatDate(until)}
                   </span>
-                  <span className="text-sm text-sage" data-numeric>
+                  <span className="text-sm text-ink-faint" data-numeric>
                     ${option.price}
                   </span>
-                  <RadioGroup.ItemHiddenInput />
-                </RadioGroup.Item>
+                  <RadioGroup.HiddenInput />
+                </RadioGroup.Card>
               )
             })}
           </div>
@@ -157,7 +138,7 @@ export function RenewBusinessNamePage() {
       <Panel className="flex flex-col gap-0 overflow-hidden p-0">
         <div className="flex items-baseline justify-between gap-4 border-b border-rule px-5 py-4">
           <h2 className="font-display text-xl font-medium text-ink">Payment</h2>
-          <span className="text-sm text-sage">
+          <span className="text-sm text-ink-faint">
             <span data-numeric className="text-base font-medium text-ink">
               ${selected.price}
             </span>{' '}
@@ -177,10 +158,10 @@ export function RenewBusinessNamePage() {
         />
       </Panel>
 
-      <p className="text-sm text-sage">
+      <p className="text-sm text-ink-faint">
         Your renewal date updates automatically once the payment clears, usually within a minute, and we
         confirm it in{' '}
-        <Link to="/messages" className="text-bottle-600 hover:underline">
+        <Link to="/messages" className="text-accent-600 hover:underline">
           Messages
         </Link>
         .

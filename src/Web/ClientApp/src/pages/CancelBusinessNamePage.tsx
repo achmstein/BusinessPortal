@@ -1,5 +1,4 @@
 import { useState } from 'react'
-import { RadioGroup } from '@ark-ui/react/radio-group'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link, Navigate, useNavigate, useParams } from 'react-router-dom'
 import { ArrowLeft } from 'lucide-react'
@@ -9,7 +8,6 @@ import {
   getBusinessNamesQueryKey,
 } from '@/api/generated/@tanstack/react-query.gen'
 import { formatDate } from '@/lib/dates'
-import { cn } from '@/lib/cn'
 import {
   Button,
   Checkbox,
@@ -17,6 +15,7 @@ import {
   PageHeader,
   Panel,
   PanelTitle,
+  RadioGroup,
   Skeleton,
   toastError,
   toastSuccess,
@@ -103,7 +102,7 @@ export function CancelBusinessNamePage() {
     <div className="flex max-w-2xl flex-col gap-6">
       <Link
         to="/asic-renewals"
-        className="inline-flex items-center gap-1.5 self-start text-sm text-bottle-600 hover:underline"
+        className="inline-flex items-center gap-1.5 self-start text-sm text-accent-600 hover:underline"
       >
         <ArrowLeft aria-hidden className="size-3.5" />
         Back to renewals
@@ -111,9 +110,9 @@ export function CancelBusinessNamePage() {
 
       <PageHeader title="Cancel this business name" description={name.name ?? undefined} />
 
-      <div className="flex flex-col gap-2 rounded-sm border-l-2 border-rust-600 bg-rust-50/60 px-5 py-4">
-        <h2 className="font-display text-lg font-medium text-rust-700">This can’t be undone</h2>
-        <p className="text-sm leading-relaxed text-rust-600">
+      <div className="flex flex-col gap-2 rounded-sm border-l-2 border-danger-600 bg-danger-50/60 px-5 py-4">
+        <h2 className="font-display text-lg font-medium text-danger-700">This can’t be undone</h2>
+        <p className="text-sm leading-relaxed text-danger-600">
           Once <strong className="font-medium">{name.name}</strong> is cancelled you can’t trade under it,
           and anyone else is free to register it. Getting it back means registering again from scratch — and
           only if it’s still available.
@@ -131,32 +130,14 @@ export function CancelBusinessNamePage() {
         <RadioGroup.Root value={scope} onValueChange={(details) => setScope(details.value as Scope)}>
           <div className="flex flex-col gap-3">
             {OPTIONS.map((option) => (
-              <RadioGroup.Item
-                key={option.value}
-                value={option.value}
-                className={cn(
-                  'flex cursor-pointer items-start gap-3 rounded-sm p-4 ring-1 transition-colors',
-                  scope === option.value
-                    ? 'bg-surface-sunken ring-ink'
-                    : 'bg-surface ring-rule-firm hover:bg-surface-sunken/60',
-                )}
-              >
-                <RadioGroup.ItemControl
-                  className={cn(
-                    'mt-0.5 grid size-4 shrink-0 place-items-center rounded-full ring-1 transition-colors',
-                    scope === option.value ? 'ring-ink' : 'ring-rule-firm',
-                  )}
-                >
-                  {scope === option.value ? <span className="size-2 rounded-full bg-ink" /> : null}
-                </RadioGroup.ItemControl>
+              <RadioGroup.Card key={option.value} value={option.value} className="items-start gap-3">
+                <RadioGroup.Dot className="mt-0.5" />
                 <span className="flex flex-col gap-1">
-                  <RadioGroup.ItemText className="text-sm font-medium text-ink">
-                    {option.title}
-                  </RadioGroup.ItemText>
-                  <span className="text-sm leading-relaxed text-sage">{option.detail}</span>
+                  <RadioGroup.Text className="font-medium">{option.title}</RadioGroup.Text>
+                  <span className="text-sm leading-relaxed text-ink-faint">{option.detail}</span>
                 </span>
-                <RadioGroup.ItemHiddenInput />
-              </RadioGroup.Item>
+                <RadioGroup.HiddenInput />
+              </RadioGroup.Card>
             ))}
           </div>
         </RadioGroup.Root>

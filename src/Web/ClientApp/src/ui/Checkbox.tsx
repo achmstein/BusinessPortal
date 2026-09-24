@@ -27,9 +27,9 @@ export function Checkbox({
       >
         <ArkCheckbox.Control
           className={cn(
-            'mt-0.5 grid size-4.5 shrink-0 place-items-center rounded-xs bg-surface ring-1 transition-colors',
-            'ring-rule-firm data-[state=checked]:bg-ink data-[state=checked]:ring-ink',
-            'data-[invalid]:ring-2 data-[invalid]:ring-rust-500',
+            'mt-0.5 grid size-4.5 shrink-0 place-items-center rounded-sm bg-surface ring-1 transition-colors',
+            'ring-rule-firm data-[state=checked]:bg-accent-600 data-[state=checked]:ring-accent-600',
+            'data-[invalid]:ring-2 data-[invalid]:ring-danger-500',
           )}
         >
           <ArkCheckbox.Indicator>
@@ -39,7 +39,7 @@ export function Checkbox({
         <ArkCheckbox.Label className="text-sm leading-relaxed text-ink-muted">{children}</ArkCheckbox.Label>
         <ArkCheckbox.HiddenInput />
       </ArkCheckbox.Root>
-      {error ? <p className="pl-7.5 text-xs font-medium text-rust-600">{error}</p> : null}
+      {error ? <p className="pl-7.5 text-xs font-medium text-danger-600">{error}</p> : null}
     </div>
   )
 }

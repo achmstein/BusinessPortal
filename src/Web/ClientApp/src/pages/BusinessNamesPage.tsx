@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react'
-import { useForm } from 'react-hook-form'
+import { Controller, useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { z } from 'zod'
-import { Pencil, Plus, RefreshCw, Trash2 } from 'lucide-react'
+import { MoreHorizontal, Pencil, Plus, RefreshCw, Trash2 } from 'lucide-react'
 import {
   createBusinessNameMutation,
   deleteBusinessNameMutation,
@@ -20,19 +20,22 @@ import {
   Badge,
   Button,
   ConfirmDialog,
+  DatePicker,
   Dialog,
   EmptyState,
   ErrorState,
   Field,
+  Menu,
+  toastError,
+  toastSuccess,
   PageHeader,
   Panel,
-  PanelTitle,
+  Progress,
   Record,
   RecordList,
   RecordSkeleton,
+  Tooltip,
   ValidityBand,
-  toastError,
-  toastSuccess,
 } from '@/ui'
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -63,7 +66,7 @@ function BusinessNameFields({
 }: {
   form: ReturnType<typeof useForm<BusinessNameForm>>
 }) {
-  const { register, formState } = form
+  const { control, register, formState } = form
   return (
     <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
       <Field
@@ -74,11 +77,33 @@ function BusinessNameFields({
       >
         <Field.Input {...register('name')} placeholder="e.g. Acme Plumbing Co" />
       </Field>
+      {/* Controller rather than register: the picker's value is a controlled
+          ISO string, not a DOM event on an <input>. */}
       <Field label="Date registered" error={formState.errors.dateRegistered?.message}>
-        <Field.Input type="date" {...register('dateRegistered')} />
+        <Controller
+          control={control}
+          name="dateRegistered"
+          render={({ field, fieldState }) => (
+            <DatePicker
+              value={field.value ?? ''}
+              onChange={field.onChange}
+              invalid={Boolean(fieldState.error)}
+            />
+          )}
+        />
       </Field>
       <Field label="Renewal date" error={formState.errors.renewalDate?.message}>
-        <Field.Input type="date" {...register('renewalDate')} />
+        <Controller
+          control={control}
+          name="renewalDate"
+          render={({ field, fieldState }) => (
+            <DatePicker
+              value={field.value ?? ''}
+              onChange={field.onChange}
+              invalid={Boolean(fieldState.error)}
+            />
+          )}
+        />
       </Field>
       <Field
         label="ASIC key"
@@ -95,22 +120,15 @@ function BusinessNameFields({
 function LookupProgress({ job }: { job: { status?: string; totalAbns?: number | string; abnsProcessed?: number | string } }) {
   const total = Number(job.totalAbns) || 0
   const done = Number(job.abnsProcessed) || 0
-  const percent = total > 0 ? Math.round((done / total) * 100) : 0
-
   return (
     <Panel className="flex flex-col gap-3" aria-live="polite">
-      <div className="flex items-baseline justify-between gap-4">
-        <PanelTitle as="h2" className="text-lg">
-          Checking your ABNs with ABN Lookup
-        </PanelTitle>
-        <span className="text-sm text-sage" data-numeric>
-          {done} of {total}
-        </span>
-      </div>
-      <div className="h-px w-full bg-rule-firm">
-        <div className="h-px bg-bottle-600 transition-all" style={{ width: `${percent}%` }} />
-      </div>
-      <p className="text-sm text-sage">
+      <Progress
+        value={done}
+        max={total}
+        label="Checking your ABNs with ABN Lookup"
+        valueText={`${done} of ${total}`}
+      />
+      <p className="text-sm text-ink-faint">
         This runs in the background — you can leave this page and come back.
       </p>
     </Panel>
@@ -231,7 +249,7 @@ export function BusinessNamesPage() {
       {running ? <LookupProgress job={lookup.data ?? {}} /> : null}
 
       {dueCount > 0 ? (
-        <p className="text-sm text-brass-700">
+        <p className="text-sm text-warn-700">
           {dueCount === 1 ? 'One name needs' : `${dueCount} names need`} renewing soon.
         </p>
       ) : null}
@@ -279,32 +297,30 @@ export function BusinessNamesPage() {
                     {status.needsAction ? (
                       <Badge tone={status.tone}>{status.label}</Badge>
                     ) : (
-                      <span className="text-sm text-sage">{status.label}</span>
+                      <span className="text-sm text-ink-faint">{status.label}</span>
                     )}
-                    <div className="flex items-center gap-1">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        aria-label={`Edit ${name.name}`}
-                        onClick={() => openEdit(name)}
-                      >
-                        <Pencil aria-hidden className="size-3.5" />
-                        Edit
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        aria-label={`Remove ${name.name}`}
-                        onClick={() => setRemoving(name)}
-                      >
-                        <Trash2 aria-hidden className="size-3.5" />
-                      </Button>
-                    </div>
+                    <Menu.Root>
+                      <Tooltip label="More options">
+                        <Menu.Trigger aria-label={`More options for ${name.name}`} className="p-1.5">
+                          <MoreHorizontal aria-hidden className="size-4" />
+                        </Menu.Trigger>
+                      </Tooltip>
+                      <Menu.Content>
+                        <Menu.Item value="edit" onSelect={() => openEdit(name)}>
+                          <Pencil aria-hidden className="size-4" />
+                          Edit this business name
+                        </Menu.Item>
+                        <Menu.Item value="remove" tone="danger" onSelect={() => setRemoving(name)}>
+                          <Trash2 aria-hidden className="size-4" />
+                          Remove from the portal…
+                        </Menu.Item>
+                      </Menu.Content>
+                    </Menu.Root>
                   </div>
                 </div>
 
                 {name.asicKey ? (
-                  <p className="text-sm text-sage" data-numeric>
+                  <p className="text-sm text-ink-faint" data-numeric>
                     ASIC key {name.asicKey}
                   </p>
                 ) : null}

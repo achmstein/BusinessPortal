@@ -34,9 +34,9 @@ const ICONS = {
 } as const
 
 const TONE = {
-  success: 'text-bottle-600',
-  error: 'text-rust-600',
-  info: 'text-sage',
+  success: 'text-accent-600',
+  error: 'text-danger-600',
+  info: 'text-ink-faint',
 } as const
 
 export function ToastRegion() {
@@ -48,22 +48,22 @@ export function ToastRegion() {
         return (
           <Toast.Root
             className={cn(
-              'flex w-[min(22rem,calc(100vw-2rem))] items-start gap-3 rounded-sm bg-surface p-3.5',
-              'ring-1 ring-rule-firm shadow-overlay',
+              'flex w-[min(22rem,calc(100vw-2rem))] items-start gap-3 rounded-xl bg-surface p-3.5',
+              'border border-rule shadow-overlay',
             )}
           >
             <Icon aria-hidden className={cn('mt-0.5 size-4 shrink-0', TONE[kind])} />
             <div className="flex min-w-0 flex-1 flex-col gap-0.5">
               <Toast.Title className="text-sm font-medium text-ink">{toast.title}</Toast.Title>
               {toast.description ? (
-                <Toast.Description className="text-xs leading-relaxed text-sage">
+                <Toast.Description className="text-xs leading-relaxed text-ink-faint">
                   {toast.description}
                 </Toast.Description>
               ) : null}
             </div>
             <Toast.CloseTrigger
               aria-label="Dismiss"
-              className="rounded-xs p-1 text-sage hover:bg-surface-sunken hover:text-ink"
+              className="rounded-md p-1 text-ink-faint transition-colors hover:bg-surface-sunken hover:text-ink"
             >
               <X aria-hidden className="size-3.5" />
             </Toast.CloseTrigger>

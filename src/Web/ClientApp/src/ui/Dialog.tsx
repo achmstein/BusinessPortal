@@ -37,7 +37,7 @@ export function Dialog({
         <ArkDialog.Positioner className="fixed inset-0 z-50 grid place-items-center overflow-y-auto p-4">
           <ArkDialog.Content
             className={cn(
-              'flex w-full max-w-lg flex-col rounded-sm bg-surface shadow-overlay',
+              'flex w-full max-w-lg flex-col rounded-xl border border-rule bg-surface shadow-overlay',
               'max-h-[calc(100dvh-2rem)]',
               className,
             )}
@@ -48,12 +48,12 @@ export function Dialog({
                   {title}
                 </ArkDialog.Title>
                 {description ? (
-                  <ArkDialog.Description className="text-sm text-sage">{description}</ArkDialog.Description>
+                  <ArkDialog.Description className="text-sm text-ink-faint">{description}</ArkDialog.Description>
                 ) : null}
               </div>
               <ArkDialog.CloseTrigger
                 aria-label="Close"
-                className="-mt-1 -mr-1 rounded-xs p-1.5 text-sage hover:bg-surface-sunken hover:text-ink"
+                className="-mt-1 -mr-1 rounded-md p-1.5 text-ink-faint transition-colors hover:bg-surface-sunken hover:text-ink"
               >
                 <X aria-hidden className="size-4" />
               </ArkDialog.CloseTrigger>

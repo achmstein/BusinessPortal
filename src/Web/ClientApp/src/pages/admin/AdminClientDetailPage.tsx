@@ -10,12 +10,14 @@ import { renewalStatus } from '@/lib/renewal'
 import {
   Badge,
   Button,
+  CopyButton,
   Dialog,
   ErrorState,
   Field,
   PageHeader,
   Panel,
   PanelTitle,
+  ShowMore,
   Skeleton,
   toastError,
   ValidityBand,
@@ -72,7 +74,7 @@ export function AdminClientDetailPage() {
 
   const impersonate = useMutation({
     mutationFn: () => startImpersonation({ path: { id: id! }, body: { reason: reason.trim() } }),
-    onSuccess: () => navigate('/dashboard'),
+    onSuccess: () => navigate('/'),
     onError: () => toastError('Couldn’t start that session', 'Try again in a moment.'),
   })
 
@@ -108,7 +110,7 @@ export function AdminClientDetailPage() {
     <div className="flex flex-col gap-6">
       <Link
         to="/admin/clients"
-        className="inline-flex items-center gap-1.5 self-start text-sm text-bottle-600 hover:underline"
+        className="inline-flex items-center gap-1.5 self-start text-sm text-accent-600 hover:underline"
       >
         <ArrowLeft aria-hidden className="size-3.5" />
         All clients
@@ -116,7 +118,12 @@ export function AdminClientDetailPage() {
 
       <PageHeader
         title={name}
-        description={detail.email}
+        description={
+          <span className="flex items-center gap-1">
+            {detail.email}
+            <CopyButton value={detail.email} label="Copy this client’s email" />
+          </span>
+        }
         actions={
           <Button asChild variant="secondary">
             <Link to={`/admin/messages/${detail.id}`}>
@@ -140,16 +147,16 @@ export function AdminClientDetailPage() {
               ['Address', address || '—'],
             ].map(([label, value]) => (
               <div key={label} className="flex flex-wrap gap-x-3">
-                <dt className="w-36 shrink-0 text-sage">{label}</dt>
+                <dt className="w-36 shrink-0 text-ink-faint">{label}</dt>
                 <dd className="min-w-0 flex-1 text-ink" data-numeric>
                   {value}
                 </dd>
               </div>
             ))}
             <div className="flex flex-wrap gap-x-3">
-              <dt className="w-36 shrink-0 text-sage">ATO</dt>
+              <dt className="w-36 shrink-0 text-ink-faint">ATO</dt>
               <dd className="min-w-0 flex-1">
-                {detail.atoConnected ? <Badge tone="ok">Connected</Badge> : <span className="text-sage">Not connected</span>}
+                {detail.atoConnected ? <Badge tone="ok">Connected</Badge> : <span className="text-ink-faint">Not connected</span>}
               </dd>
             </div>
           </dl>
@@ -160,24 +167,34 @@ export function AdminClientDetailPage() {
             Businesses
           </PanelTitle>
           {detail.entities.length === 0 ? (
-            <p className="text-sm text-sage">None recorded.</p>
+            <p className="text-sm text-ink-faint">None recorded.</p>
           ) : (
             <ul className="flex flex-col gap-3 text-sm">
-              {detail.entities.map((entity) => (
+              <ShowMore
+                label="businesses"
+                items={detail.entities.map((entity) => (
                 <li key={entity.id} className="flex flex-col gap-0.5">
                   <span className="font-medium text-ink">{entity.name}</span>
-                  <span className="text-sage" data-numeric>
-                    {[
-                      entity.entityType,
-                      entity.abn ? `ABN ${formatAbn(entity.abn)}` : null,
-                      entity.acn ? `ACN ${formatAcn(entity.acn)}` : null,
-                      entity.industry,
-                    ]
-                      .filter(Boolean)
-                      .join(' · ') || '—'}
+                  <span className="flex flex-wrap items-center gap-x-1 text-ink-faint" data-numeric>
+                    {[entity.entityType, entity.industry].filter(Boolean).join(' · ') || '—'}
+                    {entity.abn ? (
+                      <span className="flex items-center gap-1">
+                        · ABN {formatAbn(entity.abn)}
+                        {/* Raw digits: the printed spacing fails validation
+                            in most systems staff paste these into. */}
+                        <CopyButton value={entity.abn} label={`Copy the ABN for ${entity.name}`} />
+                      </span>
+                    ) : null}
+                    {entity.acn ? (
+                      <span className="flex items-center gap-1">
+                        · ACN {formatAcn(entity.acn)}
+                        <CopyButton value={entity.acn} label={`Copy the ACN for ${entity.name}`} />
+                      </span>
+                    ) : null}
                   </span>
-                </li>
-              ))}
+                  </li>
+                ))}
+              />
             </ul>
           )}
         </Panel>
@@ -188,10 +205,12 @@ export function AdminClientDetailPage() {
           Business names
         </PanelTitle>
         {detail.businessNames.length === 0 ? (
-          <p className="text-sm text-sage">None recorded.</p>
+          <p className="text-sm text-ink-faint">None recorded.</p>
         ) : (
           <ul className="flex flex-col gap-5">
-            {detail.businessNames.map((bn) => {
+            <ShowMore
+              label="business names"
+              items={detail.businessNames.map((bn) => {
               const status = renewalStatus(bn.renewalDate)
               return (
                 <li key={bn.id} className="flex flex-col gap-1">
@@ -200,7 +219,7 @@ export function AdminClientDetailPage() {
                     {status.needsAction ? (
                       <Badge tone={status.tone}>{status.label}</Badge>
                     ) : (
-                      <span className="text-sm text-sage">{formatDate(bn.renewalDate)}</span>
+                      <span className="text-sm text-ink-faint">{formatDate(bn.renewalDate)}</span>
                     )}
                   </div>
                   <ValidityBand
@@ -209,9 +228,10 @@ export function AdminClientDetailPage() {
                     renewalDate={bn.renewalDate}
                     status={status}
                   />
-                </li>
-              )
-            })}
+                  </li>
+                )
+              })}
+            />
           </ul>
         )}
       </Panel>
@@ -220,7 +240,7 @@ export function AdminClientDetailPage() {
         <PanelTitle as="h2" className="text-lg">
           Sign in as this client
         </PanelTitle>
-        <p className="max-w-prose text-sm text-sage">
+        <p className="max-w-prose text-sm text-ink-faint">
           You’ll see the portal exactly as {name} does, with full access to change their records. The session
           is recorded against your account, and a banner stays on screen until you return here.
         </p>

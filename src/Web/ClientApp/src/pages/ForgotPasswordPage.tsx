@@ -51,7 +51,7 @@ export function ForgotPasswordPage() {
             <button
               type="button"
               onClick={() => request.reset()}
-              className="text-bottle-600 underline-offset-2 hover:underline"
+              className="text-accent-600 underline-offset-2 hover:underline"
             >
               try a different address
             </button>
@@ -73,7 +73,7 @@ export function ForgotPasswordPage() {
       footer={
         <>
           Remembered it?{' '}
-          <Link to="/login" className="text-bottle-600 hover:underline">
+          <Link to="/login" className="text-accent-600 hover:underline">
             Back to sign in
           </Link>
         </>

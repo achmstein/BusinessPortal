@@ -6,7 +6,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import { registerAccount } from '@/api/generated'
 import { useAuth } from '@/auth/AuthContext'
 import { AuthShell } from '@/components/AuthShell'
-import { Button, Field } from '@/ui'
+import { Button, Field, PasswordInput } from '@/ui'
 
 // Most people never see this page — an account is created for them when they
 // renew a business name. So it opens by saying so: someone who already has an
@@ -40,7 +40,7 @@ export function RegisterPage() {
       registerAccount({ body: { ...values, email: values.email.toLowerCase() } }),
     onSuccess: async () => {
       await refresh()
-      navigate('/dashboard', { replace: true })
+      navigate('/', { replace: true })
     },
     onError: () => {
       form.setError('email', {
@@ -56,7 +56,7 @@ export function RegisterPage() {
       footer={
         <>
           Already have an account?{' '}
-          <Link to="/login" className="text-bottle-600 hover:underline">
+          <Link to="/login" className="text-accent-600 hover:underline">
             Sign in
           </Link>
         </>
@@ -91,7 +91,11 @@ export function RegisterPage() {
           hint="At least 8 characters."
           error={form.formState.errors.password?.message}
         >
-          <Field.Input type="password" autoComplete="new-password" {...form.register('password')} />
+          <PasswordInput
+            autoComplete="new-password"
+            invalid={Boolean(form.formState.errors.password)}
+            {...form.register('password')}
+          />
         </Field>
 
         <Button type="submit" size="lg" loading={create.isPending} className="mt-1 w-full">

@@ -2,7 +2,7 @@ import { useQuery } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
 import { ArrowRight } from 'lucide-react'
 import { getAdminOverviewOptions } from '@/api/generated/@tanstack/react-query.gen'
-import { Button, ErrorState, PageHeader, Panel, Skeleton } from '@/ui'
+import { Button, ErrorState, PageHeader, Panel, RecordList, Skeleton } from '@/ui'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Staff open this first thing, and the question is "is there anything waiting
@@ -37,7 +37,7 @@ function QueueItem({
         </span>
         <span className="flex flex-col">
           <span className="text-sm font-medium text-ink">{count === 1 ? singular : plural}</span>
-          <span className="text-sm text-sage">{detail}</span>
+          <span className="text-sm text-ink-faint">{detail}</span>
         </span>
       </div>
       <Button asChild size="sm" variant={count > 0 ? 'primary' : 'secondary'}>
@@ -92,7 +92,7 @@ export function AdminOverviewPage() {
         }
       />
 
-      <div className="flex flex-col rounded-sm bg-surface ring-1 ring-rule [&>*+*]:border-t [&>*+*]:border-rule">
+      <RecordList>
         <QueueItem
           count={unread}
           singular="unread message"
@@ -109,10 +109,10 @@ export function AdminOverviewPage() {
           to="/admin/registry"
           action="View registry"
         />
-      </div>
+      </RecordList>
 
       <Panel className="flex flex-wrap items-center justify-between gap-3">
-        <p className="text-sm text-sage">
+        <p className="text-sm text-ink-faint">
           <span data-numeric className="text-ink">
             {clients}
           </span>{' '}
@@ -124,7 +124,7 @@ export function AdminOverviewPage() {
         </p>
         <Link
           to="/admin/clients"
-          className="inline-flex items-center gap-1 text-sm text-bottle-600 hover:underline"
+          className="inline-flex items-center gap-1 text-sm text-accent-600 hover:underline"
         >
           Browse clients
           <ArrowRight aria-hidden className="size-3.5" />

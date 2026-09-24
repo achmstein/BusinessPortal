@@ -8,11 +8,15 @@ import { cn } from '@/lib/cn'
  * continuous list of entries, and hairlines let the records sit closer together
  * without each one shouting for its own box.
  */
-export function RecordList({ className, ...props }: ComponentProps<'div'>) {
+export function RecordList({
+  as: Tag = 'div',
+  className,
+  ...props
+}: ComponentProps<'div'> & { as?: ElementType }) {
   return (
-    <div
+    <Tag
       className={cn(
-        'flex flex-col rounded-sm bg-surface ring-1 ring-rule',
+        'flex flex-col rounded-xl border border-rule bg-surface shadow-card',
         '[&>*+*]:border-t [&>*+*]:border-rule',
         className,
       )}
@@ -28,7 +32,10 @@ export function Record({ className, ...props }: ComponentProps<'article'>) {
 /** A bounded panel for content that isn't a register entry — forms, summaries. */
 export function Panel({ className, ...props }: ComponentProps<'section'>) {
   return (
-    <section className={cn('rounded-sm bg-surface p-5 ring-1 ring-rule sm:p-6', className)} {...props} />
+    <section
+      className={cn('rounded-xl border border-rule bg-surface p-5 shadow-card sm:p-6', className)}
+      {...props}
+    />
   )
 }
 
@@ -37,7 +44,7 @@ export function PanelTitle({
   className,
   ...props
 }: ComponentProps<'h2'> & { as?: ElementType }) {
-  return <Tag className={cn('font-display text-xl leading-tight font-medium text-ink', className)} {...props} />
+  return <Tag className={cn('font-display text-xl leading-tight font-semibold text-ink', className)} {...props} />
 }
 
 /**
@@ -59,10 +66,10 @@ export function PageHeader({
     <header className="flex flex-wrap items-end justify-between gap-4 border-b border-rule-firm pb-5">
       <div className="flex min-w-0 flex-col gap-1.5">
         {eyebrow ? (
-          <span className="text-xs font-semibold tracking-[0.12em] text-sage uppercase">{eyebrow}</span>
+          <span className="text-xs font-semibold tracking-[0.12em] text-ink-faint uppercase">{eyebrow}</span>
         ) : null}
-        <h1 className="font-display text-3xl leading-none font-medium text-ink sm:text-4xl">{title}</h1>
-        {description ? <p className="max-w-prose text-sm text-sage">{description}</p> : null}
+        <h1 className="font-display text-3xl leading-none font-semibold text-ink sm:text-4xl">{title}</h1>
+        {description ? <p className="max-w-prose text-sm text-ink-faint">{description}</p> : null}
       </div>
       {actions ? <div className="flex shrink-0 items-center gap-2">{actions}</div> : null}
     </header>
@@ -95,7 +102,7 @@ export function EmptyState({
       )}
     >
       <p className="font-display text-lg font-medium text-ink">{title}</p>
-      {description ? <p className="max-w-sm text-sm text-sage">{description}</p> : null}
+      {description ? <p className="max-w-sm text-sm text-ink-faint">{description}</p> : null}
       {action ? <div className="mt-2">{action}</div> : null}
     </div>
   )
@@ -116,13 +123,13 @@ export function ErrorState({
   return (
     <div
       className={cn(
-        'flex flex-col items-center gap-2 rounded-sm border border-rust-100 bg-rust-50/50 px-6 py-10 text-center',
+        'flex flex-col items-center gap-2 rounded-sm border border-danger-100 bg-danger-50/50 px-6 py-10 text-center',
         className,
       )}
       role="alert"
     >
-      <p className="font-display text-lg font-medium text-rust-700">{title}</p>
-      <p className="max-w-sm text-sm text-rust-600">{description}</p>
+      <p className="font-display text-lg font-medium text-danger-700">{title}</p>
+      <p className="max-w-sm text-sm text-danger-600">{description}</p>
       {action ? <div className="mt-2">{action}</div> : null}
     </div>
   )

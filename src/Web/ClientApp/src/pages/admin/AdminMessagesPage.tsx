@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom'
 import { getAdminMessagesOptions } from '@/api/generated/@tanstack/react-query.gen'
 import { formatDateTime } from '@/lib/dates'
 import { cn } from '@/lib/cn'
-import { Button, EmptyState, ErrorState, PageHeader, Skeleton } from '@/ui'
+import { Avatar, Button, EmptyState, ErrorState, PageHeader, RecordList, Skeleton } from '@/ui'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // The shared inbox. One question: who is waiting on a reply?
@@ -55,26 +55,30 @@ function InboxRow({ row }: { row: Row }) {
         to={`/admin/messages/${row.clientId}`}
         className="flex items-start gap-3 px-5 py-4 hover:bg-surface-sunken/60"
       >
-        <span
-          className={cn(
-            'mt-1.5 size-2 shrink-0 rounded-full',
-            row.unread > 0 ? 'bg-bottle-600' : 'bg-transparent',
-          )}
-          aria-hidden
-        />
+        {/* The dot marks unread; the avatar identifies who. Keeping both, with
+            the dot overlaid, avoids a third column of chrome per row. */}
+        <span className="relative shrink-0">
+          <Avatar name={row.name} email={row.email} size="sm" />
+          {row.unread > 0 ? (
+            <span
+              aria-hidden
+              className="absolute -top-0.5 -right-0.5 size-2.5 rounded-full bg-accent-600 ring-2 ring-surface"
+            />
+          ) : null}
+        </span>
         <span className="min-w-0 flex-1">
           <span className="flex flex-wrap items-baseline gap-x-2">
             <span className={cn('truncate', row.unread > 0 ? 'font-medium text-ink' : 'text-ink-muted')}>
               {row.name || row.email}
             </span>
-            <span className="truncate text-xs text-sage">{row.email}</span>
+            <span className="truncate text-xs text-ink-faint">{row.email}</span>
           </span>
           <span className="mt-0.5 block truncate text-sm text-ink-muted">{row.last.subject}</span>
-          <span className="mt-0.5 block truncate text-sm text-sage">
+          <span className="mt-0.5 block truncate text-sm text-ink-faint">
             {fromClient ? 'They wrote' : 'You replied'}: {row.last.body}
           </span>
         </span>
-        <span className="shrink-0 text-xs text-sage">{formatDateTime(row.last.createdAt)}</span>
+        <span className="shrink-0 text-xs text-ink-faint">{formatDateTime(row.last.createdAt)}</span>
       </Link>
     </li>
   )
@@ -146,25 +150,25 @@ export function AdminMessagesPage() {
       ) : (
         <div className="flex flex-col gap-6">
           {waiting.length > 0 ? (
-            <ul className="flex flex-col rounded-sm bg-surface ring-1 ring-rule [&>*+*]:border-t [&>*+*]:border-rule">
+            <RecordList as="ul">
               {waiting.map((row) => (
                 <InboxRow key={row.clientId} row={row} />
               ))}
-            </ul>
+            </RecordList>
           ) : null}
 
           {settled.length > 0 ? (
             <section className="flex flex-col gap-3">
               {waiting.length > 0 ? (
-                <h2 className="text-xs font-semibold tracking-[0.12em] text-sage uppercase">
+                <h2 className="text-xs font-semibold tracking-[0.12em] text-ink-faint uppercase">
                   Nothing outstanding
                 </h2>
               ) : null}
-              <ul className="flex flex-col rounded-sm bg-surface ring-1 ring-rule [&>*+*]:border-t [&>*+*]:border-rule">
+              <RecordList as="ul">
                 {settled.map((row) => (
                   <InboxRow key={row.clientId} row={row} />
                 ))}
-              </ul>
+              </RecordList>
             </section>
           ) : null}
         </div>

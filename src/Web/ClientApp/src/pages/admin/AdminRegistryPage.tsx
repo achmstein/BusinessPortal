@@ -1,27 +1,34 @@
 import { useMemo, useState } from 'react'
 import { keepPreviousData, useQuery } from '@tanstack/react-query'
 import { Link, useNavigate } from 'react-router-dom'
-import { Search } from 'lucide-react'
 import {
   getRegistryBusinessNamesOptions,
   getRegistryCompaniesOptions,
   getRegistryEntitiesOptions,
   getRegistrySummaryOptions,
 } from '@/api/generated/@tanstack/react-query.gen'
-import type { RegistryBusinessNameRow, RegistryCompanyRow, RegistryEntityRow } from '@/api/generated'
+import type {
+  RegistryBusinessNameRow,
+  RegistryClientRef,
+  RegistryCompanyRow,
+  RegistryEntityRow,
+} from '@/api/generated'
 import { useDebouncedValue } from '@/lib/useDebouncedValue'
 import { formatDate } from '@/lib/dates'
 import { formatAbn, formatAcn } from '@/lib/format'
 import { renewalStatus } from '@/lib/renewal'
-import { cn } from '@/lib/cn'
 import {
+  Avatar,
   Badge,
   Button,
   DataTable,
   EmptyState,
   ErrorState,
+  HoverCard,
   PageHeader,
   Pagination,
+  SearchInput,
+  Tabs,
   type DataTableColumn,
 } from '@/ui'
 
@@ -46,15 +53,32 @@ const PAGE_SIZE = 25
 
 type Tab = 'names' | 'entities' | 'companies'
 
-function ClientLink({ id, name }: { id: string; name: string }) {
+// The link still goes to the client page; the preview only saves the trip when
+// the question is just "who is this?" — so it stays supplementary, and nothing
+// lives in it that isn't reachable by following the link.
+function ClientLink({ client }: { client: RegistryClientRef }) {
   return (
-    <Link
-      to={`/admin/clients/${id}`}
-      onClick={(event) => event.stopPropagation()}
-      className="text-bottle-600 hover:underline"
+    <HoverCard
+      content={
+        <div className="flex items-center gap-2.5">
+          <Avatar name={client.name} email={client.email} size="sm" />
+          <div className="flex min-w-0 flex-col">
+            <span className="truncate text-sm font-medium text-ink">{client.name}</span>
+            {client.email ? (
+              <span className="truncate text-xs text-ink-faint">{client.email}</span>
+            ) : null}
+          </div>
+        </div>
+      }
     >
-      {name}
-    </Link>
+      <Link
+        to={`/admin/clients/${client.id}`}
+        onClick={(event) => event.stopPropagation()}
+        className="text-accent-600 hover:underline"
+      >
+        {client.name}
+      </Link>
+    </HoverCard>
   )
 }
 
@@ -98,7 +122,7 @@ export function AdminRegistryPage() {
         id: 'client',
         header: 'Client',
         accessorFn: (row) => row.client.name,
-        cell: ({ row }) => <ClientLink id={row.original.client.id} name={row.original.client.name} />,
+        cell: ({ row }) => <ClientLink client={row.original.client} />,
       },
       {
         id: 'renews',
@@ -121,7 +145,7 @@ export function AdminRegistryPage() {
         header: 'ASIC key',
         accessorFn: (row) => row.asicKey,
         cell: ({ row }) => (
-          <span className="text-sage" data-numeric>
+          <span className="text-ink-faint" data-numeric>
             {row.original.asicKey || '—'}
           </span>
         ),
@@ -141,7 +165,7 @@ export function AdminRegistryPage() {
           <div className="flex flex-col">
             <span className="font-medium text-ink">{row.original.name}</span>
             {row.original.entityType ? (
-              <span className="text-xs text-sage">{row.original.entityType}</span>
+              <span className="text-xs text-ink-faint">{row.original.entityType}</span>
             ) : null}
           </div>
         ),
@@ -150,7 +174,7 @@ export function AdminRegistryPage() {
         id: 'client',
         header: 'Client',
         accessorFn: (row) => row.client.name,
-        cell: ({ row }) => <ClientLink id={row.original.client.id} name={row.original.client.name} />,
+        cell: ({ row }) => <ClientLink client={row.original.client} />,
       },
       {
         id: 'abn',
@@ -166,7 +190,7 @@ export function AdminRegistryPage() {
         id: 'industry',
         header: 'Industry',
         accessorFn: (row) => row.industry,
-        cell: ({ row }) => <span className="text-sage">{row.original.industry || '—'}</span>,
+        cell: ({ row }) => <span className="text-ink-faint">{row.original.industry || '—'}</span>,
         meta: { className: 'hidden lg:table-cell' },
       },
     ],
@@ -185,7 +209,7 @@ export function AdminRegistryPage() {
         id: 'client',
         header: 'Client',
         accessorFn: (row) => row.client.name,
-        cell: ({ row }) => <ClientLink id={row.original.client.id} name={row.original.client.name} />,
+        cell: ({ row }) => <ClientLink client={row.original.client} />,
       },
       {
         id: 'acn',
@@ -202,7 +226,7 @@ export function AdminRegistryPage() {
         header: 'ABN',
         accessorFn: (row) => row.abn,
         cell: ({ row }) => (
-          <span data-numeric className="text-sage">
+          <span data-numeric className="text-ink-faint">
             {formatAbn(row.original.abn) || '—'}
           </span>
         ),
@@ -237,93 +261,84 @@ export function AdminRegistryPage() {
         }
       />
 
-      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-rule">
-        <div role="tablist" aria-label="Registry sections" className="-mb-px flex gap-1">
-          {tabs.map((item) => (
-            <button
-              key={item.id}
-              type="button"
-              role="tab"
-              aria-selected={tab === item.id}
-              onClick={() => {
-                setTab(item.id)
-                setPage(1)
-              }}
-              className={cn(
-                'flex items-center gap-2 border-b-2 px-3 py-2.5 text-sm whitespace-nowrap transition-colors',
-                tab === item.id
-                  ? 'border-bottle-600 font-medium text-ink'
-                  : 'border-transparent text-sage hover:border-rule-firm hover:text-ink',
-              )}
-            >
-              {item.label}
-              {Number.isFinite(item.count) ? (
-                <span data-numeric className="text-xs text-sage">
-                  {item.count}
-                </span>
-              ) : null}
-            </button>
-          ))}
-        </div>
+      <Tabs.Root
+        lazyMount
+        unmountOnExit
+        value={tab}
+        onValueChange={(details) => {
+          setTab(details.value as Tab)
+          setPage(1)
+        }}
+        className="flex flex-col gap-5"
+      >
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-rule">
+          <Tabs.List aria-label="Registry sections">
+            {tabs.map((item) => (
+              <Tabs.Trigger key={item.id} value={item.id}>
+                {item.label}
+                <Tabs.Count value={item.count} />
+              </Tabs.Trigger>
+            ))}
+          </Tabs.List>
 
-        <div className="relative mb-2 w-full max-w-xs">
-          <Search aria-hidden className="absolute top-1/2 left-3 size-4 -translate-y-1/2 text-sage" />
-          <input
-            type="search"
+          <SearchInput
+            label="Search the registry"
+            size="sm"
             value={search}
             onChange={(event) => {
               setSearch(event.target.value)
               setPage(1)
             }}
             placeholder="Search this tab"
-            aria-label="Search the registry"
-            className="h-9 w-full rounded-sm bg-surface pr-3 pl-9 text-sm text-ink ring-1 ring-rule-firm placeholder:text-sage/70 focus:outline-none focus-visible:ring-2 focus-visible:ring-bottle-500"
+            className="mb-2 w-full max-w-xs"
           />
         </div>
-      </div>
 
-      {active.isError ? (
-        <ErrorState
-          description="We couldn’t load that part of the registry."
-          action={
-            <Button variant="secondary" onClick={() => void active.refetch()}>
-              Try again
-            </Button>
-          }
-        />
-      ) : (
-        <>
-          {tab === 'names' ? (
-            <DataTable
-              columns={nameColumns}
-              data={names.data?.items ?? []}
-              empty={emptyState}
-              onRowClick={(row) => navigate(`/admin/clients/${row.client.id}`)}
-            />
-          ) : tab === 'entities' ? (
-            <DataTable
-              columns={entityColumns}
-              data={entities.data?.items ?? []}
-              empty={emptyState}
-              onRowClick={(row) => navigate(`/admin/clients/${row.client.id}`)}
-            />
-          ) : (
-            <DataTable
-              columns={companyColumns}
-              data={companies.data?.items ?? []}
-              empty={emptyState}
-              onRowClick={(row) => navigate(`/admin/clients/${row.client.id}`)}
-            />
-          )}
-
-          <Pagination
-            page={page}
-            pageSize={PAGE_SIZE}
-            total={Number(active.data?.totalCount ?? 0)}
-            onPage={setPage}
+        {active.isError ? (
+          <ErrorState
+            description="We couldn’t load that part of the registry."
+            action={
+              <Button variant="secondary" onClick={() => void active.refetch()}>
+                Try again
+              </Button>
+            }
           />
-        </>
-      )}
+        ) : (
+          <>
+            <Tabs.Content value="names">
+              <DataTable
+                columns={nameColumns}
+                data={names.data?.items ?? []}
+                empty={emptyState}
+                onRowClick={(row) => navigate(`/admin/clients/${row.client.id}`)}
+              />
+            </Tabs.Content>
+            <Tabs.Content value="entities">
+              <DataTable
+                columns={entityColumns}
+                data={entities.data?.items ?? []}
+                empty={emptyState}
+                onRowClick={(row) => navigate(`/admin/clients/${row.client.id}`)}
+              />
+            </Tabs.Content>
+            <Tabs.Content value="companies">
+              <DataTable
+                columns={companyColumns}
+                data={companies.data?.items ?? []}
+                empty={emptyState}
+                onRowClick={(row) => navigate(`/admin/clients/${row.client.id}`)}
+              />
+            </Tabs.Content>
+
+            <Pagination
+              page={page}
+              pageSize={PAGE_SIZE}
+              total={Number(active.data?.totalCount ?? 0)}
+              onPage={setPage}
+            />
+          </>
+        )}
+      </Tabs.Root>
     </div>
   )
 }

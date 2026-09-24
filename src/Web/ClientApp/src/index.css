@@ -1,18 +1,18 @@
 @import 'tailwindcss';
 
 /* ─────────────────────────────────────────────────────────────────────────
-   Registry — the Business Portal design system.
+   Business Portal — the design system.
 
-   The thesis: this portal is a record you have been issued, not a dashboard.
-   Two rules follow from it and are enforced here rather than by convention.
+   Neutral ground, one accent, colour reserved for state. Two rules are
+   enforced here rather than by convention:
 
-   1. Colour carries meaning, never decoration. A healthy registration gets no
-      chrome at all; brass appears as a renewal approaches and rust once it has
-      passed. Because green is not spent on "everything is fine", bottle green
-      is free to be the brand colour.
-   2. Serif reads, sans operates. Business names, headings and prose are set in
-      Newsreader so the screen reads as a document; every control, label, table
-      cell and figure is IBM Plex Sans with tabular numerals.
+   1. Indigo is the accent: brand, links, focus, primary action. Amber and red
+      mean something — a renewal approaching, and one that has passed. Nothing
+      else is allowed to be coloured, so the records that need attention are
+      the only coloured things on screen.
+   2. One typeface, differentiated by weight and tracking rather than family.
+      `font-display` still exists as a semantic hook for headings; it simply
+      resolves to the same stack now.
 
    Component styling lives in src/ui, not here. This file is tokens + base only.
    The palette is defined once as custom properties, so a dark theme is a matter
@@ -21,53 +21,58 @@
 
 @theme {
   /* ── Type ─────────────────────────────────────────────────────────────── */
-  --font-display: 'Newsreader Variable', ui-serif, Georgia, 'Times New Roman', serif;
   --font-sans: 'IBM Plex Sans', ui-sans-serif, system-ui, 'Segoe UI', sans-serif;
+  /* Headings. Same family — the distinction is weight, size and tracking, set
+     in the base layer below. Kept as a token so the ~30 call sites that mean
+     "this is a heading" keep saying so. */
+  --font-display: 'IBM Plex Sans', ui-sans-serif, system-ui, 'Segoe UI', sans-serif;
 
   /* ── Ground and ink ───────────────────────────────────────────────────── */
-  --color-paper: #fcfaf6; /* page ground — warm white, not cream */
+  --color-paper: #f8fafc; /* page ground — cool, one step off white */
   --color-surface: #ffffff; /* raised records, panels, menus */
-  --color-surface-sunken: #f5f1e8; /* table headers, inset wells */
+  --color-surface-sunken: #f1f5f9; /* table headers, inset wells */
 
-  --color-ink: #221f1a; /* body text, primary buttons — warm black */
-  --color-ink-muted: #55504a; /* secondary text that still must be read */
-  --color-sage: #6e7a70; /* metadata, captions, dormant records */
+  --color-ink: #0f172a; /* body text, headings */
+  --color-ink-muted: #475569; /* secondary text that still must be read */
+  --color-ink-faint: #64748b; /* metadata, captions, dormant records */
 
-  --color-rule: #e4ddcf; /* hairlines between records */
-  --color-rule-firm: #cfc5b2; /* input borders, emphasised dividers */
+  --color-rule: #e2e8f0; /* hairlines between records */
+  --color-rule-firm: #cbd5e1; /* input borders, emphasised dividers */
 
-  /* ── Bottle: brand, links, active navigation ──────────────────────────── */
-  --color-bottle-50: #eaf0ea;
-  --color-bottle-100: #d3e0d6;
-  --color-bottle-200: #a9c2b0;
-  --color-bottle-500: #2a6149;
-  --color-bottle-600: #1c4634;
-  --color-bottle-700: #143528;
-  --color-bottle-800: #0e2419;
+  /* ── Accent: brand, links, focus, primary action ──────────────────────── */
+  --color-accent-50: #eef2ff;
+  --color-accent-100: #e0e7ff;
+  --color-accent-200: #c7d2fe;
+  --color-accent-500: #6366f1;
+  --color-accent-600: #4f46e5;
+  --color-accent-700: #4338ca;
+  --color-accent-800: #3730a3;
 
-  /* ── Brass: a renewal is approaching. The act-now colour. ─────────────── */
-  --color-brass-50: #f7eeda;
-  --color-brass-100: #ecdcb8;
-  --color-brass-500: #b5801f;
-  --color-brass-600: #96681a;
-  --color-brass-700: #755014;
+  /* ── Warn: a renewal is approaching. The act-now colour. ──────────────── */
+  --color-warn-50: #fffbeb;
+  --color-warn-100: #fde68a;
+  --color-warn-500: #f59e0b;
+  --color-warn-600: #d97706;
+  --color-warn-700: #b45309;
 
-  /* ── Rust: overdue, and destructive actions. Nothing else. ────────────── */
-  --color-rust-50: #f8e9e4;
-  --color-rust-100: #eecfc6;
-  --color-rust-500: #ab3d2e;
-  --color-rust-600: #8e3225;
-  --color-rust-700: #6f271d;
+  /* ── Danger: overdue, and destructive actions. Nothing else. ──────────── */
+  --color-danger-50: #fef2f2;
+  --color-danger-100: #fecaca;
+  --color-danger-500: #ef4444;
+  --color-danger-600: #dc2626;
+  --color-danger-700: #b91c1c;
 
-  /* ── Radius: documents have corners. Deliberately close to square. ────── */
-  --radius-xs: 2px;
-  --radius-sm: 2px;
-  --radius-md: 3px;
-  --radius-lg: 4px;
-  --radius-xl: 6px;
+  /* ── Radius ───────────────────────────────────────────────────────────── */
+  --radius-xs: 4px;
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 10px;
+  --radius-xl: 12px;
 
-  /* ── Elevation: hairlines do the work; shadow only for true overlays. ─── */
-  --shadow-overlay: 0 12px 32px -8px rgb(34 31 26 / 0.18), 0 2px 8px rgb(34 31 26 / 0.08);
+  /* ── Elevation: soft and layered. Cards lift; overlays lift further. ──── */
+  --shadow-card: 0 1px 2px rgb(15 23 42 / 0.04), 0 1px 3px rgb(15 23 42 / 0.06);
+  --shadow-raised: 0 2px 4px rgb(15 23 42 / 0.04), 0 4px 12px -2px rgb(15 23 42 / 0.08);
+  --shadow-overlay: 0 10px 30px -10px rgb(15 23 42 / 0.2), 0 4px 12px rgb(15 23 42 / 0.08);
 }
 
 @layer base {
@@ -75,7 +80,7 @@
     color-scheme: light;
   }
 
-  /* Tailwind v4 defaults `border` to currentColor; the Registry default is a
+  /* Tailwind v4 defaults `border` to currentColor; the default here is a
      hairline, so borders read correctly without repeating the colour. */
   *,
   ::after,
@@ -96,14 +101,13 @@
     -webkit-font-smoothing: antialiased;
   }
 
-  /* Names, headings and prose. Never below 16px — a reading serif at small
-     sizes fails the audience this portal actually serves. */
+  /* Headings earn their weight from tracking and colour, not a second family. */
   h1,
   h2,
   h3 {
     font-family: var(--font-display);
-    font-weight: 500;
-    letter-spacing: -0.015em;
+    font-weight: 600;
+    letter-spacing: -0.02em;
     text-wrap: balance;
   }
 
@@ -114,16 +118,16 @@
     font-variant-numeric: tabular-nums;
   }
 
-  /* One focus treatment for the whole app, on the brand colour. Every
-     interactive element inherits it; nothing may remove it. */
+  /* One focus treatment for the whole app, on the accent. Every interactive
+     element inherits it; nothing may remove it. */
   :focus-visible {
-    outline: 2px solid var(--color-bottle-500);
+    outline: 2px solid var(--color-accent-600);
     outline-offset: 2px;
     border-radius: var(--radius-xs);
   }
 
   ::selection {
-    background: var(--color-bottle-100);
+    background: var(--color-accent-100);
   }
 }
 

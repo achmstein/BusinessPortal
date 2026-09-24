@@ -1,12 +1,21 @@
 import { useState } from 'react'
-import { Dialog as ArkDialog } from '@ark-ui/react/dialog'
-import { Portal } from '@ark-ui/react/portal'
 import { useQuery } from '@tanstack/react-query'
 import { Link, NavLink, Outlet, useNavigate } from 'react-router-dom'
-import { BookMarked, LayoutGrid, LogOut, Menu, MessageSquare, Settings, Users, X } from 'lucide-react'
+import {
+  BookMarked,
+  LayoutGrid,
+  LogOut,
+  Menu as MenuIcon,
+  MessageSquare,
+  Settings,
+  UserRound,
+  Users,
+  X,
+} from 'lucide-react'
 import { getAdminOverviewOptions } from '@/api/generated/@tanstack/react-query.gen'
 import { useAuth } from '@/auth/AuthContext'
 import { cn } from '@/lib/cn'
+import { Drawer, Logo } from '@/ui'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // The admin shell.
@@ -43,7 +52,7 @@ function NavItems({ onNavigate, unread }: { onNavigate?: () => void; unread: num
           onClick={onNavigate}
           className={({ isActive }) =>
             cn(
-              'flex items-center gap-2.5 rounded-sm px-3 py-2 text-sm transition-colors',
+              'flex items-center gap-2.5 rounded-md px-3 py-2 text-sm transition-colors',
               isActive
                 ? 'bg-surface-sunken font-medium text-ink'
                 : 'text-ink-muted hover:bg-surface-sunken/60 hover:text-ink',
@@ -59,7 +68,7 @@ function NavItems({ onNavigate, unread }: { onNavigate?: () => void; unread: num
               {item.to === '/admin/messages' && unread > 0 ? (
                 <span
                   data-numeric
-                  className="rounded-xs bg-bottle-600 px-1.5 py-0.5 text-[0.6875rem] font-medium text-paper"
+                  className="rounded-full bg-accent-600 px-1.5 py-0.5 text-[0.6875rem] font-medium text-paper"
                 >
                   {unread}
                 </span>
@@ -93,24 +102,34 @@ export function AdminLayout() {
     <div className="flex flex-col gap-3 border-t border-rule pt-4">
       <div className="px-3">
         <p className="truncate text-sm font-medium text-ink">{name}</p>
-        <p className="truncate text-xs text-sage">{user?.email}</p>
-        <p className="mt-1 text-xs tracking-[0.1em] text-brass-700 uppercase">Staff access</p>
+        <p className="truncate text-xs text-ink-faint">{user?.email}</p>
+        <p className="mt-1 text-xs tracking-[0.1em] text-warn-700 uppercase">Staff access</p>
       </div>
-      <button
-        type="button"
-        onClick={() => void onLogout()}
-        className="flex items-center gap-2.5 rounded-sm px-3 py-2 text-sm text-ink-muted hover:bg-surface-sunken hover:text-ink"
-      >
-        <LogOut aria-hidden className="size-4" strokeWidth={1.75} />
-        Sign out
-      </button>
+      <div className="flex flex-col gap-0.5">
+        {/* Staff hold portal accounts of their own; the console link in the
+            portal's account menu is the other half of this trip. */}
+        <Link
+          to="/"
+          className="flex items-center gap-2.5 rounded-md px-3 py-2 text-sm text-ink-muted transition-colors hover:bg-surface-sunken hover:text-ink"
+        >
+          <UserRound aria-hidden className="size-4" strokeWidth={1.75} />
+          Your own records
+        </Link>
+        <button
+          type="button"
+          onClick={() => void onLogout()}
+          className="flex items-center gap-2.5 rounded-md px-3 py-2 text-sm text-ink-muted transition-colors hover:bg-surface-sunken hover:text-ink"
+        >
+          <LogOut aria-hidden className="size-4" strokeWidth={1.75} />
+          Sign out
+        </button>
+      </div>
     </div>
   )
 
   const brand = (
-    <Link to="/admin" className="flex flex-col px-3 leading-none">
-      <span className="font-display text-lg font-medium text-ink">Admin</span>
-      <span className="text-[0.7rem] tracking-[0.12em] text-sage uppercase">Business Portal</span>
+    <Link to="/admin" className="rounded-md px-3">
+      <Logo size="sm" tagline="Admin console" />
     </Link>
   )
 
@@ -130,37 +149,32 @@ export function AdminLayout() {
           type="button"
           aria-label="Open menu"
           onClick={() => setDrawerOpen(true)}
-          className="rounded-sm p-2 text-ink-muted hover:bg-surface-sunken"
+          className="rounded-md p-2 text-ink-muted transition-colors hover:bg-surface-sunken"
         >
-          <Menu aria-hidden className="size-5" />
+          <MenuIcon aria-hidden className="size-5" />
         </button>
       </div>
 
-      <ArkDialog.Root
+      <Drawer.Root
         open={drawerOpen}
         onOpenChange={(details) => setDrawerOpen(details.open)}
         lazyMount
         unmountOnExit
       >
-        <Portal>
-          <ArkDialog.Backdrop className="fixed inset-0 z-40 bg-ink/40 lg:hidden" />
-          <ArkDialog.Positioner className="fixed inset-y-0 left-0 z-50 lg:hidden">
-            <ArkDialog.Content className="flex h-dvh w-72 max-w-[85vw] flex-col gap-4 bg-paper p-4 ring-1 ring-rule">
-              <div className="flex items-center justify-between">
-                {brand}
-                <ArkDialog.CloseTrigger
-                  aria-label="Close menu"
-                  className="rounded-sm p-2 text-ink-muted hover:bg-surface-sunken"
-                >
-                  <X aria-hidden className="size-5" />
-                </ArkDialog.CloseTrigger>
-              </div>
-              <NavItems unread={unread} onNavigate={() => setDrawerOpen(false)} />
-              <div className="mt-auto">{identity}</div>
-            </ArkDialog.Content>
-          </ArkDialog.Positioner>
-        </Portal>
-      </ArkDialog.Root>
+        <Drawer.Content overlayClassName="lg:hidden">
+          <div className="flex items-center justify-between">
+            {brand}
+            <Drawer.CloseTrigger
+              aria-label="Close menu"
+              className="rounded-md p-2 text-ink-muted transition-colors hover:bg-surface-sunken"
+            >
+              <X aria-hidden className="size-5" />
+            </Drawer.CloseTrigger>
+          </div>
+          <NavItems unread={unread} onNavigate={() => setDrawerOpen(false)} />
+          <div className="mt-auto">{identity}</div>
+        </Drawer.Content>
+      </Drawer.Root>
 
       {/* Desktop rail */}
       <aside className="sticky top-0 hidden h-dvh w-60 shrink-0 flex-col gap-4 border-r border-rule bg-paper p-4 lg:flex">

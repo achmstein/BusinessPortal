@@ -116,11 +116,11 @@ export function AtoPortalPage() {
       <Panel className="flex flex-col gap-5">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div className="flex flex-col gap-1">
-            <span className="text-xs tracking-[0.12em] text-sage uppercase">Status</span>
+            <span className="text-xs tracking-[0.12em] text-ink-faint uppercase">Status</span>
             <p className="font-display text-2xl leading-tight font-medium text-ink">
               {connected ? 'Connected to the ATO' : 'Not connected'}
             </p>
-            <p className="max-w-prose text-sm text-sage">
+            <p className="max-w-prose text-sm text-ink-faint">
               {connected
                 ? 'We can retrieve your details from Online services for Business.'
                 : 'You approve the connection in the myID app on your phone. It takes about a minute.'}
@@ -145,16 +145,16 @@ export function AtoPortalPage() {
             <PanelTitle as="h2" className="text-lg">
               Update your business details from the ATO
             </PanelTitle>
-            <p className="max-w-prose text-sm text-sage">
+            <p className="max-w-prose text-sm text-ink-faint">
               Pulls the registered name, ABN, ACN, tax accounts and{' '}
               <strong className="font-medium text-ink">tax file number</strong> for each of your businesses
               into{' '}
-              <Link to="/business" className="text-bottle-600 hover:underline">
+              <Link to="/business" className="text-accent-600 hover:underline">
                 Businesses
               </Link>
               . This runs automatically when you connect — use this to pull it again later.
             </p>
-            <p className="text-sm text-sage">
+            <p className="text-sm text-ink-faint">
               Adding a business we don’t know about yet? Add its ABN under Businesses first, then sync.
             </p>
           </div>
@@ -164,9 +164,9 @@ export function AtoPortalPage() {
         </Panel>
       ) : null}
 
-      <p className="text-sm text-sage">
+      <p className="text-sm text-ink-faint">
         Stuck at any step?{' '}
-        <Link to="/messages" className="text-bottle-600 hover:underline">
+        <Link to="/messages" className="text-accent-600 hover:underline">
           Message us
         </Link>{' '}
         and we’ll walk you through it.

@@ -1,5 +1,3 @@
-import { Menu } from '@ark-ui/react/menu'
-import { Portal } from '@ark-ui/react/portal'
 import { useMutation, useQuery } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
 import { MoreHorizontal } from 'lucide-react'
@@ -14,10 +12,12 @@ import {
   Button,
   EmptyState,
   ErrorState,
+  Menu,
   PageHeader,
   Record,
   RecordList,
   RecordSkeleton,
+  Tooltip,
   ValidityBand,
   toastError,
   toastSuccess,
@@ -108,7 +108,7 @@ export function AsicRenewalsPage() {
       ) : (
         <>
           {needing.length === 0 ? (
-            <p className="text-sm text-sage">
+            <p className="text-sm text-ink-faint">
               Nothing needs renewing yet. These are the dates we’re watching.
             </p>
           ) : null}
@@ -123,7 +123,7 @@ export function AsicRenewalsPage() {
                       <h2 className="font-display text-xl leading-tight font-medium text-ink">
                         {item.name}
                       </h2>
-                      <p className="mt-0.5 text-sm text-sage">
+                      <p className="mt-0.5 text-sm text-ink-faint">
                         {item.kind}
                         {item.identifier && item.identifier !== '—' ? ` · ${item.identifier}` : ''} · due{' '}
                         {formatDate(item.dueDate)}
@@ -138,7 +138,7 @@ export function AsicRenewalsPage() {
                             : `${status.days} days left`}
                         </Badge>
                       ) : (
-                        <span className="text-sm text-sage">{status.days} days left</span>
+                        <span className="text-sm text-ink-faint">{status.days} days left</span>
                       )}
 
                       {isBusinessName ? (
@@ -150,34 +150,24 @@ export function AsicRenewalsPage() {
                           {/* Cancelling is irreversible, so it sits behind a
                               menu rather than beside the primary action. */}
                           <Menu.Root>
-                            <Menu.Trigger
-                              aria-label={`More options for ${item.name}`}
-                              className="rounded-sm p-1.5 text-sage hover:bg-surface-sunken hover:text-ink"
-                            >
-                              <MoreHorizontal aria-hidden className="size-4" />
-                            </Menu.Trigger>
-                            <Portal>
-                              <Menu.Positioner>
-                                <Menu.Content className="min-w-56 rounded-sm bg-surface p-1 shadow-overlay ring-1 ring-rule focus:outline-none">
-                                  <Menu.Item
-                                    value="manage"
-                                    asChild
-                                    className="cursor-pointer rounded-xs px-3 py-2 text-sm text-ink-muted data-[highlighted]:bg-surface-sunken data-[highlighted]:text-ink"
-                                  >
-                                    <Link to="/business-names">Edit this business name</Link>
-                                  </Menu.Item>
-                                  <Menu.Item
-                                    value="cancel"
-                                    asChild
-                                    className="cursor-pointer rounded-xs px-3 py-2 text-sm text-rust-600 data-[highlighted]:bg-rust-50"
-                                  >
-                                    <Link to={`/asic-renewals/${item.sourceId}/cancel`}>
-                                      Cancel this registration…
-                                    </Link>
-                                  </Menu.Item>
-                                </Menu.Content>
-                              </Menu.Positioner>
-                            </Portal>
+                            <Tooltip label="More options">
+                              <Menu.Trigger
+                                aria-label={`More options for ${item.name}`}
+                                className="p-1.5"
+                              >
+                                <MoreHorizontal aria-hidden className="size-4" />
+                              </Menu.Trigger>
+                            </Tooltip>
+                            <Menu.Content>
+                              <Menu.Item value="manage" asChild>
+                                <Link to="/business-names">Edit this business name</Link>
+                              </Menu.Item>
+                              <Menu.Item value="cancel" tone="danger" asChild>
+                                <Link to={`/asic-renewals/${item.sourceId}/cancel`}>
+                                  Cancel this registration…
+                                </Link>
+                              </Menu.Item>
+                            </Menu.Content>
                           </Menu.Root>
                         </>
                       ) : (

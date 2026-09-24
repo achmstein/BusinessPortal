@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useForm } from 'react-hook-form'
+import { Controller, useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { z } from 'zod'
@@ -16,16 +16,20 @@ import {
   Badge,
   Button,
   ConfirmDialog,
+  CopyButton,
   Dialog,
   EmptyState,
   ErrorState,
   Field,
+  toastError,
+  toastSuccess,
   PageHeader,
   Record,
   RecordList,
   RecordSkeleton,
-  toastError,
-  toastSuccess,
+  NumberInput,
+  Select,
+  Tooltip,
 } from '@/ui'
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -168,44 +172,50 @@ export function BusinessPage() {
                   <h2 className="font-display text-xl leading-tight font-medium text-ink">
                     {entity.name}
                   </h2>
-                  <p className="mt-0.5 text-sm text-sage">
+                  <p className="mt-0.5 text-sm text-ink-faint">
                     {ENTITY_TYPE_LABELS[entity.entityType ?? 'Unspecified'] ?? entity.entityType}
                     {entity.industry ? ` · ${entity.industry}` : ''}
                   </p>
                 </div>
                 <div className="flex shrink-0 items-center gap-2">
                   {entity.source === 'Ato' ? <Badge tone="ok">From the ATO</Badge> : null}
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    aria-label={`Remove ${entity.name}`}
-                    onClick={() => setRemoving(entity)}
-                  >
-                    <Trash2 aria-hidden className="size-3.5" />
-                  </Button>
+                  <Tooltip label="Remove this business">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      aria-label={`Remove ${entity.name}`}
+                      onClick={() => setRemoving(entity)}
+                    >
+                      <Trash2 aria-hidden className="size-3.5" />
+                    </Button>
+                  </Tooltip>
                 </div>
               </div>
 
               <dl className="flex flex-wrap gap-x-8 gap-y-2 text-sm">
                 {entity.abn ? (
                   <div>
-                    <dt className="text-xs tracking-[0.08em] text-sage uppercase">ABN</dt>
-                    <dd className="text-ink" data-numeric>
+                    <dt className="text-xs tracking-[0.08em] text-ink-faint uppercase">ABN</dt>
+                    <dd className="flex items-center gap-1 text-ink" data-numeric>
                       {formatAbn(entity.abn)}
+                      {/* Copies the raw digits — the printed spacing is
+                          rejected by most systems you would paste it into. */}
+                      <CopyButton value={entity.abn} label={`Copy the ABN for ${entity.name}`} />
                     </dd>
                   </div>
                 ) : null}
                 {entity.acn ? (
                   <div>
-                    <dt className="text-xs tracking-[0.08em] text-sage uppercase">ACN</dt>
-                    <dd className="text-ink" data-numeric>
+                    <dt className="text-xs tracking-[0.08em] text-ink-faint uppercase">ACN</dt>
+                    <dd className="flex items-center gap-1 text-ink" data-numeric>
                       {formatAcn(entity.acn)}
+                      <CopyButton value={entity.acn} label={`Copy the ACN for ${entity.name}`} />
                     </dd>
                   </div>
                 ) : null}
                 {entity.tfn ? (
                   <div>
-                    <dt className="text-xs tracking-[0.08em] text-sage uppercase">TFN</dt>
+                    <dt className="text-xs tracking-[0.08em] text-ink-faint uppercase">TFN</dt>
                     <dd className="text-ink" data-numeric>
                       {maskTfn(entity.tfn)}
                     </dd>
@@ -213,7 +223,7 @@ export function BusinessPage() {
                 ) : null}
                 {Number(entity.employees) > 0 ? (
                   <div>
-                    <dt className="text-xs tracking-[0.08em] text-sage uppercase">Employees</dt>
+                    <dt className="text-xs tracking-[0.08em] text-ink-faint uppercase">Employees</dt>
                     <dd className="text-ink" data-numeric>
                       {entity.employees}
                     </dd>
@@ -265,13 +275,17 @@ export function BusinessPage() {
             <Field.Input {...form.register('name')} />
           </Field>
           <Field label="Type">
-            <Field.Select {...form.register('entityType')}>
-              {ENTITY_TYPES.map((type) => (
-                <option key={type} value={type}>
-                  {ENTITY_TYPE_LABELS[type]}
-                </option>
-              ))}
-            </Field.Select>
+            <Controller
+              control={form.control}
+              name="entityType"
+              render={({ field }) => (
+                <Select
+                  value={field.value ?? ''}
+                  onChange={field.onChange}
+                  items={ENTITY_TYPES.map((type) => ({ value: type, label: ENTITY_TYPE_LABELS[type] }))}
+                />
+              )}
+            />
           </Field>
           <Field label="Industry" error={form.formState.errors.industry?.message}>
             <Field.Input {...form.register('industry')} placeholder="e.g. Plumbing" />
@@ -287,7 +301,17 @@ export function BusinessPage() {
             <Field.Input inputMode="numeric" {...form.register('acn')} />
           </Field>
           <Field label="Employees" error={form.formState.errors.employees?.message}>
-            <Field.Input type="number" min={0} {...form.register('employees', { valueAsNumber: true })} />
+            <Controller
+              control={form.control}
+              name="employees"
+              render={({ field, fieldState }) => (
+                <NumberInput
+                  value={field.value}
+                  onChange={field.onChange}
+                  invalid={Boolean(fieldState.error)}
+                />
+              )}
+            />
           </Field>
           <Field label="Phone" error={form.formState.errors.phone?.message}>
             <Field.Input type="tel" {...form.register('phone')} />

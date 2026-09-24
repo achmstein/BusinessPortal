@@ -1,10 +1,8 @@
-import { Menu } from '@ark-ui/react/menu'
-import { Portal } from '@ark-ui/react/portal'
-import { ChevronDown, LogOut, UserRound } from 'lucide-react'
+import { ChevronDown, LogOut, Shield, UserRound } from 'lucide-react'
 import { NavLink, Outlet, useNavigate } from 'react-router-dom'
 import { useAuth } from '../auth/AuthContext'
 import { stopImpersonation } from '../api/generated'
-import { Button } from '@/ui'
+import { Avatar, Button, Logo, Menu } from '@/ui'
 import { cn } from '@/lib/cn'
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -26,7 +24,9 @@ import { cn } from '@/lib/cn'
 // ─────────────────────────────────────────────────────────────────────────────
 
 const NAV_ITEMS = [
-  { href: '/dashboard', label: 'Overview' },
+  // `end` matters only on the root: without it NavLink treats "/" as a prefix
+  // and Overview stays highlighted on every page in the portal.
+  { href: '/', label: 'Overview', end: true },
   { href: '/business-names', label: 'Business names' },
   { href: '/asic-renewals', label: 'Renewals' },
   { href: '/business', label: 'Businesses' },
@@ -63,7 +63,7 @@ export function Layout() {
       </a>
 
       {user?.impersonating ? (
-        <div className="sticky top-0 z-50 flex flex-wrap items-center justify-between gap-2 bg-brass-50 px-4 py-2 text-sm text-brass-700 ring-1 ring-brass-100">
+        <div className="sticky top-0 z-50 flex flex-wrap items-center justify-between gap-2 bg-warn-50 px-4 py-2 text-sm text-warn-700 ring-1 ring-warn-100">
           <span>
             You’re viewing the portal as <strong className="font-medium">{email}</strong>.
           </span>
@@ -75,43 +75,45 @@ export function Layout() {
 
       <header className="sticky top-0 z-30 border-b border-rule bg-paper/95 backdrop-blur">
         <div className="mx-auto flex max-w-5xl items-center justify-between gap-4 px-4 py-3 sm:px-6">
-          <NavLink to="/dashboard" className="flex flex-col leading-none">
-            <span className="font-display text-lg font-medium text-ink">Business Portal</span>
-            <span className="text-[0.7rem] tracking-[0.12em] text-sage uppercase">Your records</span>
+          <NavLink to="/" className="rounded-md">
+            <Logo size="sm" />
           </NavLink>
 
           <Menu.Root>
-            <Menu.Trigger className="flex items-center gap-2 rounded-sm px-2 py-1.5 text-sm text-ink-muted hover:bg-surface-sunken hover:text-ink">
-              <UserRound aria-hidden className="size-4" />
+            <Menu.Trigger className="gap-2.5">
+              <Avatar
+                firstName={user?.firstName}
+                lastName={user?.lastName}
+                email={email}
+                size="sm"
+              />
               <span className="hidden max-w-[12rem] truncate sm:inline">{fullName}</span>
-              <ChevronDown aria-hidden className="size-3.5 text-sage" />
+              <ChevronDown aria-hidden className="size-3.5 text-ink-faint" />
             </Menu.Trigger>
-            <Portal>
-              <Menu.Positioner>
-                <Menu.Content className="min-w-56 rounded-sm bg-surface p-1 shadow-overlay ring-1 ring-rule focus:outline-none">
-                  <div className="border-b border-rule px-3 py-2">
-                    <p className="truncate text-sm font-medium text-ink">{fullName}</p>
-                    <p className="truncate text-xs text-sage">{email}</p>
-                  </div>
-                  <Menu.Item
-                    value="profile"
-                    onSelect={() => navigate('/profile')}
-                    className="flex cursor-pointer items-center gap-2 rounded-xs px-3 py-2 text-sm text-ink-muted data-[highlighted]:bg-surface-sunken data-[highlighted]:text-ink"
-                  >
-                    <UserRound aria-hidden className="size-4" />
-                    Your details
+            <Menu.Content>
+              <Menu.Header title={fullName} subtitle={email} />
+              {/* Staff use the portal too, and had no way back to the console
+                  short of typing the URL. Absent while impersonating: the
+                  cookie identity is the client then, so isAdmin is false and
+                  the banner above already offers the way back. */}
+              {user?.isAdmin ? (
+                <>
+                  <Menu.Item value="admin" onSelect={() => navigate('/admin')}>
+                    <Shield aria-hidden className="size-4" />
+                    Admin console
                   </Menu.Item>
-                  <Menu.Item
-                    value="signout"
-                    onSelect={() => void onLogout()}
-                    className="flex cursor-pointer items-center gap-2 rounded-xs px-3 py-2 text-sm text-ink-muted data-[highlighted]:bg-surface-sunken data-[highlighted]:text-ink"
-                  >
-                    <LogOut aria-hidden className="size-4" />
-                    Sign out
-                  </Menu.Item>
-                </Menu.Content>
-              </Menu.Positioner>
-            </Portal>
+                  <Menu.Separator />
+                </>
+              ) : null}
+              <Menu.Item value="profile" onSelect={() => navigate('/profile')}>
+                <UserRound aria-hidden className="size-4" />
+                Your details
+              </Menu.Item>
+              <Menu.Item value="signout" onSelect={() => void onLogout()}>
+                <LogOut aria-hidden className="size-4" />
+                Sign out
+              </Menu.Item>
+            </Menu.Content>
           </Menu.Root>
         </div>
 
@@ -123,13 +125,14 @@ export function Layout() {
               <li key={item.href}>
                 <NavLink
                   to={item.href}
+                  end={item.end}
                   aria-current={undefined}
                   className={({ isActive }) =>
                     cn(
                       'inline-block border-b-2 px-3 py-2.5 text-sm whitespace-nowrap transition-colors',
                       isActive
-                        ? 'border-bottle-600 font-medium text-ink'
-                        : 'border-transparent text-sage hover:border-rule-firm hover:text-ink',
+                        ? 'border-accent-600 font-medium text-ink'
+                        : 'border-transparent text-ink-faint hover:border-rule-firm hover:text-ink',
                     )
                   }
                 >

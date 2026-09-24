@@ -1,10 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
-import { Accordion } from '@ark-ui/react/accordion'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
-import { ChevronDown } from 'lucide-react'
 import {
   getMessageThreadsOptions,
   getMessageThreadsQueryKey,
@@ -13,12 +11,15 @@ import {
   startThreadMutation,
 } from '@/api/generated/@tanstack/react-query.gen'
 import type { ThreadDto } from '@/api/generated'
+import { useAuth } from '@/auth/AuthContext'
 import { formatDateTime } from '@/lib/dates'
 import { cn } from '@/lib/cn'
 import {
+  Accordion,
   Button,
   Dialog,
   EmptyState,
+  MessageThread,
   ErrorState,
   Field,
   PageHeader,
@@ -28,8 +29,9 @@ import {
 } from '@/ui'
 
 // ─────────────────────────────────────────────────────────────────────────────
-// A support inbox for a relationship that produces a handful of threads a year,
-// not a chat app.
+// A support inbox for a relationship that produces a handful of threads a year.
+// The turns inside a thread borrow what chat gets right — see MessageThread in
+// src/ui for why they stop short of bubbles.
 //
 // What changed and why:
 //
@@ -87,6 +89,7 @@ function ThreadReply({ threadId, onSent }: { threadId: string; onSent: () => voi
 }
 
 export function MessagesPage() {
+  const { user } = useAuth()
   const queryClient = useQueryClient()
   const threads = useQuery(getMessageThreadsOptions())
   const [composing, setComposing] = useState(false)
@@ -96,6 +99,9 @@ export function MessagesPage() {
   const invalidate = () => queryClient.invalidateQueries({ queryKey: getMessageThreadsQueryKey() })
 
   const markRead = useMutation({ ...markThreadReadMutation(), onSuccess: invalidate })
+
+  // Only the avatar on your own turns needs this; the label stays "You".
+  const viewerName = `${user?.firstName ?? ''} ${user?.lastName ?? ''}`.trim() || (user?.email ?? '')
 
   const start = useMutation({
     ...startThreadMutation(),
@@ -175,13 +181,12 @@ export function MessagesPage() {
           multiple
           value={value}
           onValueChange={(details) => setOpenThreads(details.value)}
-          className="flex flex-col rounded-sm bg-surface ring-1 ring-rule [&>*+*]:border-t [&>*+*]:border-rule"
         >
           {list.map((thread) => {
             const unread = Number(thread.unreadForClient) || 0
             return (
               <Accordion.Item key={thread.threadId} value={thread.threadId ?? ''}>
-                <Accordion.ItemTrigger className="flex w-full items-center gap-3 px-5 py-4 text-left hover:bg-surface-sunken/60 sm:px-6">
+                <Accordion.Trigger>
                   <span className="min-w-0 flex-1">
                     <span
                       className={cn(
@@ -191,45 +196,29 @@ export function MessagesPage() {
                     >
                       {thread.subject}
                     </span>
-                    <span className="mt-0.5 block text-xs text-sage">
+                    <span className="mt-0.5 block text-xs text-ink-faint">
                       {formatDateTime(thread.lastActivityAt)}
                     </span>
                   </span>
                   {unread > 0 ? (
-                    <span className="size-2 shrink-0 rounded-full bg-bottle-600" aria-label={`${unread} unread`} />
+                    <span className="size-2 shrink-0 rounded-full bg-accent-600" aria-label={`${unread} unread`} />
                   ) : null}
-                  <Accordion.ItemIndicator>
-                    <ChevronDown aria-hidden className="size-4 text-sage transition-transform" />
-                  </Accordion.ItemIndicator>
-                </Accordion.ItemTrigger>
+                  <Accordion.Indicator />
+                </Accordion.Trigger>
 
-                <Accordion.ItemContent className="px-5 pb-5 sm:px-6">
-                  <ul className="flex flex-col gap-4 pb-4">
-                    {(thread.messages ?? []).map((message) => {
-                      const fromSupport = message.direction === 'Inbound'
-                      return (
-                        <li
-                          key={message.id}
-                          className={cn(
-                            'flex flex-col gap-1 border-l-2 pl-3',
-                            fromSupport ? 'border-bottle-200' : 'border-rule',
-                          )}
-                        >
-                          <p className="text-xs text-sage">
-                            {fromSupport ? 'Our team' : 'You'} · {formatDateTime(message.createdAt)}
-                          </p>
-                          <p className="text-sm leading-relaxed whitespace-pre-wrap text-ink">
-                            {message.body}
-                          </p>
-                        </li>
-                      )
-                    })}
-                  </ul>
+                <Accordion.Content>
+                  <MessageThread
+                    className="pb-4"
+                    viewer="client"
+                    counterpartName="Our team"
+                    viewerName={viewerName}
+                    messages={thread.messages ?? []}
+                  />
 
                   {thread.threadId ? (
                     <ThreadReply threadId={thread.threadId} onSent={() => void invalidate()} />
                   ) : null}
-                </Accordion.ItemContent>
+                </Accordion.Content>
               </Accordion.Item>
             )
           })}

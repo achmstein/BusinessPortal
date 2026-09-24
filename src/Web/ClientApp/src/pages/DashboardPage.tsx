@@ -44,7 +44,7 @@ function AnswerLine({ children, tone }: { children: React.ReactNode; tone: 'calm
     <p
       className={
         tone === 'action'
-          ? 'font-display text-3xl leading-tight font-medium text-brass-700 sm:text-4xl'
+          ? 'font-display text-3xl leading-tight font-medium text-warn-700 sm:text-4xl'
           : 'font-display text-3xl leading-tight font-medium text-ink sm:text-4xl'
       }
     >
@@ -99,7 +99,7 @@ export function DashboardPage() {
         ) : due.length === 0 ? (
           <>
             <AnswerLine tone="calm">Nothing needs your attention.</AnswerLine>
-            <p className="max-w-prose text-sm text-sage">
+            <p className="max-w-prose text-sm text-ink-faint">
               {nameList.length > 0
                 ? `We’re watching ${nameList.length === 1 ? 'your business name' : `all ${nameList.length} of your business names`} and will email you well before anything is due.`
                 : 'Add a business name and we’ll track its renewal date for you.'}
@@ -112,7 +112,7 @@ export function DashboardPage() {
                 ? `${overdue.length === 1 ? 'One registration is' : `${overdue.length} registrations are`} overdue.`
                 : `${due.length === 1 ? 'One registration needs' : `${due.length} registrations need`} renewing.`}
             </AnswerLine>
-            <p className="max-w-prose text-sm text-sage">
+            <p className="max-w-prose text-sm text-ink-faint">
               {overdue.length > 0
                 ? 'A lapsed business name can be taken by someone else. Renewing restores it if you act quickly.'
                 : 'Renewing early costs the same and takes a couple of minutes.'}
@@ -131,7 +131,7 @@ export function DashboardPage() {
                 <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-2">
                   <div className="min-w-0 flex-1">
                     <h3 className="font-display text-xl leading-tight font-medium text-ink">{item.name}</h3>
-                    <p className="mt-0.5 text-sm text-sage">
+                    <p className="mt-0.5 text-sm text-ink-faint">
                       {item.kind} · due {formatDate(item.dueDate)}
                     </p>
                   </div>
@@ -171,7 +171,7 @@ export function DashboardPage() {
           {nameList.length > 0 ? (
             <Link
               to="/business-names"
-              className="inline-flex items-center gap-1 text-sm text-bottle-600 hover:underline"
+              className="inline-flex items-center gap-1 text-sm text-accent-600 hover:underline"
             >
               Manage
               <ArrowRight aria-hidden className="size-3.5" />
@@ -213,7 +213,7 @@ export function DashboardPage() {
                     <h3 className="font-display min-w-0 flex-1 text-xl leading-tight font-medium text-ink">
                       {name.name}
                     </h3>
-                    <span className="shrink-0 text-sm text-sage">
+                    <span className="shrink-0 text-sm text-ink-faint">
                       {status.days !== null && status.tone === 'ok' ? `${status.days} days left` : status.label}
                     </span>
                   </div>
@@ -239,7 +239,7 @@ export function DashboardPage() {
           <ul className="flex flex-col gap-2">
             {asks.map((ask) => (
               <li key={ask.label}>
-                <Link to={ask.href} className="text-sm text-bottle-600 hover:underline">
+                <Link to={ask.href} className="text-sm text-accent-600 hover:underline">
                   {ask.label}
                 </Link>
               </li>

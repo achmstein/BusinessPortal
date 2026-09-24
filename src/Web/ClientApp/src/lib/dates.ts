@@ -70,3 +70,32 @@ export function formatRelativeDays(days: number): string {
   const unit = magnitude === 1 ? 'day' : 'days'
   return days > 0 ? `in ${magnitude} ${unit}` : `${magnitude} ${unit} ago`
 }
+
+const RELATIVE = new Intl.RelativeTimeFormat('en-AU', { numeric: 'auto' })
+
+/**
+ * 'just now' / '20 minutes ago' / 'yesterday' / '3 weeks ago'.
+ *
+ * For message timestamps, where "2 days ago" answers the question people
+ * actually have — how long has this been sitting there — better than a date
+ * they have to subtract from today. Past about a month the relative figure
+ * stops helping and this falls back to the date.
+ *
+ * Pair it with the absolute time in a `title`, so the exact stamp is still
+ * one hover away.
+ */
+export function formatRelativeTime(value: string | Date | null | undefined): string {
+  if (!value) return '—'
+  const date = value instanceof Date ? value : new Date(value)
+  if (Number.isNaN(date.getTime())) return '—'
+
+  const seconds = Math.round((date.getTime() - Date.now()) / 1000)
+  const magnitude = Math.abs(seconds)
+
+  if (magnitude < 45) return 'just now'
+  if (magnitude < 3600) return RELATIVE.format(Math.round(seconds / 60), 'minute')
+  if (magnitude < 86_400) return RELATIVE.format(Math.round(seconds / 3600), 'hour')
+  if (magnitude < 86_400 * 7) return RELATIVE.format(Math.round(seconds / 86_400), 'day')
+  if (magnitude < 86_400 * 30) return RELATIVE.format(Math.round(seconds / (86_400 * 7)), 'week')
+  return formatDate(date)
+}

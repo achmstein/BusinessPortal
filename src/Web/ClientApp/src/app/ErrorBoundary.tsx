@@ -31,7 +31,7 @@ export class ErrorBoundary extends Component<Props, State> {
       <main className="grid min-h-dvh place-items-center bg-paper px-6 py-16">
         <div className="flex max-w-md flex-col items-center gap-4 text-center">
           <h1 className="font-display text-3xl font-medium text-ink">This page stopped working</h1>
-          <p className="text-sm text-sage">
+          <p className="text-sm text-ink-faint">
             Nothing you did caused this and nothing has been lost. Reloading usually clears it — if it keeps
             happening, send us a message and we’ll look into it.
           </p>

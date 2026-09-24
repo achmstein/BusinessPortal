@@ -1,9 +1,8 @@
-import { useEffect, useState } from 'react'
-import { useForm } from 'react-hook-form'
+import { useEffect } from 'react'
+import { Controller, useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { z } from 'zod'
-import { Eye, EyeOff } from 'lucide-react'
 import {
   getMeOptions,
   getProfileOptions,
@@ -12,14 +11,17 @@ import {
 } from '@/api/generated/@tanstack/react-query.gen'
 import {
   Button,
+  DatePicker,
   ErrorState,
   Field,
+  toastError,
+  toastSuccess,
   PageHeader,
   Panel,
   PanelTitle,
+  PasswordInput,
+  Select,
   Skeleton,
-  toastError,
-  toastSuccess,
 } from '@/ui'
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -77,7 +79,6 @@ export function ProfilePage() {
   const queryClient = useQueryClient()
   const profile = useQuery(getProfileOptions())
   const me = useQuery(getMeOptions())
-  const [showTfn, setShowTfn] = useState(false)
 
   const form = useForm<ProfileForm>({ resolver: zodResolver(schema), defaultValues: EMPTY })
   const { reset } = form
@@ -145,7 +146,7 @@ export function ProfilePage() {
           <PanelTitle as="h2" className="text-lg">
             How we reach you
           </PanelTitle>
-          <p className="text-sm text-sage">
+          <p className="text-sm text-ink-faint">
             We use these to contact you before a renewal falls due.
           </p>
         </div>
@@ -171,38 +172,38 @@ export function ProfilePage() {
           <PanelTitle as="h2" className="text-lg">
             For the ATO
           </PanelTitle>
-          <p className="text-sm text-sage">
+          <p className="text-sm text-ink-faint">
             Only needed if we lodge or deal with the ATO on your behalf. You can leave these blank.
           </p>
         </div>
 
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <Field label="Date of birth" error={form.formState.errors.dob?.message}>
-            <Field.Input type="date" autoComplete="bday" {...form.register('dob')} />
+            {/* The picker's input is still typeable, which matters here: nobody
+                pages a calendar back forty years to find their own birthday. */}
+            <Controller
+              control={form.control}
+              name="dob"
+              render={({ field, fieldState }) => (
+                <DatePicker
+                  value={field.value ?? ''}
+                  onChange={field.onChange}
+                  invalid={Boolean(fieldState.error)}
+                />
+              )}
+            />
           </Field>
           <Field
             label="Tax file number"
             hint="Kept encrypted. We never show it in full unless you ask."
             error={form.formState.errors.tfn?.message}
           >
-            <div className="relative">
-              <Field.Input
-                type={showTfn ? 'text' : 'password'}
-                inputMode="numeric"
-                autoComplete="off"
-                className="pr-10"
-                {...form.register('tfn')}
-              />
-              <button
-                type="button"
-                tabIndex={-1}
-                aria-label={showTfn ? 'Hide tax file number' : 'Show tax file number'}
-                onClick={() => setShowTfn((s) => !s)}
-                className="absolute inset-y-0 right-0 flex items-center px-3 text-sage hover:text-ink"
-              >
-                {showTfn ? <EyeOff aria-hidden className="size-4" /> : <Eye aria-hidden className="size-4" />}
-              </button>
-            </div>
+            <PasswordInput
+              inputMode="numeric"
+              autoComplete="off"
+              invalid={Boolean(form.formState.errors.tfn)}
+              {...form.register('tfn')}
+            />
           </Field>
         </div>
       </Panel>
@@ -212,7 +213,7 @@ export function ProfilePage() {
           <PanelTitle as="h2" className="text-lg">
             Postal address
           </PanelTitle>
-          <p className="text-sm text-sage">Where ASIC and the ATO send anything by post.</p>
+          <p className="text-sm text-ink-faint">Where ASIC and the ATO send anything by post.</p>
         </div>
 
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
@@ -224,14 +225,20 @@ export function ProfilePage() {
           </Field>
           <div className="grid grid-cols-2 gap-4">
             <Field label="State" error={form.formState.errors.state?.message}>
-              <Field.Select {...form.register('state')}>
-                <option value="">—</option>
-                {STATES.map((state) => (
-                  <option key={state} value={state}>
-                    {state}
-                  </option>
-                ))}
-              </Field.Select>
+              <Controller
+                control={form.control}
+                name="state"
+                render={({ field, fieldState }) => (
+                  <Select
+                    name="state"
+                    value={field.value ?? ''}
+                    onChange={field.onChange}
+                    invalid={Boolean(fieldState.error)}
+                    placeholder="—"
+                    items={STATES.map((state) => ({ value: state, label: state }))}
+                  />
+                )}
+              />
             </Field>
             <Field label="Postcode" error={form.formState.errors.postcode?.message}>
               <Field.Input inputMode="numeric" maxLength={4} autoComplete="postal-code" {...form.register('postcode')} />
@@ -241,7 +248,7 @@ export function ProfilePage() {
       </Panel>
 
       <div className="flex items-center justify-end gap-3 border-t border-rule pt-5">
-        {dirty ? <span className="text-sm text-sage">You have unsaved changes.</span> : null}
+        {dirty ? <span className="text-sm text-ink-faint">You have unsaved changes.</span> : null}
         <Button type="submit" size="lg" disabled={!dirty} loading={save.isPending}>
           Save details
         </Button>

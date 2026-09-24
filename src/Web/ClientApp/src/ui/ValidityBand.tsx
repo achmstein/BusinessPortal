@@ -12,15 +12,17 @@ import { termProgress, type RenewalStatus } from '@/lib/renewal'
 // on one.
 //
 // Colour is load-bearing, never decorative: a registration with time left draws
-// in sage, brass appears inside the renewal window, rust once the date passes.
+// in muted ink, amber appears inside the renewal window, red once the date has
+// passed. Deliberately not an Ark component — nothing in any library has this
+// shape, and it is the one drawing in here that is genuinely ours.
 // ─────────────────────────────────────────────────────────────────────────────
 
 const TONE = {
-  ok: 'text-sage',
-  due: 'text-brass-600',
-  overdue: 'text-rust-600',
-  dormant: 'text-sage/60',
-  unknown: 'text-sage/60',
+  ok: 'text-ink-faint',
+  due: 'text-warn-600',
+  overdue: 'text-danger-600',
+  dormant: 'text-ink-faint/60',
+  unknown: 'text-ink-faint/60',
 } as const
 
 interface ValidityBandProps {
@@ -69,7 +71,7 @@ export function ValidityBand({ registeredDate, renewalDate, status, className }:
         </span>
       </div>
 
-      <div className="flex justify-between gap-4 text-xs text-sage">
+      <div className="flex justify-between gap-4 text-xs text-ink-faint">
         <span>Registered {formatDate(registeredDate)}</span>
         <span>
           {overdue ? 'Renewal due ' : 'Renews '}

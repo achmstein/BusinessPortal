@@ -7,12 +7,13 @@ type Variant = 'primary' | 'secondary' | 'ghost' | 'danger'
 type Size = 'sm' | 'md' | 'lg'
 
 const VARIANTS: Record<Variant, string> = {
-  // Ink rather than bottle: the brand colour is reserved for navigation and
-  // links, so a page full of buttons doesn't dilute it.
-  primary: 'bg-ink text-paper hover:bg-ink/90 active:bg-ink',
-  secondary: 'bg-surface text-ink ring-1 ring-rule-firm hover:bg-surface-sunken',
+  // The accent carries the primary action as well as links and navigation.
+  // It is the only saturated colour on a calm screen, so it reads as "the
+  // thing to press" without a second hue competing for that job.
+  primary: 'bg-accent-600 text-paper shadow-card hover:bg-accent-700 active:bg-accent-800',
+  secondary: 'border border-rule-firm bg-surface text-ink shadow-card hover:bg-surface-sunken',
   ghost: 'text-ink-muted hover:bg-surface-sunken hover:text-ink',
-  danger: 'bg-rust-600 text-paper hover:bg-rust-700 active:bg-rust-700',
+  danger: 'bg-danger-600 text-paper shadow-card hover:bg-danger-700 active:bg-danger-700',
 }
 
 const SIZES: Record<Size, string> = {
@@ -24,7 +25,7 @@ const SIZES: Record<Size, string> = {
 /** Shared so a Link or anchor can be styled as a button without duplication. */
 export function buttonClasses(variant: Variant = 'primary', size: Size = 'md', className?: string) {
   return cn(
-    'inline-flex items-center justify-center rounded-sm font-medium whitespace-nowrap',
+    'inline-flex items-center justify-center rounded-md font-medium whitespace-nowrap',
     'transition-colors disabled:cursor-not-allowed disabled:opacity-50',
     VARIANTS[variant],
     SIZES[size],

@@ -1,7 +1,6 @@
 import { useEffect, useState, type ReactNode } from 'react'
 import { useForm, type UseFormReturn, type DefaultValues, type FieldValues } from 'react-hook-form'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Eye, EyeOff } from 'lucide-react'
 import {
   getAbnLookupSettingsOptions,
   getAbnLookupSettingsQueryKey,
@@ -21,8 +20,18 @@ import {
 } from '@/api/generated/@tanstack/react-query.gen'
 import { runRenewtronSyncNow } from '@/api/generated'
 import type { RenewtronSyncResult } from '@/api/generated'
-import { Button, Field, PageHeader, Panel, Skeleton, toastError, toastSuccess } from '@/ui'
-import { cn } from '@/lib/cn'
+import {
+  Badge,
+  Button,
+  CopyButton,
+  Field,
+  PageHeader,
+  Panel,
+  PasswordInput,
+  Skeleton,
+  toastError,
+  toastSuccess,
+} from '@/ui'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Integration credentials.
@@ -51,29 +60,26 @@ function SecretInput({
   form: UseFormReturn<FieldValues>
   name: string
 }) {
-  const [shown, setShown] = useState(false)
   return (
     <Field label={label} hint={hint}>
-      <div className="relative">
-        <Field.Input
-          type={shown ? 'text' : 'password'}
-          autoComplete="off"
-          spellCheck={false}
-          placeholder={placeholder}
-          className="pr-10 font-mono text-[0.8125rem]"
-          {...form.register(name)}
-        />
-        <button
-          type="button"
-          tabIndex={-1}
-          aria-label={shown ? `Hide ${label}` : `Show ${label}`}
-          onClick={() => setShown((s) => !s)}
-          className="absolute inset-y-0 right-0 flex items-center px-3 text-sage hover:text-ink"
-        >
-          {shown ? <EyeOff aria-hidden className="size-4" /> : <Eye aria-hidden className="size-4" />}
-        </button>
-      </div>
+      <PasswordInput
+        mono
+        autoComplete="off"
+        spellCheck={false}
+        placeholder={placeholder}
+        {...form.register(name)}
+      />
     </Field>
+  )
+}
+
+/** The URL to paste into Ontraport — awkward to select by hand out of prose. */
+function WebhookUrl({ origin, path }: { origin: string; path: string }) {
+  return (
+    <span className="inline-flex items-center gap-1">
+      <code className="text-xs break-all">POST {origin}{path}</code>
+      <CopyButton value={`${origin}${path}`} label={`Copy the ${path} URL`} />
+    </span>
   )
 }
 
@@ -103,28 +109,21 @@ function Section({
     <Panel className="flex flex-col gap-4">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="flex flex-col gap-1">
-          <h2 className="font-display text-xl leading-tight font-medium text-ink">{title}</h2>
-          <p className="max-w-prose text-sm text-sage">{purpose}</p>
+          <h2 className="font-display text-xl leading-tight font-semibold text-ink">{title}</h2>
+          <p className="max-w-prose text-sm text-ink-faint">{purpose}</p>
         </div>
-        <span
-          className={cn(
-            'shrink-0 rounded-xs px-2 py-0.5 text-xs font-medium ring-1 ring-inset',
-            configured
-              ? 'bg-surface-sunken text-ink-muted ring-rule-firm'
-              : 'bg-brass-50 text-brass-700 ring-brass-100',
-          )}
-        >
+        <Badge tone={configured ? 'ok' : 'due'} className="shrink-0">
           {configured ? 'Set' : 'Not set'}
-        </span>
+        </Badge>
       </div>
 
-      {!configured ? <p className="text-sm text-brass-700">{whenEmpty}</p> : null}
+      {!configured ? <p className="text-sm text-warn-700">{whenEmpty}</p> : null}
 
       <div className="flex flex-col gap-4">{children}</div>
 
       <div className="flex flex-wrap items-center justify-end gap-3 border-t border-rule pt-4">
         {footer}
-        {dirty ? <span className="text-sm text-sage">Unsaved changes</span> : null}
+        {dirty ? <span className="text-sm text-ink-faint">Unsaved changes</span> : null}
         <Button onClick={onSave} disabled={!dirty} loading={saving}>
           Save
         </Button>
@@ -258,7 +257,7 @@ export function AdminSettingsPage() {
               Sync now
             </Button>
             {syncResult ? (
-              <span className="text-sm text-sage">
+              <span className="text-sm text-ink-faint">
                 {syncResult.configured
                   ? `${syncResult.fetched} checked · ${syncResult.created} created · ${syncResult.updated} updated · ${syncResult.skipped} skipped${Number(syncResult.failed) > 0 ? ` · ${syncResult.failed} failed` : ''}`
                   : (syncResult.message ?? 'Not configured.')}
@@ -330,13 +329,13 @@ export function AdminSettingsPage() {
       >
         <SecretInput
           label="Contact sync secret"
-          hint={<code className="text-xs">POST {origin}/api/integrations/ontraport/webhook</code>}
+          hint={<WebhookUrl path="/api/integrations/ontraport/webhook" origin={origin} />}
           form={ontraportForm}
           name="webhookSecret"
         />
         <SecretInput
           label="Renewal paid secret"
-          hint={<code className="text-xs">POST {origin}/api/integrations/ontraport/renewal-paid</code>}
+          hint={<WebhookUrl path="/api/integrations/ontraport/renewal-paid" origin={origin} />}
           form={ontraportForm}
           name="renewalSecret"
         />

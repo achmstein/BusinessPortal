@@ -1,5 +1,5 @@
 import { lazy, Suspense } from 'react'
-import { Route, Routes } from 'react-router-dom'
+import { Navigate, Route, Routes } from 'react-router-dom'
 import { RequireAuth } from './auth/RequireAuth'
 import { RequireAdmin } from './auth/RequireAdmin'
 import { Layout } from './components/Layout'
@@ -56,6 +56,10 @@ export default function App() {
   return (
     <Suspense fallback={<div className="min-h-dvh bg-paper" aria-hidden />}>
       <Routes>
+        {/* Renewal emails sent before the move still point at /dashboard, and
+            those links outlive any redirect we would like to remove. */}
+        <Route path="/dashboard" element={<Navigate to="/" replace />} />
+
         <Route path="/login" element={<LoginPage />} />
         <Route path="/register" element={<RegisterPage />} />
         <Route path="/forgot-password" element={<ForgotPasswordPage />} />
@@ -69,7 +73,10 @@ export default function App() {
             </RequireAuth>
           }
         >
-          <Route path="/dashboard" element={<DashboardPage />} />
+          {/* The customer's own records are the site root — they were a level
+              down at /dashboard, which read like one view among several rather
+              than the thing this portal is. */}
+          <Route path="/" element={<DashboardPage />} />
           <Route path="/profile" element={<ProfilePage />} />
           <Route path="/business" element={<BusinessPage />} />
           <Route path="/business-names" element={<BusinessNamesPage />} />
@@ -81,21 +88,25 @@ export default function App() {
           <Route path="/messages" element={<MessagesPage />} />
         </Route>
 
-        {/* Admin console */}
+        {/* Admin console. One prefix, one guard, one layout: `/admin` is an
+            index route rather than a sibling, and a mistyped `/admin/*` keeps
+            the console chrome instead of dropping to a bare page. */}
         <Route
+          path="/admin"
           element={
             <RequireAdmin>
               <AdminLayout />
             </RequireAdmin>
           }
         >
-          <Route path="/admin" element={<AdminOverviewPage />} />
-          <Route path="/admin/clients" element={<AdminClientsPage />} />
-          <Route path="/admin/clients/:id" element={<AdminClientDetailPage />} />
-          <Route path="/admin/registry" element={<AdminRegistryPage />} />
-          <Route path="/admin/settings" element={<AdminSettingsPage />} />
-          <Route path="/admin/messages" element={<AdminMessagesPage />} />
-          <Route path="/admin/messages/:clientId" element={<AdminMessageThreadPage />} />
+          <Route index element={<AdminOverviewPage />} />
+          <Route path="clients" element={<AdminClientsPage />} />
+          <Route path="clients/:id" element={<AdminClientDetailPage />} />
+          <Route path="registry" element={<AdminRegistryPage />} />
+          <Route path="settings" element={<AdminSettingsPage />} />
+          <Route path="messages" element={<AdminMessagesPage />} />
+          <Route path="messages/:clientId" element={<AdminMessageThreadPage />} />
+          <Route path="*" element={<NotFoundPage inShell />} />
         </Route>
 
         {/* A wrong address says so, rather than bouncing through /dashboard to

@@ -12,7 +12,6 @@
   },
   "dependencies": {
     "@ark-ui/react": "^5.39.0",
-    "@fontsource-variable/newsreader": "^5.3.0",
     "@fontsource/ibm-plex-sans": "^5.3.0",
     "@hey-api/client-fetch": "^0.13.1",
     "@hookform/resolvers": "^5.9.1",

@@ -5,7 +5,7 @@ import { z } from 'zod'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { postApiResetPassword } from '@/api/generated'
 import { AuthShell } from '@/components/AuthShell'
-import { Button, Field } from '@/ui'
+import { Button, Field, PasswordInput } from '@/ui'
 
 // This screen has two audiences reached by the same link. Someone who forgot
 // their password is *re*setting one; someone who was invited after renewing a
@@ -88,7 +88,7 @@ export function ResetPasswordPage() {
       footer={
         <>
           Link expired?{' '}
-          <Link to="/forgot-password" className="text-bottle-600 hover:underline">
+          <Link to="/forgot-password" className="text-accent-600 hover:underline">
             Send a new one
           </Link>
         </>
@@ -105,11 +105,20 @@ export function ResetPasswordPage() {
           hint="At least 8 characters. A short phrase is easier to remember than a jumble."
           error={form.formState.errors.password?.message}
         >
-          <Field.Input type="password" autoComplete="new-password" autoFocus {...form.register('password')} />
+          <PasswordInput
+            autoComplete="new-password"
+            autoFocus
+            invalid={Boolean(form.formState.errors.password)}
+            {...form.register('password')}
+          />
         </Field>
 
         <Field label="Confirm password" required error={form.formState.errors.confirm?.message}>
-          <Field.Input type="password" autoComplete="new-password" {...form.register('confirm')} />
+          <PasswordInput
+            autoComplete="new-password"
+            invalid={Boolean(form.formState.errors.confirm)}
+            {...form.register('confirm')}
+          />
         </Field>
 
         <Button type="submit" size="lg" loading={submit.isPending} className="mt-1 w-full">

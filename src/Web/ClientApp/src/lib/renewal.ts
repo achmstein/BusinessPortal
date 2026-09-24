@@ -9,8 +9,8 @@ import { daysBetween, parseDateOnly, today } from './dates'
 // own record. One function, used by both sides, is the fix.
 //
 // The bands follow the Registry rule that healthy is quiet: a registration with
-// time left carries no colour at all, brass appears inside the renewal window,
-// and rust only once the date has passed.
+// time left carries no colour at all, amber appears inside the renewal window,
+// and red only once the date has passed.
 // ─────────────────────────────────────────────────────────────────────────────
 
 /** Days before the renewal date that a name is considered due. */

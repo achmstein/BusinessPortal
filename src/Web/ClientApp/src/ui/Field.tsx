@@ -9,11 +9,11 @@ import { cn } from '@/lib/cn'
 // the page, often several screens away from the input that caused it.
 
 const CONTROL = cn(
-  'block w-full rounded-sm bg-surface px-3 text-sm text-ink',
-  'ring-1 ring-rule-firm placeholder:text-sage/70',
-  'focus:outline-none focus-visible:ring-2 focus-visible:ring-bottle-500',
-  'disabled:cursor-not-allowed disabled:bg-surface-sunken disabled:text-sage',
-  'data-[invalid]:ring-rust-500 data-[invalid]:ring-2',
+  'block w-full rounded-md border border-rule-firm bg-surface px-3 text-sm text-ink',
+  'placeholder:text-ink-faint/70 transition-colors',
+  'focus:outline-none focus-visible:border-accent-600 focus-visible:ring-2 focus-visible:ring-accent-500/30',
+  'disabled:cursor-not-allowed disabled:bg-surface-sunken disabled:text-ink-faint',
+  'data-[invalid]:border-danger-500 data-[invalid]:ring-2 data-[invalid]:ring-danger-500/25',
 )
 
 interface FieldProps {
@@ -46,7 +46,7 @@ export function Field({ label, hint, error, required, disabled, className, child
       <ArkField.Label className="text-sm font-medium text-ink-muted">
         {label}
         {required ? (
-          <span aria-hidden className="ml-0.5 text-rust-600">
+          <span aria-hidden className="ml-0.5 text-danger-600">
             *
           </span>
         ) : null}
@@ -55,12 +55,12 @@ export function Field({ label, hint, error, required, disabled, className, child
       {children}
 
       {hint && !error ? (
-        <ArkField.HelperText className="text-xs text-sage">{hint}</ArkField.HelperText>
+        <ArkField.HelperText className="text-xs text-ink-faint">{hint}</ArkField.HelperText>
       ) : null}
 
       {/* Rendered in a live region by Ark, so screen readers announce the
           failure instead of it being visible-only. */}
-      <ArkField.ErrorText className="text-xs font-medium text-rust-600">{error}</ArkField.ErrorText>
+      <ArkField.ErrorText className="text-xs font-medium text-danger-600">{error}</ArkField.ErrorText>
     </ArkField.Root>
   )
 }
@@ -76,6 +76,6 @@ Field.Textarea = function FieldTextarea({
   return <ArkField.Textarea className={cn(CONTROL, 'min-h-24 py-2.5 leading-relaxed', className)} {...props} />
 }
 
-Field.Select = function FieldSelect({ className, ...props }: React.ComponentProps<typeof ArkField.Select>) {
-  return <ArkField.Select className={cn(CONTROL, 'h-10 pr-8', className)} {...props} />
-}
+// Field.Select is deliberately absent: it was a native <select>, whose dropdown
+// is OS chrome and cannot be themed. Use <Select> from this barrel inside a
+// <Field> instead — it takes `items` rather than <option> children.

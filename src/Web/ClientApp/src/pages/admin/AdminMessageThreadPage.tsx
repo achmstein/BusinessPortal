@@ -14,14 +14,15 @@ import {
   getAdminOverviewQueryKey,
 } from '@/api/generated/@tanstack/react-query.gen'
 import { formatDateTime } from '@/lib/dates'
-import { cn } from '@/lib/cn'
 import {
   Button,
   Dialog,
   EmptyState,
   ErrorState,
   Field,
+  MessageThread,
   PageHeader,
+  Panel,
   Skeleton,
   toastError,
   toastSuccess,
@@ -163,7 +164,7 @@ export function AdminMessageThreadPage() {
     <div className="flex flex-col gap-6">
       <Link
         to="/admin/messages"
-        className="inline-flex items-center gap-1.5 self-start text-sm text-bottle-600 hover:underline"
+        className="inline-flex items-center gap-1.5 self-start text-sm text-accent-600 hover:underline"
       >
         <ArrowLeft aria-hidden className="size-3.5" />
         Inbox
@@ -194,34 +195,17 @@ export function AdminMessageThreadPage() {
       ) : (
         <div className="flex flex-col gap-5">
           {threads.map((thread) => (
-            <section
-              key={thread.threadId}
-              className="flex flex-col gap-4 rounded-sm bg-surface px-5 py-5 ring-1 ring-rule sm:px-6"
-            >
+            <Panel key={thread.threadId} className="flex flex-col gap-4">
               <div className="flex flex-wrap items-baseline justify-between gap-2">
                 <h2 className="font-display text-lg leading-tight font-medium text-ink">{thread.subject}</h2>
-                <span className="text-xs text-sage">{formatDateTime(thread.lastActivityAt)}</span>
+                <span className="text-xs text-ink-faint">{formatDateTime(thread.lastActivityAt)}</span>
               </div>
 
-              <ul className="flex flex-col gap-4">
-                {(thread.messages ?? []).map((message) => {
-                  const fromClient = message.direction === 'Outbound'
-                  return (
-                    <li
-                      key={message.id}
-                      className={cn(
-                        'flex flex-col gap-1 border-l-2 pl-3',
-                        fromClient ? 'border-brass-500' : 'border-rule',
-                      )}
-                    >
-                      <p className="text-xs text-sage">
-                        {fromClient ? name : 'You'} · {formatDateTime(message.createdAt)}
-                      </p>
-                      <p className="text-sm leading-relaxed whitespace-pre-wrap text-ink">{message.body}</p>
-                    </li>
-                  )
-                })}
-              </ul>
+              <MessageThread
+                viewer="staff"
+                counterpartName={name}
+                messages={thread.messages ?? []}
+              />
 
               <Reply
                 clientId={client.id}
@@ -229,7 +213,7 @@ export function AdminMessageThreadPage() {
                 subject={thread.subject ?? ''}
                 onSent={() => void refresh()}
               />
-            </section>
+            </Panel>
           ))}
         </div>
       )}

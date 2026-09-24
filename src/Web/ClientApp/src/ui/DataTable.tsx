@@ -8,6 +8,7 @@ import {
   type ColumnDef,
   type RowData,
 } from '@tanstack/react-table'
+import { Pagination as ArkPagination } from '@ark-ui/react/pagination'
 import { ArrowDown, ArrowUp, ChevronsUpDown } from 'lucide-react'
 import type { ReactNode } from 'react'
 import { cn } from '@/lib/cn'
@@ -47,6 +48,19 @@ type Features = typeof features
 
 export type DataTableColumn<TData extends RowData> = ColumnDef<Features, TData>
 
+// The two pager button shapes; four call sites between them.
+const PAGER_NAV = cn(
+  'rounded-md border border-rule-firm bg-surface px-3 py-1.5 text-sm text-ink-muted shadow-card',
+  'transition-colors hover:bg-surface-sunken',
+  'disabled:cursor-not-allowed disabled:opacity-40',
+)
+
+const PAGER_ITEM = cn(
+  'min-w-8 cursor-pointer rounded-md px-2 py-1.5 text-sm text-ink-muted transition-colors',
+  'hover:bg-surface-sunken hover:text-ink',
+  'data-[selected]:bg-accent-600 data-[selected]:font-medium data-[selected]:text-paper',
+)
+
 interface DataTableProps<TData extends RowData> {
   columns: DataTableColumn<TData>[]
   data: TData[]
@@ -67,7 +81,7 @@ export function DataTable<TData extends RowData>({
   const rows = table.getRowModel().rows
 
   return (
-    <div className={cn('overflow-x-auto rounded-sm bg-surface ring-1 ring-rule', className)}>
+    <div className={cn('overflow-x-auto rounded-xl border border-rule bg-surface shadow-card', className)}>
       <table className="w-full border-collapse text-sm">
         <thead>
           {table.getHeaderGroups().map((headerGroup) => (
@@ -82,7 +96,7 @@ export function DataTable<TData extends RowData>({
                     scope="col"
                     aria-sort={sorted === 'asc' ? 'ascending' : sorted === 'desc' ? 'descending' : undefined}
                     className={cn(
-                      'px-4 py-2.5 text-left text-xs font-semibold tracking-[0.1em] text-sage uppercase',
+                      'px-4 py-2.5 text-left text-xs font-semibold tracking-[0.1em] text-ink-faint uppercase',
                       meta?.numeric && 'text-right',
                       meta?.className,
                     )}
@@ -92,7 +106,7 @@ export function DataTable<TData extends RowData>({
                         type="button"
                         onClick={() => header.column.toggleSorting()}
                         className={cn(
-                          'inline-flex items-center gap-1 rounded-xs hover:text-ink',
+                          'inline-flex items-center gap-1 rounded-sm hover:text-ink',
                           meta?.numeric && 'flex-row-reverse',
                         )}
                       >
@@ -159,6 +173,11 @@ export function DataTable<TData extends RowData>({
 /**
  * Server-side pager. Deliberately not TanStack's — the row count lives on the
  * server, so there is no client row model to paginate.
+ *
+ * Previously prev/next plus a "3 / 14" readout, which made reaching page 9 an
+ * eight-click job on a registry that routinely runs to a dozen pages. Ark
+ * computes the page window and the ellipsis positions, and marks the current
+ * page with aria-current.
  */
 export function Pagination({
   page,
@@ -171,15 +190,20 @@ export function Pagination({
   total: number
   onPage: (page: number) => void
 }) {
-  const pages = Math.max(1, Math.ceil(total / pageSize))
   if (total === 0) return null
 
   const first = (page - 1) * pageSize + 1
   const last = Math.min(page * pageSize, total)
 
   return (
-    <div className="flex flex-wrap items-center justify-between gap-3">
-      <p className="text-sm text-sage">
+    <ArkPagination.Root
+      count={total}
+      pageSize={pageSize}
+      page={page}
+      onPageChange={(details) => onPage(details.page)}
+      className="flex flex-wrap items-center justify-between gap-3"
+    >
+      <p className="text-sm text-ink-faint">
         <span data-numeric>
           {first}–{last}
         </span>{' '}
@@ -188,27 +212,28 @@ export function Pagination({
           {total}
         </span>
       </p>
+
       <nav aria-label="Pages" className="flex items-center gap-1">
-        <button
-          type="button"
-          onClick={() => onPage(page - 1)}
-          disabled={page <= 1}
-          className="rounded-sm px-3 py-1.5 text-sm text-ink-muted ring-1 ring-rule-firm hover:bg-surface-sunken disabled:cursor-not-allowed disabled:opacity-40"
-        >
-          Previous
-        </button>
-        <span className="px-2 text-sm text-sage" data-numeric>
-          {page} / {pages}
-        </span>
-        <button
-          type="button"
-          onClick={() => onPage(page + 1)}
-          disabled={page >= pages}
-          className="rounded-sm px-3 py-1.5 text-sm text-ink-muted ring-1 ring-rule-firm hover:bg-surface-sunken disabled:cursor-not-allowed disabled:opacity-40"
-        >
-          Next
-        </button>
+        <ArkPagination.PrevTrigger className={PAGER_NAV}>Previous</ArkPagination.PrevTrigger>
+
+        <ArkPagination.Context>
+          {(api) =>
+            api.pages.map((item, index) =>
+              item.type === 'page' ? (
+                <ArkPagination.Item key={index} {...item} data-numeric className={PAGER_ITEM}>
+                  {item.value}
+                </ArkPagination.Item>
+              ) : (
+                <ArkPagination.Ellipsis key={index} index={index} className="px-1 text-sm text-ink-faint">
+                  &#8230;
+                </ArkPagination.Ellipsis>
+              ),
+            )
+          }
+        </ArkPagination.Context>
+
+        <ArkPagination.NextTrigger className={PAGER_NAV}>Next</ArkPagination.NextTrigger>
       </nav>
-    </div>
+    </ArkPagination.Root>
   )
 }

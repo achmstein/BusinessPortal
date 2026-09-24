@@ -8,10 +8,10 @@ import type { RenewalTone } from '@/lib/renewal'
 // records that actually need attention.
 const TONES: Record<RenewalTone, string> = {
   ok: 'bg-surface-sunken text-ink-muted ring-rule-firm',
-  due: 'bg-brass-50 text-brass-700 ring-brass-100',
-  overdue: 'bg-rust-50 text-rust-700 ring-rust-100',
-  dormant: 'bg-surface-sunken text-sage ring-rule',
-  unknown: 'bg-surface-sunken text-sage ring-rule',
+  due: 'bg-warn-50 text-warn-700 ring-warn-100',
+  overdue: 'bg-danger-50 text-danger-700 ring-danger-100',
+  dormant: 'bg-surface-sunken text-ink-faint ring-rule',
+  unknown: 'bg-surface-sunken text-ink-faint ring-rule',
 }
 
 export function Badge({
@@ -26,7 +26,7 @@ export function Badge({
   return (
     <span
       className={cn(
-        'inline-flex items-center gap-1 rounded-xs px-2 py-0.5 text-xs font-medium ring-1 ring-inset',
+        'inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium ring-1 ring-inset',
         TONES[tone],
         className,
       )}

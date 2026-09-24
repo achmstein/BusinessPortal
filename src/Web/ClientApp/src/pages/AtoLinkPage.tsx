@@ -11,7 +11,20 @@ import {
   type AtoAgentDto,
   type AtoPollResult,
 } from '@/api/generated'
-import { Button, Checkbox, ErrorState, Field, PageHeader, Panel, PanelTitle, toastError } from '@/ui'
+import {
+  Button,
+  Checkbox,
+  CopyButton,
+  Countdown,
+  ErrorState,
+  Field,
+  PageHeader,
+  Panel,
+  PanelTitle,
+  Select,
+  Steps,
+  toastError,
+} from '@/ui'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Linking to the ATO via myID.
@@ -51,27 +64,6 @@ const startSchema = z.object({
 
 type StartForm = z.infer<typeof startSchema>
 
-function Countdown({ secondsLeft }: { secondsLeft: number }) {
-  const minutes = Math.floor(secondsLeft / 60)
-  const seconds = secondsLeft % 60
-  const urgent = secondsLeft <= 60
-
-  return (
-    <p className={urgent ? 'text-sm text-rust-600' : 'text-sm text-sage'}>
-      {secondsLeft > 0 ? (
-        <>
-          Approve within{' '}
-          <span data-numeric className="font-medium">
-            {minutes}:{String(seconds).padStart(2, '0')}
-          </span>
-        </>
-      ) : (
-        'The approval window has closed — start again to get a new code.'
-      )}
-    </p>
-  )
-}
-
 export function AtoLinkPage() {
   const navigate = useNavigate()
   const [step, setStep] = useState<Step>('start')
@@ -83,7 +75,7 @@ export function AtoLinkPage() {
   const [consent, setConsent] = useState(false)
   const [consentError, setConsentError] = useState<string | undefined>()
   const [busy, setBusy] = useState(false)
-  const [secondsLeft, setSecondsLeft] = useState(APPROVAL_WINDOW_SECONDS)
+  const [expired, setExpired] = useState(false)
   const pollingRef = useRef(false)
 
   const form = useForm<StartForm>({ resolver: zodResolver(startSchema), defaultValues: { email: '' } })
@@ -117,7 +109,7 @@ export function AtoLinkPage() {
       const { data } = await startAtoLink({ body: { email: values.email.toLowerCase() } })
       setAttemptId(data!.attemptId)
       setCode(data!.referenceCode)
-      setSecondsLeft(APPROVAL_WINDOW_SECONDS)
+      setExpired(false)
       setStep('approve')
     } catch (error) {
       const message = (error as { error?: string })?.error
@@ -151,13 +143,6 @@ export function AtoLinkPage() {
     }
   }, [step, attemptId, applyPollResult])
 
-  // The countdown answers "should I hurry or start again?".
-  useEffect(() => {
-    if (step !== 'approve') return
-    const timer = window.setInterval(() => setSecondsLeft((s) => Math.max(0, s - 1)), 1000)
-    return () => window.clearInterval(timer)
-  }, [step])
-
   async function onSaveAgent() {
     setBusy(true)
     try {
@@ -179,16 +164,21 @@ export function AtoLinkPage() {
     setAgents([])
     setSelectedAbn('')
     setFailure(null)
-    setSecondsLeft(APPROVAL_WINDOW_SECONDS)
+    setExpired(false)
   }
 
-  const stepLabel = step === 'start' ? 'Step 1 of 2' : step === 'approve' ? 'Step 2 of 2' : undefined
+  const STEPS = [
+    { value: 'start', label: 'Your details' },
+    { value: 'approve', label: 'Approve in myID' },
+    { value: 'chooseAgent', label: 'Finish' },
+  ]
+  const stepIndex = step === 'start' ? 0 : step === 'approve' ? 1 : step === 'chooseAgent' ? 2 : 0
 
   return (
     <div className="flex flex-col gap-6">
       <Link
         to="/ato-portal"
-        className="inline-flex items-center gap-1.5 self-start text-sm text-bottle-600 hover:underline"
+        className="inline-flex items-center gap-1.5 self-start text-sm text-accent-600 hover:underline"
       >
         <ArrowLeft aria-hidden className="size-3.5" />
         Back to ATO
@@ -196,9 +186,10 @@ export function AtoLinkPage() {
 
       <PageHeader
         title="Link your business to the ATO"
-        eyebrow={stepLabel}
         description="You approve the link in the myID app on your phone. We never see your password or two-factor codes."
       />
+
+      {step !== 'failed' ? <Steps step={stepIndex} items={STEPS} className="max-w-2xl" /> : null}
 
       {/* Announces success and failure to screen readers, which previously got
           no notification at all when the state changed. */}
@@ -212,7 +203,7 @@ export function AtoLinkPage() {
         <Panel className="flex max-w-2xl flex-col gap-5">
           <div className="flex flex-col gap-2">
             <PanelTitle as="h2">Before you start</PanelTitle>
-            <ul className="flex list-disc flex-col gap-1.5 pl-5 text-sm text-sage">
+            <ul className="flex list-disc flex-col gap-1.5 pl-5 text-sm text-ink-faint">
               <li>
                 You have the <strong className="font-medium text-ink">myID</strong> app installed on your
                 phone.
@@ -255,31 +246,42 @@ export function AtoLinkPage() {
         <Panel className="flex max-w-2xl flex-col gap-6">
           <div className="flex flex-col gap-2">
             <PanelTitle as="h2">Approve it on your phone</PanelTitle>
-            <p className="text-sm text-sage">
+            <p className="text-sm text-ink-faint">
               Open <strong className="font-medium text-ink">myID</strong>, enter this code if you’re asked
               for one, then tap Approve.
             </p>
           </div>
 
           {code ? (
-            <div className="flex flex-col items-center gap-2 rounded-sm bg-surface-sunken px-4 py-7 text-center">
-              <span className="text-xs tracking-[0.12em] text-sage uppercase">Reference code</span>
+            <div className="flex flex-col items-center gap-3 rounded-xl bg-surface-sunken px-4 py-7 text-center">
+              <span className="text-xs tracking-[0.12em] text-ink-faint uppercase">Reference code</span>
               <span
                 data-numeric
                 // Sized to read at arm's length while holding a phone, and it
                 // steps down rather than overflowing a narrow screen.
-                className="font-display text-[clamp(2.25rem,12vw,3.75rem)] leading-none font-medium tracking-[0.15em] text-ink"
+                className="font-display text-[clamp(2.25rem,12vw,3.75rem)] leading-none font-semibold tracking-[0.15em] text-ink"
                 // Spelled out so a screen reader reads characters, not a word.
                 aria-label={code.split('').join(' ')}
               >
                 {code}
               </span>
+              <CopyButton value={code} label="Copy the reference code" />
             </div>
           ) : null}
 
           <div className="flex flex-col gap-3">
-            <Countdown secondsLeft={secondsLeft} />
-            <p className="text-sm text-sage">
+            {/* Answers "should I hurry or start again?" — the only question at
+                this moment, and the one the prose alone never answered. */}
+            {expired ? (
+              <p className="text-sm text-danger-600">
+                The approval window has closed — start again to get a new code.
+              </p>
+            ) : (
+              <p className="text-sm text-ink-faint">
+                Approve within <Countdown seconds={APPROVAL_WINDOW_SECONDS} onComplete={() => setExpired(true)} />
+              </p>
+            )}
+            <p className="text-sm text-ink-faint">
               Keep this page open — it updates by itself the moment you approve.
             </p>
           </div>
@@ -296,7 +298,7 @@ export function AtoLinkPage() {
         <Panel className="flex max-w-2xl flex-col gap-5">
           <div className="flex flex-col gap-2">
             <PanelTitle as="h2">You’re linked to the ATO</PanelTitle>
-            <p className="text-sm text-sage">
+            <p className="text-sm text-ink-faint">
               {agents.length > 0
                 ? 'One last thing — which agent profile should we act under?'
                 : 'No agent profiles were found on your myID record. You can continue without one.'}
@@ -305,16 +307,17 @@ export function AtoLinkPage() {
 
           {agents.length > 1 ? (
             <Field label="Agent profile">
-              <Field.Select value={selectedAbn} onChange={(e) => setSelectedAbn(e.currentTarget.value)}>
-                {agents.map((agent) => (
-                  <option key={agent.abn} value={agent.abn}>
-                    {agent.name} — ABN {agent.abn} · RAN {agent.ran}
-                  </option>
-                ))}
-              </Field.Select>
+              <Select
+                value={selectedAbn}
+                onChange={setSelectedAbn}
+                items={agents.map((agent) => ({
+                  value: agent.abn ?? '',
+                  label: `${agent.name} — ABN ${agent.abn} · RAN ${agent.ran}`,
+                }))}
+              />
             </Field>
           ) : agents.length === 1 ? (
-            <p className="text-sm text-sage">
+            <p className="text-sm text-ink-faint">
               Using <strong className="font-medium text-ink">{agents[0].name}</strong> (RAN {agents[0].ran}).
             </p>
           ) : null}

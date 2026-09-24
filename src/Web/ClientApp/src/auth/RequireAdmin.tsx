@@ -9,6 +9,6 @@ export function RequireAdmin({ children }: { children: ReactNode }) {
 
   if (loading) return <AuthPending />
   if (!user) return <Navigate to="/login" replace state={{ from: location }} />
-  if (!user.isAdmin) return <Navigate to="/dashboard" replace />
+  if (!user.isAdmin) return <Navigate to="/" replace />
   return <>{children}</>
 }

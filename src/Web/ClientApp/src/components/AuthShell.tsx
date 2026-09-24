@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react'
+import { Logo } from '@/ui'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // The shell for every signed-out screen.
@@ -27,19 +28,16 @@ export function AuthShell({
   return (
     <main className="grid min-h-dvh place-items-center bg-paper px-4 py-10">
       <div className="flex w-full max-w-sm flex-col gap-7">
-        <div className="flex flex-col gap-1 leading-none">
-          <span className="font-display text-xl font-medium text-ink">Business Portal</span>
-          <span className="text-[0.7rem] tracking-[0.12em] text-sage uppercase">Your records</span>
-        </div>
+        <Logo />
 
         <div className="flex flex-col gap-2">
-          <h1 className="font-display text-3xl leading-tight font-medium text-ink">{title}</h1>
-          {description ? <p className="text-sm leading-relaxed text-sage">{description}</p> : null}
+          <h1 className="font-display text-3xl leading-tight font-semibold text-ink">{title}</h1>
+          {description ? <p className="text-sm leading-relaxed text-ink-faint">{description}</p> : null}
         </div>
 
         {children}
 
-        {footer ? <div className="border-t border-rule pt-5 text-sm text-sage">{footer}</div> : null}
+        {footer ? <div className="border-t border-rule pt-5 text-sm text-ink-faint">{footer}</div> : null}
       </div>
     </main>
   )
