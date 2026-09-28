@@ -32,7 +32,9 @@ export function LoginPage() {
 
   const form = useForm<LoginForm>({
     resolver: zodResolver(schema),
-    defaultValues: { email: '', password: '' },
+    // Renewtron's confirmation email links here with ?email=, so a customer
+    // arriving from it only has to type a password.
+    defaultValues: { email: params.get('email') ?? '', password: '' },
   })
 
   const signIn = useMutation({

@@ -1,7 +1,7 @@
 namespace BusinessPortal.Infrastructure.Renewtron;
 
-/// <summary>Access to Renewtron's admin API (the ASIC business-name renewal
-/// service) for the completed-renewal sync. Bound from the "Renewtron" config
+/// <summary>Access to Renewtron's partner API (the ASIC business-name renewal
+/// service) and its public checkout. Bound from the "Renewtron" config
 /// section — base URL + API key are entered from the admin Settings UI (persisted
 /// to the overrides file). Empty API key = the sync is off, matching the
 /// empty-secret-means-disabled convention used across the integrations.</summary>
@@ -12,7 +12,16 @@ public class RenewtronOptions
     /// <summary>e.g. https://businessnames.applyforanabn.au</summary>
     public string? BaseUrl { get; set; }
 
-    /// <summary>Sent as the X-Api-Key header (Renewtron's machine-caller scheme).</summary>
+    /// <summary>Where customers are sent to renew (Renewtron's public wizard). Empty =
+    /// BaseUrl, which suits a single public host; set it when BaseUrl is the
+    /// internal address (same server / Docker network) so API calls stay private.</summary>
+    public string? CheckoutUrl { get; set; }
+
+    public string? PublicCheckoutUrl =>
+        (string.IsNullOrWhiteSpace(CheckoutUrl) ? BaseUrl : CheckoutUrl)?.Trim().TrimEnd('/') is { Length: > 0 } url ? url : null;
+
+    /// <summary>Renewtron's scoped partner key, sent as X-Api-Key. It can read
+    /// renewals and raise ASIC key requests — not Renewtron's admin API.</summary>
     public string? ApiKey { get; set; }
 
     /// <summary>How far back (by initiation date) each run scans for completed

@@ -3,7 +3,6 @@ using System.Text.Json;
 using System.Text.Json.Nodes;
 using BusinessPortal.Application.Common.Interfaces;
 using BusinessPortal.Infrastructure.Identity;
-using BusinessPortal.Infrastructure.Ontraport;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Options;
@@ -21,20 +20,17 @@ public sealed class SettingsService : ISettingsService
 {
     // IOptionsMonitor (not IOptions) so reads reflect writes made below — IOptions
     // caches the value captured at startup and never sees reloadOnChange refreshes.
-    private readonly IOptionsMonitor<OntraportOptions> _ontraport;
     private readonly IOptionsMonitor<EmailOptions> _email;
     private readonly IOptionsMonitor<Renewtron.RenewtronOptions> _renewtron;
     private readonly IConfiguration _configuration;
     private readonly string _overridesPath;
 
     public SettingsService(
-        IOptionsMonitor<OntraportOptions> ontraport,
         IOptionsMonitor<EmailOptions> email,
         IOptionsMonitor<Renewtron.RenewtronOptions> renewtron,
         IConfiguration configuration,
         IHostEnvironment environment)
     {
-        _ontraport = ontraport;
         _email = email;
         _renewtron = renewtron;
         _configuration = configuration;
@@ -54,19 +50,6 @@ public sealed class SettingsService : ISettingsService
         UpdateSectionAsync("Asic", new
         {
             TwoCaptchaApiKey = settings.ApiKey?.Trim(),
-        }, cancellationToken);
-
-    public OntraportWebhookSettings GetOntraportWebhookSettings()
-    {
-        var o = _ontraport.CurrentValue;
-        return new OntraportWebhookSettings(o.WebhookSecret, o.RenewalSecret);
-    }
-
-    public Task UpdateOntraportWebhookSettingsAsync(OntraportWebhookSettings settings, CancellationToken cancellationToken) =>
-        UpdateSectionAsync(OntraportOptions.SectionName, new
-        {
-            WebhookSecret = settings.WebhookSecret?.Trim(),
-            RenewalSecret = settings.RenewalSecret?.Trim(),
         }, cancellationToken);
 
     public EmailSettings GetEmailSettings()
@@ -96,7 +79,7 @@ public sealed class SettingsService : ISettingsService
     public RenewtronSettings GetRenewtronSettings()
     {
         var r = _renewtron.CurrentValue;
-        return new RenewtronSettings(r.BaseUrl, r.ApiKey);
+        return new RenewtronSettings(r.BaseUrl, r.ApiKey, r.CheckoutUrl);
     }
 
     public Task UpdateRenewtronSettingsAsync(RenewtronSettings settings, CancellationToken cancellationToken) =>
@@ -104,6 +87,7 @@ public sealed class SettingsService : ISettingsService
         {
             BaseUrl = settings.BaseUrl?.Trim().TrimEnd('/'),
             ApiKey = settings.ApiKey?.Trim(),
+            CheckoutUrl = settings.CheckoutUrl?.Trim().TrimEnd('/'),
         }, cancellationToken);
 
     private async Task UpdateSectionAsync(string sectionName, object section, CancellationToken cancellationToken)

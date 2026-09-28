@@ -3,13 +3,89 @@
 import { type DefaultError, type InfiniteData, infiniteQueryOptions, queryOptions, type UseMutationOptions } from '@tanstack/react-query';
 
 import { client } from '../client.gen';
-import { adminMarkAllRead, adminReplyToClient, cancelBusinessName, createBusinessEntity, createBusinessName, deleteBusinessEntity, deleteBusinessName, getAbnLookupSettings, getAbnLookupStatus, getAdminClient, getAdminClients, getAdminClientThreads, getAdminMessages, getAdminOverview, getApiManageInfo, getAsicRenewals, getAtoStatus, getBusinessEntities, getBusinessNames, getCaptchaSettings, getCompletedRenewals, getEmailSettings, getMe, getMessageThreads, getOntraportSettings, getProfile, getRegistryBusinessNames, getRegistryCompanies, getRegistryEntities, getRegistrySummary, getRenewtronSettings, logout, mapIdentityApiApiConfirmEmail, markAtoConnected, markThreadRead, type Options, pollAtoLink, postApiForgotPassword, postApiIntegrationsOntraportRenewalPaid, postApiIntegrationsOntraportWebhook, postApiLogin, postApiManage2Fa, postApiManageInfo, postApiRefresh, postApiRegister, postApiResendConfirmationEmail, postApiResetPassword, registerAccount, renewBusinessName, replyToThread, runRenewtronSyncNow, selectAtoAgent, startAbnLookup, startAtoLink, startImpersonation, startThread, stopImpersonation, syncAtoBusinesses, unlinkAto, updateAbnLookupSettings, updateBusinessName, updateCaptchaSettings, updateEmailSettings, updateOntraportSettings, updateProfile, updateRenewtronSettings } from '../sdk.gen';
-import type { AdminMarkAllReadData, AdminMarkAllReadResponse, AdminReplyToClientData, AdminReplyToClientResponse, CancelBusinessNameData, CancelBusinessNameResponse, CreateBusinessEntityData, CreateBusinessEntityResponse, CreateBusinessNameData, CreateBusinessNameResponse, DeleteBusinessEntityData, DeleteBusinessEntityResponse, DeleteBusinessNameData, DeleteBusinessNameResponse, GetAbnLookupSettingsData, GetAbnLookupSettingsResponse, GetAbnLookupStatusData, GetAbnLookupStatusResponse, GetAdminClientData, GetAdminClientsData, GetAdminClientsResponse, GetAdminClientThreadsData, GetAdminClientThreadsResponse, GetAdminMessagesData, GetAdminOverviewData, GetAdminOverviewResponse, GetApiManageInfoData, GetApiManageInfoError, GetApiManageInfoResponse, GetAsicRenewalsData, GetAsicRenewalsResponse, GetAtoStatusData, GetAtoStatusResponse, GetBusinessEntitiesData, GetBusinessEntitiesResponse, GetBusinessNamesData, GetBusinessNamesResponse, GetCaptchaSettingsData, GetCaptchaSettingsResponse, GetCompletedRenewalsData, GetCompletedRenewalsResponse, GetEmailSettingsData, GetEmailSettingsResponse, GetMeData, GetMeResponse, GetMessageThreadsData, GetMessageThreadsResponse, GetOntraportSettingsData, GetOntraportSettingsResponse, GetProfileData, GetProfileResponse, GetRegistryBusinessNamesData, GetRegistryBusinessNamesResponse, GetRegistryCompaniesData, GetRegistryCompaniesResponse, GetRegistryEntitiesData, GetRegistryEntitiesResponse, GetRegistrySummaryData, GetRegistrySummaryResponse, GetRenewtronSettingsData, GetRenewtronSettingsResponse, LogoutData, MapIdentityApiApiConfirmEmailData, MarkAtoConnectedData, MarkAtoConnectedResponse, MarkThreadReadData, MarkThreadReadResponse, PollAtoLinkData, PollAtoLinkResponse, PostApiForgotPasswordData, PostApiForgotPasswordError, PostApiIntegrationsOntraportRenewalPaidData, PostApiIntegrationsOntraportWebhookData, PostApiLoginData, PostApiLoginResponse, PostApiManage2FaData, PostApiManage2FaError, PostApiManage2FaResponse, PostApiManageInfoData, PostApiManageInfoError, PostApiManageInfoResponse, PostApiRefreshData, PostApiRefreshResponse, PostApiRegisterData, PostApiRegisterError, PostApiResendConfirmationEmailData, PostApiResetPasswordData, PostApiResetPasswordError, RegisterAccountData, RegisterAccountError, RenewBusinessNameData, RenewBusinessNameResponse, ReplyToThreadData, ReplyToThreadResponse, RunRenewtronSyncNowData, RunRenewtronSyncNowResponse, SelectAtoAgentData, SelectAtoAgentResponse, StartAbnLookupData, StartAbnLookupResponse, StartAtoLinkData, StartAtoLinkResponse, StartImpersonationData, StartThreadData, StartThreadResponse, StopImpersonationData, SyncAtoBusinessesData, SyncAtoBusinessesResponse, UnlinkAtoData, UnlinkAtoResponse, UpdateAbnLookupSettingsData, UpdateAbnLookupSettingsResponse, UpdateBusinessNameData, UpdateBusinessNameResponse, UpdateCaptchaSettingsData, UpdateCaptchaSettingsResponse, UpdateEmailSettingsData, UpdateEmailSettingsResponse, UpdateOntraportSettingsData, UpdateOntraportSettingsResponse, UpdateProfileData, UpdateProfileResponse, UpdateRenewtronSettingsData, UpdateRenewtronSettingsResponse } from '../types.gen';
+import { adminMarkAllRead, adminReplyToClient, applyPendingAsicKey, cancelBusinessName, createBusinessEntity, createBusinessName, deleteBusinessEntity, deleteBusinessName, getAbnLookupSettings, getAbnLookupStatus, getAdminClient, getAdminClients, getAdminClientThreads, getAdminMessages, getAdminOverview, getApiManageInfo, getAsicRenewals, getAtoStatus, getBusinessEntities, getBusinessNames, getCaptchaSettings, getCompletedRenewals, getEmailSettings, getMe, getMessageThreads, getProfile, getRegistryBusinessNames, getRegistryCompanies, getRegistryEntities, getRegistrySummary, getRenewalCheckout, getRenewtronSettings, logout, mapIdentityApiApiConfirmEmail, markAtoConnected, markThreadRead, type Options, pollAtoLink, postApiForgotPassword, postApiLogin, postApiManage2Fa, postApiManageInfo, postApiRefresh, postApiRegister, postApiResendConfirmationEmail, postApiResetPassword, registerAccount, renewBusinessName, replyToThread, requestAsicKey, runRenewtronSyncNow, selectAtoAgent, startAbnLookup, startAtoLink, startImpersonation, startThread, stopImpersonation, syncAtoBusinesses, unlinkAto, updateAbnLookupSettings, updateBusinessName, updateCaptchaSettings, updateEmailSettings, updateProfile, updateRenewtronSettings } from '../sdk.gen';
+import type { AdminMarkAllReadData, AdminMarkAllReadResponse, AdminReplyToClientData, AdminReplyToClientResponse, ApplyPendingAsicKeyData, ApplyPendingAsicKeyError, ApplyPendingAsicKeyResponse, CancelBusinessNameData, CancelBusinessNameResponse, CreateBusinessEntityData, CreateBusinessEntityResponse, CreateBusinessNameData, CreateBusinessNameResponse, DeleteBusinessEntityData, DeleteBusinessEntityResponse, DeleteBusinessNameData, DeleteBusinessNameResponse, GetAbnLookupSettingsData, GetAbnLookupSettingsResponse, GetAbnLookupStatusData, GetAbnLookupStatusResponse, GetAdminClientData, GetAdminClientsData, GetAdminClientsResponse, GetAdminClientThreadsData, GetAdminClientThreadsResponse, GetAdminMessagesData, GetAdminOverviewData, GetAdminOverviewResponse, GetApiManageInfoData, GetApiManageInfoError, GetApiManageInfoResponse, GetAsicRenewalsData, GetAsicRenewalsResponse, GetAtoStatusData, GetAtoStatusResponse, GetBusinessEntitiesData, GetBusinessEntitiesResponse, GetBusinessNamesData, GetBusinessNamesResponse, GetCaptchaSettingsData, GetCaptchaSettingsResponse, GetCompletedRenewalsData, GetCompletedRenewalsResponse, GetEmailSettingsData, GetEmailSettingsResponse, GetMeData, GetMeResponse, GetMessageThreadsData, GetMessageThreadsResponse, GetProfileData, GetProfileResponse, GetRegistryBusinessNamesData, GetRegistryBusinessNamesResponse, GetRegistryCompaniesData, GetRegistryCompaniesResponse, GetRegistryEntitiesData, GetRegistryEntitiesResponse, GetRegistrySummaryData, GetRegistrySummaryResponse, GetRenewalCheckoutData, GetRenewalCheckoutResponse, GetRenewtronSettingsData, GetRenewtronSettingsResponse, LogoutData, MapIdentityApiApiConfirmEmailData, MarkAtoConnectedData, MarkAtoConnectedResponse, MarkThreadReadData, MarkThreadReadResponse, PollAtoLinkData, PollAtoLinkResponse, PostApiForgotPasswordData, PostApiForgotPasswordError, PostApiLoginData, PostApiLoginResponse, PostApiManage2FaData, PostApiManage2FaError, PostApiManage2FaResponse, PostApiManageInfoData, PostApiManageInfoError, PostApiManageInfoResponse, PostApiRefreshData, PostApiRefreshResponse, PostApiRegisterData, PostApiRegisterError, PostApiResendConfirmationEmailData, PostApiResetPasswordData, PostApiResetPasswordError, RegisterAccountData, RegisterAccountError, RenewBusinessNameData, RenewBusinessNameResponse, ReplyToThreadData, ReplyToThreadResponse, RequestAsicKeyData, RequestAsicKeyError, RequestAsicKeyResponse, RunRenewtronSyncNowData, RunRenewtronSyncNowResponse, SelectAtoAgentData, SelectAtoAgentResponse, StartAbnLookupData, StartAbnLookupResponse, StartAtoLinkData, StartAtoLinkResponse, StartImpersonationData, StartThreadData, StartThreadResponse, StopImpersonationData, SyncAtoBusinessesData, SyncAtoBusinessesResponse, UnlinkAtoData, UnlinkAtoResponse, UpdateAbnLookupSettingsData, UpdateAbnLookupSettingsResponse, UpdateBusinessNameData, UpdateBusinessNameResponse, UpdateCaptchaSettingsData, UpdateCaptchaSettingsResponse, UpdateEmailSettingsData, UpdateEmailSettingsResponse, UpdateProfileData, UpdateProfileResponse, UpdateRenewtronSettingsData, UpdateRenewtronSettingsResponse } from '../types.gen';
 
 export const stopImpersonationMutation = (options?: Partial<Options<StopImpersonationData>>): UseMutationOptions<unknown, DefaultError, Options<StopImpersonationData>> => {
     const mutationOptions: UseMutationOptions<unknown, DefaultError, Options<StopImpersonationData>> = {
         mutationFn: async (fnOptions) => {
             const { data } = await stopImpersonation({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+export type QueryKey<TOptions extends Options> = [
+    Pick<TOptions, 'baseUrl' | 'body' | 'headers' | 'path' | 'query'> & {
+        _id: string;
+        _infinite?: boolean;
+        tags?: ReadonlyArray<string>;
+    }
+];
+
+const createQueryKey = <TOptions extends Options>(id: string, options?: TOptions, infinite?: boolean, tags?: ReadonlyArray<string>): [
+    QueryKey<TOptions>[0]
+] => {
+    const params: QueryKey<TOptions>[0] = { _id: id, baseUrl: options?.baseUrl || (options?.client ?? client).getConfig().baseUrl } as QueryKey<TOptions>[0];
+    if (infinite) {
+        params._infinite = infinite;
+    }
+    if (tags) {
+        params.tags = tags;
+    }
+    if (options?.body) {
+        params.body = options.body;
+    }
+    if (options?.headers) {
+        params.headers = options.headers;
+    }
+    if (options?.path) {
+        params.path = options.path;
+    }
+    if (options?.query) {
+        params.query = options.query;
+    }
+    return [params];
+};
+
+export const getRenewalCheckoutQueryKey = (options?: Options<GetRenewalCheckoutData>) => createQueryKey('getRenewalCheckout', options);
+
+export const getRenewalCheckoutOptions = (options?: Options<GetRenewalCheckoutData>) => queryOptions<GetRenewalCheckoutResponse, DefaultError, GetRenewalCheckoutResponse, ReturnType<typeof getRenewalCheckoutQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await getRenewalCheckout({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: getRenewalCheckoutQueryKey(options)
+});
+
+export const requestAsicKeyMutation = (options?: Partial<Options<RequestAsicKeyData>>): UseMutationOptions<RequestAsicKeyResponse, RequestAsicKeyError, Options<RequestAsicKeyData>> => {
+    const mutationOptions: UseMutationOptions<RequestAsicKeyResponse, RequestAsicKeyError, Options<RequestAsicKeyData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await requestAsicKey({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+export const applyPendingAsicKeyMutation = (options?: Partial<Options<ApplyPendingAsicKeyData>>): UseMutationOptions<ApplyPendingAsicKeyResponse, ApplyPendingAsicKeyError, Options<ApplyPendingAsicKeyData>> => {
+    const mutationOptions: UseMutationOptions<ApplyPendingAsicKeyResponse, ApplyPendingAsicKeyError, Options<ApplyPendingAsicKeyData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await applyPendingAsicKey({
                 ...options,
                 ...fnOptions,
                 throwOnError: true
@@ -60,39 +136,6 @@ export const postApiRefreshMutation = (options?: Partial<Options<PostApiRefreshD
         }
     };
     return mutationOptions;
-};
-
-export type QueryKey<TOptions extends Options> = [
-    Pick<TOptions, 'baseUrl' | 'body' | 'headers' | 'path' | 'query'> & {
-        _id: string;
-        _infinite?: boolean;
-        tags?: ReadonlyArray<string>;
-    }
-];
-
-const createQueryKey = <TOptions extends Options>(id: string, options?: TOptions, infinite?: boolean, tags?: ReadonlyArray<string>): [
-    QueryKey<TOptions>[0]
-] => {
-    const params: QueryKey<TOptions>[0] = { _id: id, baseUrl: options?.baseUrl || (options?.client ?? client).getConfig().baseUrl } as QueryKey<TOptions>[0];
-    if (infinite) {
-        params._infinite = infinite;
-    }
-    if (tags) {
-        params.tags = tags;
-    }
-    if (options?.body) {
-        params.body = options.body;
-    }
-    if (options?.headers) {
-        params.headers = options.headers;
-    }
-    if (options?.path) {
-        params.path = options.path;
-    }
-    if (options?.query) {
-        params.query = options.query;
-    }
-    return [params];
 };
 
 export const mapIdentityApiApiConfirmEmailQueryKey = (options: Options<MapIdentityApiApiConfirmEmailData>) => createQueryKey('mapIdentityApiApiConfirmEmail', options);
@@ -854,35 +897,6 @@ export const updateCaptchaSettingsMutation = (options?: Partial<Options<UpdateCa
     return mutationOptions;
 };
 
-export const getOntraportSettingsQueryKey = (options?: Options<GetOntraportSettingsData>) => createQueryKey('getOntraportSettings', options);
-
-export const getOntraportSettingsOptions = (options?: Options<GetOntraportSettingsData>) => queryOptions<GetOntraportSettingsResponse, DefaultError, GetOntraportSettingsResponse, ReturnType<typeof getOntraportSettingsQueryKey>>({
-    queryFn: async ({ queryKey, signal }) => {
-        const { data } = await getOntraportSettings({
-            ...options,
-            ...queryKey[0],
-            signal,
-            throwOnError: true
-        });
-        return data;
-    },
-    queryKey: getOntraportSettingsQueryKey(options)
-});
-
-export const updateOntraportSettingsMutation = (options?: Partial<Options<UpdateOntraportSettingsData>>): UseMutationOptions<UpdateOntraportSettingsResponse, DefaultError, Options<UpdateOntraportSettingsData>> => {
-    const mutationOptions: UseMutationOptions<UpdateOntraportSettingsResponse, DefaultError, Options<UpdateOntraportSettingsData>> = {
-        mutationFn: async (fnOptions) => {
-            const { data } = await updateOntraportSettings({
-                ...options,
-                ...fnOptions,
-                throwOnError: true
-            });
-            return data;
-        }
-    };
-    return mutationOptions;
-};
-
 export const getEmailSettingsQueryKey = (options?: Options<GetEmailSettingsData>) => createQueryKey('getEmailSettings', options);
 
 export const getEmailSettingsOptions = (options?: Options<GetEmailSettingsData>) => queryOptions<GetEmailSettingsResponse, DefaultError, GetEmailSettingsResponse, ReturnType<typeof getEmailSettingsQueryKey>>({
@@ -974,34 +988,6 @@ export const runRenewtronSyncNowMutation = (options?: Partial<Options<RunRenewtr
     const mutationOptions: UseMutationOptions<RunRenewtronSyncNowResponse, DefaultError, Options<RunRenewtronSyncNowData>> = {
         mutationFn: async (fnOptions) => {
             const { data } = await runRenewtronSyncNow({
-                ...options,
-                ...fnOptions,
-                throwOnError: true
-            });
-            return data;
-        }
-    };
-    return mutationOptions;
-};
-
-export const postApiIntegrationsOntraportWebhookMutation = (options?: Partial<Options<PostApiIntegrationsOntraportWebhookData>>): UseMutationOptions<unknown, DefaultError, Options<PostApiIntegrationsOntraportWebhookData>> => {
-    const mutationOptions: UseMutationOptions<unknown, DefaultError, Options<PostApiIntegrationsOntraportWebhookData>> = {
-        mutationFn: async (fnOptions) => {
-            const { data } = await postApiIntegrationsOntraportWebhook({
-                ...options,
-                ...fnOptions,
-                throwOnError: true
-            });
-            return data;
-        }
-    };
-    return mutationOptions;
-};
-
-export const postApiIntegrationsOntraportRenewalPaidMutation = (options?: Partial<Options<PostApiIntegrationsOntraportRenewalPaidData>>): UseMutationOptions<unknown, DefaultError, Options<PostApiIntegrationsOntraportRenewalPaidData>> => {
-    const mutationOptions: UseMutationOptions<unknown, DefaultError, Options<PostApiIntegrationsOntraportRenewalPaidData>> = {
-        mutationFn: async (fnOptions) => {
-            const { data } = await postApiIntegrationsOntraportRenewalPaid({
                 ...options,
                 ...fnOptions,
                 throwOnError: true

@@ -16,6 +16,9 @@ public class BusinessNameConfiguration : IEntityTypeConfiguration<BusinessName>
         // Npgsql maps List<string> to a native text[] column.
         builder.Property(b => b.RenewalTransactionIds);
 
+        builder.Property(b => b.AsicKeyRequestStatus).HasMaxLength(20);
+        builder.Property(b => b.PendingAsicKey).HasMaxLength(40);
+
         builder.HasIndex(b => b.UserId);
     }
 }

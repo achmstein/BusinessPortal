@@ -48,6 +48,15 @@ import {
 export function AsicRenewalsPage() {
   const renewals = useQuery(getAsicRenewalsOptions())
   const completed = useQuery(getCompletedRenewalsOptions())
+  const inProgress = (completed.data ?? []).filter((r) => r.status !== 'Completed')
+  const done = (completed.data ?? []).filter((r) => r.status === 'Completed')
+  // Names already paid for and with ASIC — offering "Renew" again invites a double payment.
+  const underway = new Set(
+    inProgress
+      .filter((r) => r.status !== 'Failed')
+      .flatMap((r) => [r.businessNameId ?? '', (r.businessName ?? '').trim().toLowerCase()])
+      .filter(Boolean),
+  )
 
   const ask = useMutation({
     ...startThreadMutation(),
@@ -147,9 +156,13 @@ export function AsicRenewalsPage() {
 
                       {isBusinessName ? (
                         <>
-                          <Button asChild size="sm" variant={status.needsAction ? 'primary' : 'secondary'}>
-                            <Link to={`/asic-renewals/${item.sourceId}/renew`}>Renew</Link>
-                          </Button>
+                          {underway.has(item.sourceId ?? '') || underway.has((item.name ?? '').trim().toLowerCase()) ? (
+                            <Badge tone="due">Renewal underway</Badge>
+                          ) : (
+                            <Button asChild size="sm" variant={status.needsAction ? 'primary' : 'secondary'}>
+                              <Link to={`/asic-renewals/${item.sourceId}/renew`}>Renew</Link>
+                            </Button>
+                          )}
 
                           {/* Cancelling is irreversible, so it sits behind a
                               menu rather than beside the primary action. */}
@@ -197,10 +210,35 @@ export function AsicRenewalsPage() {
 
       {/* What they've already paid for — renewals used to be announced as
           messages; this is the lasting record. */}
-      {completed.data && completed.data.length > 0 ? (
-        <Section title="Business name renewals completed" meta={`${completed.data.length}`}>
+      {/* Paid renewals, mirrored from Renewtron: in progress first, then done. */}
+      {inProgress.length > 0 ? (
+        <Section title="Renewals in progress" meta={`${inProgress.length}`}>
           <List>
-            {completed.data.map((renewal) => {
+            {inProgress.map((renewal) => (
+              <List.Row key={renewal.id} className="justify-between">
+                <div className="min-w-0 flex-1">
+                  <p className="font-medium text-ink">{renewal.businessName}</p>
+                  <p className="text-sm text-ink-faint">
+                    Paid {formatDate(renewal.renewedAt)}
+                    {Number(renewal.years) > 0 ? ` · ${renewal.years} year${Number(renewal.years) === 1 ? '' : 's'}` : ''}
+                    {renewal.statusMessage ? ` · ${renewal.statusMessage}` : ''}
+                  </p>
+                </div>
+                {renewal.status === 'Failed' ? (
+                  <Badge tone="overdue">Needs attention</Badge>
+                ) : (
+                  <Badge tone="due">With ASIC</Badge>
+                )}
+              </List.Row>
+            ))}
+          </List>
+        </Section>
+      ) : null}
+
+      {done.length > 0 ? (
+        <Section title="Business name renewals completed" meta={`${done.length}`}>
+          <List>
+            {done.map((renewal) => {
               const years = Number(renewal.years) || 0
               return (
                 <List.Row key={renewal.id} className="justify-between">
@@ -209,6 +247,12 @@ export function AsicRenewalsPage() {
                     <p className="text-sm text-ink-faint">
                       Renewed {formatDate(renewal.renewedAt)}
                       {years > 0 ? ` · ${years} year${years === 1 ? '' : 's'}` : ''}
+                      {renewal.transactionReference ? (
+                        <>
+                          {' · ASIC ref '}
+                          <span data-numeric>{renewal.transactionReference}</span>
+                        </>
+                      ) : null}
                     </p>
                   </div>
                   {renewal.newRenewalDate ? (

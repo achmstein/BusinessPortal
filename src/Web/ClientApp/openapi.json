@@ -6,7 +6,7 @@
   },
   "servers": [
     {
-      "url": "http://localhost:5257/"
+      "url": "http://localhost:5299/"
     }
   ],
   "paths": {
@@ -19,6 +19,119 @@
         "responses": {
           "200": {
             "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/asic-renewals/checkout": {
+      "get": {
+        "tags": [
+          "ASIC Renewals"
+        ],
+        "operationId": "GetRenewalCheckout",
+        "parameters": [
+          {
+            "name": "businessNameId",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CheckoutResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/business-names/{id}/request-asic-key": {
+      "post": {
+        "tags": [
+          "Business Names"
+        ],
+        "operationId": "RequestAsicKey",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AsicKeyRequestResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/clients/{clientId}/business-names/{id}/apply-asic-key": {
+      "post": {
+        "tags": [
+          "Admin"
+        ],
+        "operationId": "ApplyPendingAsicKey",
+        "parameters": [
+          {
+            "name": "clientId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
@@ -1401,47 +1514,6 @@
         }
       }
     },
-    "/api/admin/settings/ontraport": {
-      "get": {
-        "tags": [
-          "Settings"
-        ],
-        "operationId": "GetOntraportSettings",
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/OntraportWebhookSettings"
-                }
-              }
-            }
-          }
-        }
-      },
-      "put": {
-        "tags": [
-          "Settings"
-        ],
-        "operationId": "UpdateOntraportSettings",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/OntraportWebhookSettings"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "204": {
-            "description": "No Content"
-          }
-        }
-      }
-    },
     "/api/admin/settings/email": {
       "get": {
         "tags": [
@@ -1581,30 +1653,6 @@
                 }
               }
             }
-          }
-        }
-      }
-    },
-    "/api/integrations/ontraport/webhook": {
-      "post": {
-        "tags": [
-          "Ontraport"
-        ],
-        "responses": {
-          "200": {
-            "description": "OK"
-          }
-        }
-      }
-    },
-    "/api/integrations/ontraport/renewal-paid": {
-      "post": {
-        "tags": [
-          "Ontraport"
-        ],
-        "responses": {
-          "200": {
-            "description": "OK"
           }
         }
       }
@@ -2056,6 +2104,25 @@
           }
         }
       },
+      "AsicKeyRequestResponse": {
+        "required": [
+          "status",
+          "requestedAt"
+        ],
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string"
+          },
+          "requestedAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          }
+        }
+      },
       "AsicRenewalDto": {
         "type": "object",
         "properties": {
@@ -2319,6 +2386,19 @@
           "created": {
             "type": "string",
             "format": "date-time"
+          },
+          "asicKeyRequestStatus": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "asicKeyRequestedAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
           }
         }
       },
@@ -2333,6 +2413,17 @@
               "null",
               "string"
             ]
+          }
+        }
+      },
+      "CheckoutResponse": {
+        "required": [
+          "url"
+        ],
+        "type": "object",
+        "properties": {
+          "url": {
+            "type": "string"
           }
         }
       },
@@ -2367,6 +2458,21 @@
           "renewedAt": {
             "type": "string",
             "format": "date-time"
+          },
+          "status": {
+            "type": "string"
+          },
+          "statusMessage": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "transactionReference": {
+            "type": [
+              "null",
+              "string"
+            ]
           }
         }
       },
@@ -2738,27 +2844,6 @@
           "createdAt": {
             "type": "string",
             "format": "date-time"
-          }
-        }
-      },
-      "OntraportWebhookSettings": {
-        "required": [
-          "webhookSecret",
-          "renewalSecret"
-        ],
-        "type": "object",
-        "properties": {
-          "webhookSecret": {
-            "type": [
-              "null",
-              "string"
-            ]
-          },
-          "renewalSecret": {
-            "type": [
-              "null",
-              "string"
-            ]
           }
         }
       },
@@ -3213,7 +3298,8 @@
       "RenewtronSettings": {
         "required": [
           "baseUrl",
-          "apiKey"
+          "apiKey",
+          "checkoutUrl"
         ],
         "type": "object",
         "properties": {
@@ -3224,6 +3310,12 @@
             ]
           },
           "apiKey": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "checkoutUrl": {
             "type": [
               "null",
               "string"
@@ -3291,6 +3383,15 @@
               "null",
               "string"
             ]
+          },
+          "keysApplied": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32",
+            "default": 0
           }
         }
       },
@@ -3534,6 +3635,15 @@
       "name": "Web"
     },
     {
+      "name": "ASIC Renewals"
+    },
+    {
+      "name": "Business Names"
+    },
+    {
+      "name": "Admin"
+    },
+    {
       "name": "Account"
     },
     {
@@ -3543,25 +3653,13 @@
       "name": "Business Entities"
     },
     {
-      "name": "Business Names"
-    },
-    {
       "name": "Messages"
-    },
-    {
-      "name": "ASIC Renewals"
     },
     {
       "name": "ABN Lookup"
     },
     {
-      "name": "Admin"
-    },
-    {
       "name": "Settings"
-    },
-    {
-      "name": "Ontraport"
     },
     {
       "name": "ATO"

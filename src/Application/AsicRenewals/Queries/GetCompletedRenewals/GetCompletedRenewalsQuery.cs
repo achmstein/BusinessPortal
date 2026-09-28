@@ -12,9 +12,13 @@ public record CompletedRenewalDto
     public int Years { get; init; }
     public string NewRenewalDate { get; init; } = string.Empty;
     public DateTimeOffset RenewedAt { get; init; }
+    public string Status { get; init; } = "Completed";
+    public string? StatusMessage { get; init; }
+    public string? TransactionReference { get; init; }
 }
 
-/// <summary>Business-name renewals the current user has paid for, newest first.</summary>
+/// <summary>Business-name renewals the current user has paid for, in progress and
+/// completed, newest first.</summary>
 public record GetCompletedRenewalsQuery : IRequest<IReadOnlyList<CompletedRenewalDto>>;
 
 public class GetCompletedRenewalsQueryHandler(IApplicationDbContext context, IUser user)
@@ -37,6 +41,9 @@ public class GetCompletedRenewalsQueryHandler(IApplicationDbContext context, IUs
                 Years = r.Years,
                 NewRenewalDate = r.NewRenewalDate,
                 RenewedAt = r.RenewedAt,
+                Status = r.Status,
+                StatusMessage = r.StatusMessage,
+                TransactionReference = r.TransactionReference,
             })
             .ToListAsync(cancellationToken);
     }

@@ -84,7 +84,7 @@ public static class AdminEndpoints
 
             var names = await context.BusinessNames.AsNoTracking()
                 .Where(b => b.UserId == id).OrderBy(b => b.Name)
-                .Select(b => new { b.Id, b.Name, b.RenewalDate, b.AsicKey }).ToListAsync(ct);
+                .Select(b => new { b.Id, b.Name, b.RenewalDate, b.AsicKey, b.PendingAsicKey, b.AsicKeyRequestStatus }).ToListAsync(ct);
 
             var p = user.Profile;
             return Results.Ok(new

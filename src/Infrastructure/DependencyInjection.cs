@@ -5,7 +5,6 @@ using BusinessPortal.Infrastructure.Data.Interceptors;
 using BusinessPortal.Infrastructure.ExternalClients;
 using BusinessPortal.Infrastructure.Identity;
 using BusinessPortal.Infrastructure.Jobs;
-using BusinessPortal.Infrastructure.Ontraport;
 using BusinessPortal.Infrastructure.Services;
 using Hangfire;
 using Hangfire.PostgreSql;
@@ -114,11 +113,7 @@ public static class DependencyInjection
         services.AddScoped<Asic.AsicCaptchaSolver>();
         services.AddScoped<IAsicRegistryClient, Asic.AsicRegistryClient>();
 
-        // ─── Ontraport webhooks ───
-        services.Configure<OntraportOptions>(configuration.GetSection(OntraportOptions.SectionName));
-        services.AddScoped<IOntraportService, OntraportService>();
-
-        // ─── Auto-provisioned portal logins (shared by Ontraport + Renewtron) ───
+        // ─── Auto-provisioned portal logins (from Renewtron renewals) ───
         services.AddScoped<UserProvisioningService>();
 
         // ─── Renewtron completed-renewal sync (recurring job + admin "sync now") ───

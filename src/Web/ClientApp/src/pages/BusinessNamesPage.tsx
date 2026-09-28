@@ -12,11 +12,12 @@ import {
   getBusinessNamesOptions,
   getBusinessNamesQueryKey,
   startAbnLookupMutation,
-  startThreadMutation,
+  requestAsicKeyMutation,
   updateBusinessNameMutation,
 } from '@/api/generated/@tanstack/react-query.gen'
 import type { BusinessNameDto } from '@/api/generated'
 import { renewalStatus } from '@/lib/renewal'
+import { formatDate } from '@/lib/dates'
 import {
   Badge,
   Button,
@@ -69,7 +70,8 @@ function BusinessNameFields({
   requestingKey,
 }: {
   form: ReturnType<typeof useForm<BusinessNameForm>>
-  onRequestKey: (name: string) => void
+  /** In the add dialog this saves the name first, then requests. */
+  onRequestKey: () => void
   requestingKey: boolean
 }) {
   const { control, register, formState, watch } = form
@@ -126,7 +128,7 @@ function BusinessNameFields({
             className="shrink-0"
             disabled={name.length === 0}
             loading={requestingKey}
-            onClick={() => onRequestKey(name)}
+            onClick={onRequestKey}
           >
             Request ASIC key
           </Button>
@@ -134,6 +136,24 @@ function BusinessNameFields({
       </Field>
     </div>
   )
+}
+
+/** Where a Renewtron key request stands, in words — null when none is open. */
+function keyRequestNote(name: BusinessNameDto): string | null {
+  const since = name.asicKeyRequestedAt ? ` on ${formatDate(name.asicKeyRequestedAt)}` : ''
+  switch (name.asicKeyRequestStatus) {
+    case 'Pending':
+    case 'Manual':
+      return `ASIC key requested${since} — we’re asking ASIC for it.`
+    case 'Submitted':
+      return 'ASIC has our request — the key usually arrives within a few business days.'
+    case 'KeyReceived':
+      return 'Key received — we’re checking it and will add it here shortly.'
+    case 'Failed':
+      return 'We couldn’t request the key automatically.'
+    default:
+      return null
+  }
 }
 
 function LookupProgress({ job }: { job: { status?: string; totalAbns?: number | string; abnsProcessed?: number | string } }) {
@@ -244,23 +264,27 @@ export function BusinessNamesPage() {
     onError: () => toastError('Could not start the lookup', 'Try again shortly.'),
   })
 
-  // Goes to the support inbox; the team asks ASIC to email the key to the
-  // holder's registered address.
+  // Renewtron asks ASIC for a copy of the key and reads it from ASIC's reply;
+  // the portal's sync brings it back onto the name.
   const requestKey = useMutation({
-    ...startThreadMutation(),
-    onSuccess: () =>
-      toastSuccess('ASIC key requested', 'We’ll arrange for a copy to be emailed to you.'),
-    onError: () => toastError('Couldn’t send the request', 'Try again in a moment.'),
+    ...requestAsicKeyMutation(),
+    onSuccess: async () => {
+      await invalidate()
+      toastSuccess('ASIC key requested', 'We’ve asked ASIC for a copy — it’ll appear here when it arrives.')
+    },
+    onError: (error) =>
+      toastError('Couldn’t request the key', (error as { error?: string } | undefined)?.error ?? 'Try again in a moment.'),
   })
 
-  function requestAsicKey(name: string) {
-    requestKey.mutate({
-      body: {
-        subject: `ASIC key request — ${name}`,
-        body: `I don’t have the ASIC key for the business name "${name}". Please request a copy be emailed to me.`,
-      },
-    })
+  function requestAsicKey(id: string) {
+    requestKey.mutate({ path: { id } })
   }
+
+  // From the add dialog the name doesn't exist yet: save it first, then ask.
+  const addAndRequestKey = addForm.handleSubmit(async (values) => {
+    const created = await create.mutateAsync({ body: values })
+    if (created?.id) requestAsicKey(created.id)
+  })
 
   function openEdit(name: BusinessNameDto) {
     editForm.reset({
@@ -374,6 +398,20 @@ export function BusinessNamesPage() {
                   <p className="text-sm text-ink-faint" data-numeric>
                     ASIC key {name.asicKey}
                   </p>
+                ) : keyRequestNote(name) ? (
+                  <p className="flex flex-wrap items-center gap-x-2 text-sm text-ink-faint">
+                    {keyRequestNote(name)}
+                    {name.asicKeyRequestStatus === 'Failed' ? (
+                      <button
+                        type="button"
+                        className="font-medium text-accent-700 hover:underline disabled:opacity-50"
+                        disabled={requestKey.isPending}
+                        onClick={() => requestAsicKey(name.id!)}
+                      >
+                        Try again
+                      </button>
+                    ) : null}
+                  </p>
                 ) : (
                   <p className="flex flex-wrap items-center gap-x-2 text-sm text-ink-faint">
                     No ASIC key on file.
@@ -381,7 +419,7 @@ export function BusinessNamesPage() {
                       type="button"
                       className="font-medium text-accent-700 hover:underline disabled:opacity-50"
                       disabled={requestKey.isPending}
-                      onClick={() => requestAsicKey(name.name ?? '')}
+                      onClick={() => requestAsicKey(name.id!)}
                     >
                       Request ASIC key
                     </button>
@@ -424,7 +462,11 @@ export function BusinessNamesPage() {
         }
       >
         <form onSubmit={addForm.handleSubmit((values) => create.mutate({ body: values }))}>
-          <BusinessNameFields form={addForm} onRequestKey={requestAsicKey} requestingKey={requestKey.isPending} />
+          <BusinessNameFields
+            form={addForm}
+            onRequestKey={() => void addAndRequestKey()}
+            requestingKey={create.isPending || requestKey.isPending}
+          />
         </form>
       </Dialog>
 
@@ -456,7 +498,11 @@ export function BusinessNamesPage() {
             update.mutate({ path: { id: editing!.id! }, body: { id: editing!.id!, ...values } }),
           )}
         >
-          <BusinessNameFields form={editForm} onRequestKey={requestAsicKey} requestingKey={requestKey.isPending} />
+          <BusinessNameFields
+            form={editForm}
+            onRequestKey={() => editing?.id && requestAsicKey(editing.id)}
+            requestingKey={requestKey.isPending}
+          />
         </form>
       </Dialog>
 

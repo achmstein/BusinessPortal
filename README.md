@@ -16,7 +16,7 @@ Identity cookie auth, and Hangfire background jobs, orchestrated by .NET Aspire.
 | ------- | ---- |
 | `src/BusinessPortal.Domain` | Entities, enums, pure domain services. No dependencies. |
 | `src/BusinessPortal.Application` | Use-cases (MediatR commands/queries), interfaces (ports), DTOs. |
-| `src/BusinessPortal.Infrastructure` | EF Core + Npgsql, Identity, Hangfire, external clients (ABN/ASIC/ATO/Ontraport). |
+| `src/BusinessPortal.Infrastructure` | EF Core + Npgsql, Identity, Hangfire, external clients (ABN/ASIC/ATO/Renewtron). |
 | `src/BusinessPortal.Web` | ASP.NET Core host: minimal-API endpoints + the React SPA in `ClientApp/`. |
 | `src/BusinessPortal.ServiceDefaults` | Aspire shared defaults (OTel, health, resilience, discovery). |
 | `src/BusinessPortal.AppHost` | Aspire orchestration (Postgres + web + Vite dev server). |
@@ -37,5 +37,5 @@ publish it is built into `wwwroot` and served by the same container.
 ## Origin
 
 Ported from the Next.js 15 app at `davidorth/Business-Portal`. Domain behaviour,
-integrations (ABN Lookup, ASIC Connect, ATO myID, Ontraport), and the client/admin
+integrations (ABN Lookup, ASIC Connect, ATO myID, Renewtron), and the client/admin
 feature set are being reimplemented in C# against this template.

@@ -2,8 +2,8 @@ using BusinessPortal.Application.Common.Interfaces;
 
 namespace BusinessPortal.Web.Endpoints;
 
-/// <summary>Admin-editable integration settings (2Captcha, Ontraport webhook
-/// secrets, email, ABN Lookup). Persisted to the writable overrides file on the
+/// <summary>Admin-editable integration settings (2Captcha, email, ABN Lookup,
+/// Renewtron). Persisted to the writable overrides file on the
 /// data volume — see SettingsService. Modelled on Asictron's SettingsEndpoints,
 /// but gated by the Admin role like the rest of the console.</summary>
 public static class SettingsEndpoints
@@ -25,18 +25,6 @@ public static class SettingsEndpoints
                 return Results.NoContent();
             })
             .WithName("UpdateCaptchaSettings").Produces(StatusCodes.Status204NoContent);
-
-        // Ontraport webhook shared secrets (X-Ontraport-Secret header values).
-        group.MapGet("/ontraport", (ISettingsService settings) =>
-                Results.Ok(settings.GetOntraportWebhookSettings()))
-            .WithName("GetOntraportSettings").Produces<OntraportWebhookSettings>();
-
-        group.MapPut("/ontraport", async (OntraportWebhookSettings body, ISettingsService settings, CancellationToken ct) =>
-            {
-                await settings.UpdateOntraportWebhookSettingsAsync(body, ct);
-                return Results.NoContent();
-            })
-            .WithName("UpdateOntraportSettings").Produces(StatusCodes.Status204NoContent);
 
         // Outbound email via Resend (console-logs when no API key is set).
         group.MapGet("/email", (ISettingsService settings) =>
@@ -62,7 +50,7 @@ public static class SettingsEndpoints
             })
             .WithName("UpdateAbnLookupSettings").Produces(StatusCodes.Status204NoContent);
 
-        // Renewtron admin-API access — drives the completed-renewal login sync.
+        // Renewtron partner API + checkout — drives the renewal/ASIC-key sync.
         group.MapGet("/renewtron", (ISettingsService settings) =>
                 Results.Ok(settings.GetRenewtronSettings()))
             .WithName("GetRenewtronSettings").Produces<RenewtronSettings>();

@@ -17,7 +17,7 @@ var builder = WebApplication.CreateBuilder(args);
 
 builder.AddServiceDefaults();
 
-// Writable overrides layer for runtime-mutable settings (2Captcha key, Ontraport
+// Writable overrides layer for runtime-mutable settings (2Captcha key, Renewtron
 // webhook secrets, email credentials — edited from the admin Settings UI). Lives
 // outside the immutable container image so SettingsService can persist admin
 // changes; reloadOnChange flushes IOptionsMonitor consumers automatically, so
@@ -126,7 +126,7 @@ app.MapAsicRenewalsEndpoints();
 app.MapAbnLookupEndpoints();
 app.MapAdminEndpoints();
 app.MapSettingsEndpoints();
-app.MapOntraportEndpoints();
+app.MapRenewtronEndpoints();
 app.MapAtoEndpoints();
 
 app.MapDefaultEndpoints();

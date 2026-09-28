@@ -9,13 +9,14 @@ public sealed record RenewtronSyncResult(
     int Updated,
     int Skipped,
     int Failed,
-    string? Message);
+    string? Message,
+    int KeysApplied = 0);
 
-/// <summary>Polls Renewtron (the ASIC business-name renewal service) for completed
-/// renewals and provisions a portal login for each customer: create-or-update the
-/// user, upsert the renewed business name, and email new users a set-password
-/// invite. Idempotent via RenewtronProvisionLog — safe to run on a schedule and
-/// on demand. Implemented in Infrastructure (needs UserManager + the HTTP client).</summary>
+/// <summary>Mirrors Renewtron (the ASIC business-name renewal service) into the
+/// portal: provisions a login for every paying customer, tracks each renewal from
+/// payment to ASIC confirmation, extends the renewal date when it completes, and
+/// applies ASIC keys Renewtron has retrieved. Idempotent — safe to run on a
+/// schedule and on demand. Implemented in Infrastructure.</summary>
 public interface IRenewtronSyncService
 {
     Task<RenewtronSyncResult> SyncAsync(CancellationToken cancellationToken);

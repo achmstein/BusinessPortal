@@ -39,7 +39,7 @@ var server = builder.AddProject<Projects.Web>("businessportal-server")
     .WithReference(db)
     .WaitFor(postgres)
     .WithEnvironment("DataProtection__KeysDirectory", "/keys")
-    // 2Captcha / Ontraport / email credentials are entered from the admin Settings
+    // 2Captcha / Renewtron / email credentials are entered from the admin Settings
     // UI and written to the overrides file on the persistent /data volume (below) —
     // no longer injected as build/deploy secrets.
     .WithEnvironment("Storage__OverridesPath", "/data/settings.overrides.json")

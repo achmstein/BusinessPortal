@@ -8,14 +8,21 @@ using Microsoft.Extensions.Options;
 
 namespace BusinessPortal.Infrastructure.Renewtron;
 
-/// <summary>Polls Renewtron for completed business-name renewals and provisions a
-/// portal login for each customer. Pull, not push, on purpose: Renewtron's DB is
-/// the record of ALL renewals regardless of where the sale came from (its web
-/// wizard, Ontraport, bulk uploads), Renewtron itself needs no changes, and a
-/// missed run self-heals on the next one. Idempotent three ways: the provision log
-/// is unique per renewal, users are keyed by email, and the renewal-date extension
-/// is guarded by a per-renewal marker in BusinessName.RenewalTransactionIds.
-/// Runs on a Hangfire schedule and from the admin "sync now" button.</summary>
+/// <summary>Mirrors Renewtron into the portal. Renewtron is the system of record
+/// for every renewal (its wizard's Stripe checkout, Ontraport sales it syncs, bulk
+/// uploads) and for ASIC keys; the portal reads its partner API and never talks
+/// to Ontraport itself.
+///
+/// Each run, for every renewal initiated inside the poll window:
+///  1. provisions a portal login for the customer — once per renewal, guarded by
+///     RenewtronProvisionLog — as soon as it's paid, not only once ASIC confirms;
+///  2. upserts a BusinessNameRenewal carrying Renewtron's live status, so the
+///     customer sees "in progress" / "needs attention" while Renewtron works;
+///  3. on completion, extends the business name's renewal date, guarded by the
+///     "renewtron:{id}" marker so it happens exactly once.
+/// Then it refreshes open ASIC key requests and applies retrieved keys — directly
+/// only where the customer paid to renew that name (see ApplyAsicKeysAsync).
+/// Pull, not push: a missed run self-heals on the next.</summary>
 public class RenewtronSyncService(
     RenewtronClient client,
     UserProvisioningService provisioner,
@@ -26,29 +33,41 @@ public class RenewtronSyncService(
     private const int PageSize = 200;
     private const int MaxPages = 50;
 
+    /// <summary>How far back each run looks for ASIC keys Renewtron has retrieved.</summary>
+    private static readonly TimeSpan KeyWindow = TimeSpan.FromDays(60);
+
     public async Task<RenewtronSyncResult> SyncAsync(CancellationToken cancellationToken)
     {
         var current = options.CurrentValue;
-        if (string.IsNullOrWhiteSpace(current.BaseUrl) || string.IsNullOrWhiteSpace(current.ApiKey))
+        if (!client.IsConfigured)
             return new RenewtronSyncResult(Configured: false, 0, 0, 0, 0, 0,
-                "Renewtron sync is off — set the base URL and API key in Settings.");
+                "Renewtron sync is off — set the base URL and partner API key in Settings.");
 
-        var items = await FetchCompletedAsync(current, cancellationToken);
+        var items = await FetchRenewalsAsync(current, cancellationToken);
 
-        // One dictionary read decides what's new; details are re-fetched tracked
-        // inside ProcessAsync (the tracker may be cleared after a failure).
         var ids = items.Select(i => i.Id).ToList();
-        var seen = await context.RenewtronProvisionLogs.AsNoTracking()
+        var logs = await context.RenewtronProvisionLogs.AsNoTracking()
             .Where(l => ids.Contains(l.RenewalId))
             .ToDictionaryAsync(l => l.RenewalId, cancellationToken);
+        var mirrored = await context.BusinessNameRenewals.AsNoTracking()
+            .Where(r => r.RenewtronRenewalId != null && ids.Contains(r.RenewtronRenewalId.Value))
+            .ToDictionaryAsync(r => r.RenewtronRenewalId!.Value, r => r.Status, cancellationToken);
 
         int created = 0, updated = 0, skipped = 0, failed = 0;
-        foreach (var item in items.OrderBy(i => i.CompletedAt))
+        foreach (var item in items.OrderBy(i => i.InitiatedAt))
         {
             cancellationToken.ThrowIfCancellationRequested();
 
-            if (seen.TryGetValue(item.Id, out var prior)
-                && (prior.Outcome != ProvisionOutcome.Failed || prior.Attempts >= current.MaxAttempts))
+            logs.TryGetValue(item.Id, out var log);
+            var provisioned = log is { Outcome: ProvisionOutcome.Created or ProvisionOutcome.Updated };
+
+            // Nothing left to do: the login exists and the portal already shows the
+            // status Renewtron reports. Most renewals in the window take this path.
+            if (provisioned && mirrored.TryGetValue(item.Id, out var status) && status == item.Status)
+                continue;
+            if (log is { Outcome: ProvisionOutcome.Skipped })
+                continue;
+            if (log is { Outcome: ProvisionOutcome.Failed } && log.Attempts >= current.MaxAttempts)
                 continue;
 
             try
@@ -56,7 +75,7 @@ public class RenewtronSyncService(
                 switch (await ProcessAsync(item, cancellationToken))
                 {
                     case ProvisionOutcome.Created: created++; break;
-                    case ProvisionOutcome.Updated: updated++; break;
+                    case ProvisionOutcome.Updated when !provisioned: updated++; break;
                     case ProvisionOutcome.Skipped: skipped++; break;
                 }
             }
@@ -72,20 +91,33 @@ public class RenewtronSyncService(
             }
         }
 
-        var result = new RenewtronSyncResult(true, items.Count, created, updated, skipped, failed, null);
+        var keysApplied = 0;
+        try
+        {
+            await RefreshKeyRequestsAsync(cancellationToken);
+            keysApplied = await ApplyAsicKeysAsync(cancellationToken);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            // Keys are secondary to renewals — a key failure must not fail the run.
+            logger.LogError(ex, "Renewtron ASIC key sync failed");
+            context.ChangeTracker.Clear();
+        }
+
+        var result = new RenewtronSyncResult(true, items.Count, created, updated, skipped, failed, null, keysApplied);
         logger.LogInformation(
-            "Renewtron sync: {Fetched} completed renewals in window, {Created} logins created, {Updated} updated, {Skipped} skipped, {Failed} failed",
-            result.Fetched, result.Created, result.Updated, result.Skipped, result.Failed);
+            "Renewtron sync: {Fetched} renewals in window, {Created} logins created, {Updated} linked to existing logins, {Skipped} skipped, {Failed} failed, {Keys} ASIC keys applied",
+            result.Fetched, result.Created, result.Updated, result.Skipped, result.Failed, keysApplied);
         return result;
     }
 
-    private async Task<List<RenewtronRenewalItem>> FetchCompletedAsync(RenewtronOptions current, CancellationToken ct)
+    private async Task<List<RenewtronRenewalItem>> FetchRenewalsAsync(RenewtronOptions current, CancellationToken ct)
     {
-        var dateFrom = DateTime.UtcNow.AddDays(-Math.Max(1, current.PollWindowDays));
+        var since = DateTime.UtcNow.AddDays(-Math.Max(1, current.PollWindowDays));
         var items = new List<RenewtronRenewalItem>();
         for (var page = 1; page <= MaxPages; page++)
         {
-            var result = await client.GetCompletedRenewalsAsync(dateFrom, page, PageSize, ct);
+            var result = await client.GetRenewalsAsync(since, page, PageSize, ct);
             items.AddRange(result.Items);
             if (result.Items.Count == 0 || items.Count >= result.TotalCount) break;
         }
@@ -94,8 +126,7 @@ public class RenewtronSyncService(
 
     private async Task<ProvisionOutcome> ProcessAsync(RenewtronRenewalItem item, CancellationToken ct)
     {
-        var log = await context.RenewtronProvisionLogs
-            .FirstOrDefaultAsync(l => l.RenewalId == item.Id, ct);
+        var log = await context.RenewtronProvisionLogs.FirstOrDefaultAsync(l => l.RenewalId == item.Id, ct);
         if (log is null)
         {
             log = new RenewtronProvisionLog { RenewalId = item.Id };
@@ -107,93 +138,190 @@ public class RenewtronSyncService(
         log.BusinessName = item.BusinessName ?? string.Empty;
         log.Abn = item.Abn ?? string.Empty;
         log.Source = item.Source ?? string.Empty;
-        log.Attempts++;
         log.ProcessedAt = DateTimeOffset.UtcNow;
-
-        // UserManager.CreateAsync saves the whole tracker eagerly; if a later step
-        // throws, this row must have stranded as retryable, not as a false success.
-        log.Outcome = ProvisionOutcome.Failed;
-        log.Detail = "processing did not finish";
 
         // Bulk-upload renewals often carry no email — nothing to build a login on.
         if (email.Length == 0)
         {
+            log.Attempts++;
             log.Outcome = ProvisionOutcome.Skipped;
             log.Detail = "renewal has no email";
             await context.SaveChangesAsync(ct);
             return ProvisionOutcome.Skipped;
         }
 
-        // The list view has no phone/DOB (and, for Ontraport-sourced renewals, no
-        // name) — the detail call fills what it can.
-        var detail = await client.GetRenewalDetailAsync(item.Id, ct);
-        var (firstName, lastName) = SplitName(item.Lead?.FullName ?? detail?.Lead?.FullName);
-
-        var provision = await provisioner.EnsureUserAsync(email, new ProvisionProfile(
-            FirstName: firstName,
-            LastName: lastName,
-            Phone: detail?.MobileNumber ?? string.Empty,
-            Dob: detail?.DateOfBirth ?? string.Empty), ct);
-        if (provision.User is null)
-            throw new InvalidOperationException($"could not create portal user: {provision.Error}");
-
-        await ApplyRenewalAsync(provision.User.Id, item, ct);
-
-        log.UserId = provision.User.Id;
-        log.Outcome = provision.Created ? ProvisionOutcome.Created : ProvisionOutcome.Updated;
-        log.Detail = null;
-        await context.SaveChangesAsync(ct);
-        return log.Outcome;
-    }
-
-    /// <summary>Upsert the renewed business name (case-insensitive by name within
-    /// the user, like the Ontraport sync) and push its renewal date out. The
-    /// "renewtron:{id}" marker in RenewalTransactionIds means reprocessing —
-    /// including an overlap between the recurring job and "sync now" — can never
-    /// extend the date twice.</summary>
-    private async Task ApplyRenewalAsync(string userId, RenewtronRenewalItem item, CancellationToken ct)
-    {
-        var name = item.BusinessName?.Trim() ?? string.Empty;
-        if (name.Length == 0 || item.RenewalYears <= 0) return;
-
-        var marker = $"renewtron:{item.Id}";
-        var names = await context.BusinessNames.Where(b => b.UserId == userId).ToListAsync(ct);
-        var bn = names.FirstOrDefault(b => string.Equals(b.Name.Trim(), name, StringComparison.OrdinalIgnoreCase));
-
-        if (bn is null)
+        var alreadyProvisioned = log.Outcome is ProvisionOutcome.Created or ProvisionOutcome.Updated
+                                 && log.UserId is not null;
+        string userId;
+        ProvisionOutcome outcome;
+        if (alreadyProvisioned)
         {
-            bn = new BusinessName
-            {
-                UserId = userId,
-                Name = name,
-                DateRegistered = string.Empty,
-                RenewalDate = RenewalDateMath.Extend(string.Empty, item.RenewalYears),
-                AsicKey = string.Empty,
-                RenewalTransactionIds = [marker],
-            };
-            context.BusinessNames.Add(bn);
-        }
-        else if (!bn.RenewalTransactionIds.Contains(marker))
-        {
-            bn.RenewalDate = RenewalDateMath.Extend(bn.RenewalDate, item.RenewalYears);
-            bn.RenewalTransactionIds = [.. bn.RenewalTransactionIds, marker]; // new list → EF detects the change
+            userId = log.UserId!;
+            outcome = log.Outcome;
         }
         else
         {
-            return; // already applied — don't record the renewal twice either
+            log.Attempts++;
+            // UserManager.CreateAsync saves the whole tracker eagerly; if a later step
+            // throws, this row must be stranded as retryable, not as a false success.
+            log.Outcome = ProvisionOutcome.Failed;
+            log.Detail = "processing did not finish";
+
+            var (firstName, lastName) = SplitName(item.FullName);
+            var provision = await provisioner.EnsureUserAsync(email, new ProvisionProfile(
+                FirstName: firstName,
+                LastName: lastName,
+                Phone: item.MobileNumber ?? string.Empty,
+                Dob: item.DateOfBirth ?? string.Empty), ct);
+            if (provision.User is null)
+                throw new InvalidOperationException($"could not create portal user: {provision.Error}");
+
+            userId = provision.User.Id;
+            outcome = provision.Created ? ProvisionOutcome.Created : ProvisionOutcome.Updated;
         }
 
-        context.BusinessNameRenewals.Add(new BusinessNameRenewal
+        await MirrorRenewalAsync(userId, item, ct);
+
+        log.UserId = userId;
+        log.Outcome = outcome;
+        log.Detail = null;
+        await context.SaveChangesAsync(ct);
+        return outcome;
+    }
+
+    /// <summary>Upsert the portal's copy of this renewal, and apply it to the business
+    /// name the first time it's seen as Completed.</summary>
+    private async Task MirrorRenewalAsync(string userId, RenewtronRenewalItem item, CancellationToken ct)
+    {
+        var name = item.BusinessName?.Trim() ?? string.Empty;
+        if (name.Length == 0) return;
+
+        var reference = item.Id.ToString();
+        // Rows written before renewals carried a Renewtron id stored it as Reference.
+        var row = await context.BusinessNameRenewals.FirstOrDefaultAsync(r =>
+            r.RenewtronRenewalId == item.Id || (r.RenewtronRenewalId == null && r.Source == "Renewtron" && r.Reference == reference), ct);
+        if (row is null)
         {
-            UserId = userId,
-            BusinessNameId = bn.Id,
-            BusinessName = bn.Name,
-            Years = item.RenewalYears,
-            NewRenewalDate = bn.RenewalDate,
-            Source = "Renewtron",
-            Reference = item.Id.ToString(),
-            RenewedAt = DateTimeOffset.UtcNow,
-        });
+            row = new BusinessNameRenewal { UserId = userId, RenewtronRenewalId = item.Id, Reference = reference };
+            context.BusinessNameRenewals.Add(row);
+        }
+
+        var status = item.Status ?? "Pending";
+        row.RenewtronRenewalId = item.Id;
+        row.BusinessName = name;
+        row.Abn = item.Abn?.Trim() ?? string.Empty;
+        row.Years = item.RenewalYears;
+        row.Source = item.Source ?? "Renewtron";
+        row.Status = status;
+        row.StatusMessage = status == "Completed" ? null : item.CustomerMessage;
+        row.TransactionReference = item.TransactionReference;
+        row.RenewedAt = new DateTimeOffset(DateTime.SpecifyKind(item.CompletedAt ?? item.InitiatedAt, DateTimeKind.Utc));
+
+        var names = await context.BusinessNames.Where(b => b.UserId == userId).ToListAsync(ct);
+        var bn = names.FirstOrDefault(b => string.Equals(b.Name.Trim(), name, StringComparison.OrdinalIgnoreCase));
+
+        if (status == "Completed" && item.RenewalYears > 0)
+        {
+            var marker = $"renewtron:{item.Id}";
+            if (bn is null)
+            {
+                bn = new BusinessName
+                {
+                    UserId = userId,
+                    Name = name,
+                    DateRegistered = string.Empty,
+                    RenewalDate = RenewalDateMath.Extend(string.Empty, item.RenewalYears),
+                    AsicKey = string.Empty,
+                    RenewalTransactionIds = [marker],
+                };
+                context.BusinessNames.Add(bn);
+                row.NewRenewalDate = bn.RenewalDate;
+            }
+            else if (!bn.RenewalTransactionIds.Contains(marker))
+            {
+                bn.RenewalDate = RenewalDateMath.Extend(bn.RenewalDate, item.RenewalYears);
+                bn.RenewalTransactionIds = [.. bn.RenewalTransactionIds, marker]; // new list → EF detects the change
+                row.NewRenewalDate = bn.RenewalDate;
+            }
+        }
+
+        row.BusinessNameId = bn?.Id;
+    }
+
+    /// <summary>Pull the status of every ASIC key request still open with Renewtron.</summary>
+    private async Task RefreshKeyRequestsAsync(CancellationToken ct)
+    {
+        var open = await context.BusinessNames
+            .Where(b => b.AsicKeyRequestId != null
+                        && b.AsicKeyRequestStatus != "KeyReceived" && b.AsicKeyRequestStatus != "Failed")
+            .ToListAsync(ct);
+
+        foreach (var bn in open)
+        {
+            var state = await client.GetAsicKeyRequestAsync(bn.AsicKeyRequestId!.Value, ct);
+            if (state?.Status is { Length: > 0 } status)
+                bn.AsicKeyRequestStatus = status;
+        }
+        await context.SaveChangesAsync(ct);
+    }
+
+    /// <summary>
+    /// Fill in ASIC keys Renewtron has retrieved from ASIC's notification emails.
+    ///
+    /// An ASIC key lets whoever holds it change the registration, and anyone can add
+    /// any business name (or type any ABN — they're public) into their portal. So a
+    /// matching name is not proof of ownership. The one thing that is: the customer
+    /// paid Renewtron to renew that exact name, which is the same basis Renewtron
+    /// already hands keys to its customers on. Those keys are applied directly.
+    /// A key for a name the customer only *requested* is held in PendingAsicKey for
+    /// staff to verify and apply from the client page. Keys nobody asked for are ignored.
+    /// </summary>
+    private async Task<int> ApplyAsicKeysAsync(CancellationToken ct)
+    {
+        var keys = (await client.GetAsicKeysAsync(DateTime.UtcNow - KeyWindow, ct))
+            .Where(k => !string.IsNullOrWhiteSpace(k.AsicKey) && !string.IsNullOrWhiteSpace(k.BusinessName))
+            .ToList();
+        if (keys.Count == 0) return 0;
+
+        var wanted = keys.Select(k => k.BusinessName!.Trim().ToLower()).Distinct().ToList();
+        var candidates = await context.BusinessNames
+            .Where(b => b.AsicKey == "" && b.PendingAsicKey == null && wanted.Contains(b.Name.Trim().ToLower()))
+            .ToListAsync(ct);
+        if (candidates.Count == 0) return 0;
+
+        var userIds = candidates.Select(b => b.UserId).Distinct().ToList();
+        var renewed = await context.BusinessNameRenewals.AsNoTracking()
+            .Where(r => userIds.Contains(r.UserId) && r.RenewtronRenewalId != null && r.Status == "Completed")
+            .Select(r => new { r.UserId, r.BusinessName })
+            .ToListAsync(ct);
+
+        var applied = 0;
+        foreach (var bn in candidates)
+        {
+            var key = keys
+                .Where(k => string.Equals(k.BusinessName!.Trim(), bn.Name.Trim(), StringComparison.OrdinalIgnoreCase))
+                .OrderByDescending(k => k.ReceivedAt)
+                .First();
+
+            var paidForByThisCustomer = renewed.Any(r =>
+                r.UserId == bn.UserId && string.Equals(r.BusinessName.Trim(), bn.Name.Trim(), StringComparison.OrdinalIgnoreCase));
+
+            if (paidForByThisCustomer)
+            {
+                bn.AsicKey = key.AsicKey!.Trim();
+                if (bn.AsicKeyRequestId is not null) bn.AsicKeyRequestStatus = "KeyReceived";
+                applied++;
+            }
+            else if (bn.AsicKeyRequestId is not null)
+            {
+                bn.PendingAsicKey = key.AsicKey!.Trim();
+                bn.AsicKeyRequestStatus = "KeyReceived";
+                logger.LogInformation("ASIC key for {BusinessName} (user {UserId}) held for staff verification", bn.Name, bn.UserId);
+            }
+        }
+
+        await context.SaveChangesAsync(ct);
+        return applied;
     }
 
     /// <summary>A failure may leave half-applied changes in the tracker (e.g. the
@@ -215,9 +343,13 @@ public class RenewtronSyncService(
             log.BusinessName = item.BusinessName ?? string.Empty;
             log.Abn = item.Abn ?? string.Empty;
             log.Source = item.Source ?? string.Empty;
-            log.Outcome = ProvisionOutcome.Failed;
+            // A login that was already made stays made — only the mirror step failed.
+            if (log.Outcome is not (ProvisionOutcome.Created or ProvisionOutcome.Updated))
+            {
+                log.Outcome = ProvisionOutcome.Failed;
+                log.Attempts++;
+            }
             log.Detail = error.Length > 2000 ? error[..2000] : error;
-            log.Attempts++;
             log.ProcessedAt = DateTimeOffset.UtcNow;
             await context.SaveChangesAsync(ct);
         }

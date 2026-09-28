@@ -13,6 +13,13 @@ public class BusinessNameRenewalConfiguration : IEntityTypeConfiguration<Busines
         builder.Property(r => r.Source).HasMaxLength(20);
         builder.Property(r => r.Reference).HasMaxLength(100);
 
+        builder.Property(r => r.Abn).HasMaxLength(20);
+        builder.Property(r => r.Status).HasMaxLength(20);
+        builder.Property(r => r.StatusMessage).HasMaxLength(500);
+        builder.Property(r => r.TransactionReference).HasMaxLength(100);
+
         builder.HasIndex(r => r.UserId);
+        // One portal row per Renewtron renewal — the sync's upsert key.
+        builder.HasIndex(r => r.RenewtronRenewalId).IsUnique();
     }
 }

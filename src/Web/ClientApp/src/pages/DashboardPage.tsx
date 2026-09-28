@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react'
-import { useMutation, useQuery } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
 import {
   AlertTriangle,
@@ -18,7 +18,8 @@ import {
   getCompletedRenewalsOptions,
   getMessageThreadsOptions,
   getProfileOptions,
-  startThreadMutation,
+  getBusinessNamesQueryKey,
+  requestAsicKeyMutation,
 } from '@/api/generated/@tanstack/react-query.gen'
 import { renewalStatus } from '@/lib/renewal'
 import { formatDate, formatRelativeTime } from '@/lib/dates'
@@ -95,10 +96,15 @@ export function DashboardPage() {
   const threads = useQuery(getMessageThreadsOptions())
   const completed = useQuery(getCompletedRenewalsOptions())
 
+  const queryClient = useQueryClient()
   const requestKey = useMutation({
-    ...startThreadMutation(),
-    onSuccess: () => toastSuccess('ASIC key requested', 'We’ll arrange for a copy to be emailed to you.'),
-    onError: () => toastError('Couldn’t send the request', 'Try again in a moment.'),
+    ...requestAsicKeyMutation(),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: getBusinessNamesQueryKey() })
+      toastSuccess('ASIC key requested', 'We’ve asked ASIC for a copy — it’ll appear on the name when it arrives.')
+    },
+    onError: (error) =>
+      toastError('Couldn’t request the key', (error as { error?: string } | undefined)?.error ?? 'Try again in a moment.'),
   })
 
   const loading = renewals.isPending || names.isPending
@@ -108,15 +114,28 @@ export function DashboardPage() {
 
   const nameList = [...(names.data ?? [])].sort((a, b) => (a.name ?? '').localeCompare(b.name ?? ''))
 
+  // Paid renewals Renewtron is still working on, and ones that stalled.
+  const paid = completed.data ?? []
+  const underway = paid.filter((r) => r.status === 'Pending' || r.status === 'Processing')
+  const stalled = paid.filter((r) => r.status === 'Failed')
+  const isUnderway = (id?: string, name?: string | null) =>
+    underway.some(
+      (r) => (id && r.businessNameId === id) || r.businessName?.trim().toLowerCase() === name?.trim().toLowerCase(),
+    )
+
   // Urgency comes from the due date via the shared rule, not the server's tone.
+  // A name that's already paid for and with ASIC isn't something to do.
   const due = (renewals.data ?? [])
     .map((item) => ({ item, status: renewalStatus(item.dueDate) }))
-    .filter(({ status }) => status.needsAction)
+    .filter(({ item, status }) => status.needsAction && !isUnderway(item.sourceId, item.name))
     .sort((a, b) => (a.status.days ?? 0) - (b.status.days ?? 0))
   const overdueCount = due.filter(({ status }) => status.tone === 'overdue').length
 
   const unreadThreads = (threads.data ?? []).filter((t) => Number(t.unreadForClient) > 0)
-  const noKey = nameList.filter((n) => !n.asicKey)
+  // Names with an open request are in hand — only a failed one needs asking again.
+  const noKey = nameList.filter(
+    (n) => !n.asicKey && (!n.asicKeyRequestStatus || n.asicKeyRequestStatus === 'Failed'),
+  )
   const noDate = nameList.filter((n) => !n.renewalDate)
 
   // ── Build the to-do list ──
@@ -142,6 +161,21 @@ export function DashboardPage() {
             <Link to="/asic-renewals">Manage</Link>
           </Button>
         ),
+    })
+  }
+
+  for (const renewal of stalled) {
+    tasks.push({
+      key: `stalled-${renewal.id}`,
+      tone: 'overdue',
+      icon: <AlertTriangle className="size-4" />,
+      title: `Your renewal of ${renewal.businessName} needs attention`,
+      detail: renewal.statusMessage ?? 'We hit a problem lodging it with ASIC — our team will be in touch.',
+      action: (
+        <Button asChild size="sm" variant="secondary">
+          <Link to="/messages">Message us</Link>
+        </Button>
+      ),
     })
   }
 
@@ -184,20 +218,13 @@ export function DashboardPage() {
         tone: 'info',
         icon: <KeyRound className="size-4" />,
         title: `No ASIC key for ${name.name}`,
-        detail: 'If you don’t have it, we can have a copy emailed to you.',
+        detail: 'You need it to make changes with ASIC. We can ask ASIC for a copy.',
         action: (
           <Button
             size="sm"
             variant="secondary"
             disabled={requestKey.isPending}
-            onClick={() =>
-              requestKey.mutate({
-                body: {
-                  subject: `ASIC key request — ${name.name}`,
-                  body: `I don’t have the ASIC key for the business name "${name.name}". Please request a copy be emailed to me.`,
-                },
-              })
-            }
+            onClick={() => requestKey.mutate({ path: { id: name.id! } })}
           >
             Request key
           </Button>
@@ -261,7 +288,8 @@ export function DashboardPage() {
     .map((n) => ({ name: n, status: renewalStatus(n.renewalDate) }))
     .filter(({ status }) => status.days !== null && status.days >= 0)
     .sort((a, b) => (a.status.days ?? 0) - (b.status.days ?? 0))[0]
-  const recentRenewals = (completed.data ?? []).slice(0, 3)
+  const finished = paid.filter((r) => r.status === 'Completed')
+  const recentRenewals = finished.slice(0, 3)
 
   // ── The answer: the page title itself ──
   let tone: keyof typeof HEADLINE_TONES = 'calm'
@@ -393,7 +421,8 @@ export function DashboardPage() {
               />
               <Stat
                 label="Renewals completed"
-                value={completed.isPending ? '—' : (completed.data?.length ?? 0)}
+                value={completed.isPending ? '—' : finished.length}
+                hint={underway.length > 0 ? `${underway.length} in progress` : undefined}
               />
             </dl>
           </Panel>

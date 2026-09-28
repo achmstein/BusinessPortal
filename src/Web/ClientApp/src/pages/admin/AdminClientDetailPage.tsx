@@ -1,8 +1,12 @@
 import { useState } from 'react'
-import { useMutation, useQuery } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { MessageSquare } from 'lucide-react'
-import { getAdminClientOptions } from '@/api/generated/@tanstack/react-query.gen'
+import {
+  applyPendingAsicKeyMutation,
+  getAdminClientOptions,
+  getAdminClientQueryKey,
+} from '@/api/generated/@tanstack/react-query.gen'
 import { startImpersonation } from '@/api/generated'
 import { formatAbn, formatAcn, maskTfn } from '@/lib/format'
 import { formatDate } from '@/lib/dates'
@@ -20,6 +24,7 @@ import {
   PanelTitle,
   ShowMore,
   toastError,
+  toastSuccess,
   ValidityBand,
 } from '@/ui'
 
@@ -56,7 +61,14 @@ interface ClientDetail {
     postcode: string
   }
   entities: { id: string; name: string; entityType: string; abn: string; acn: string; industry: string }[]
-  businessNames: { id: string; name: string; renewalDate: string; asicKey: string }[]
+  businessNames: {
+    id: string
+    name: string
+    renewalDate: string
+    asicKey: string
+    pendingAsicKey: string | null
+    asicKeyRequestStatus: string | null
+  }[]
 }
 
 const BACK = { to: '/admin/clients', label: 'All clients' }
@@ -85,6 +97,18 @@ export function AdminClientDetailPage() {
   const client = useQuery({
     ...getAdminClientOptions({ path: { id: id! } }),
     select: (data) => data as unknown as ClientDetail,
+  })
+
+  const queryClient = useQueryClient()
+  // A key Renewtron retrieved for a name this client asked about but didn't renew
+  // through us. Staff confirm the client owns the name before it's released.
+  const applyKey = useMutation({
+    ...applyPendingAsicKeyMutation(),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: getAdminClientQueryKey({ path: { id: id! } }) })
+      toastSuccess('ASIC key added to the client’s business name')
+    },
+    onError: () => toastError('Couldn’t apply that key', 'Try again in a moment.'),
   })
 
   const impersonate = useMutation({
@@ -239,10 +263,31 @@ export function AdminClientDetailPage() {
                         ASIC key {bn.asicKey}
                         <CopyButton value={bn.asicKey} label={`Copy the ASIC key for ${bn.name}`} />
                       </>
+                    ) : bn.pendingAsicKey ? (
+                      <>
+                        Key received, waiting for you to verify: {bn.pendingAsicKey}
+                        <Button
+                          size="sm"
+                          variant="secondary"
+                          className="ml-2"
+                          loading={applyKey.isPending}
+                          onClick={() => applyKey.mutate({ path: { clientId: detail.id, id: bn.id } })}
+                        >
+                          Apply key
+                        </Button>
+                      </>
+                    ) : bn.asicKeyRequestStatus ? (
+                      `No ASIC key yet · request ${bn.asicKeyRequestStatus.toLowerCase()}`
                     ) : (
                       'No ASIC key on file'
                     )}
                   </span>
+                  {bn.pendingAsicKey ? (
+                    <span className="text-xs text-ink-faint">
+                      They asked for this key but didn’t renew the name through us. Check they hold the name
+                      before applying it — an ASIC key lets whoever has it change the registration.
+                    </span>
+                  ) : null}
                   <ValidityBand
                     className="mt-1"
                     registeredDate={undefined}

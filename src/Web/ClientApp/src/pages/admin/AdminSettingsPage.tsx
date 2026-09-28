@@ -8,14 +8,11 @@ import {
   getCaptchaSettingsQueryKey,
   getEmailSettingsOptions,
   getEmailSettingsQueryKey,
-  getOntraportSettingsOptions,
-  getOntraportSettingsQueryKey,
   getRenewtronSettingsOptions,
   getRenewtronSettingsQueryKey,
   updateAbnLookupSettingsMutation,
   updateCaptchaSettingsMutation,
   updateEmailSettingsMutation,
-  updateOntraportSettingsMutation,
   updateRenewtronSettingsMutation,
 } from '@/api/generated/@tanstack/react-query.gen'
 import { runRenewtronSyncNow } from '@/api/generated'
@@ -23,7 +20,6 @@ import type { RenewtronSyncResult } from '@/api/generated'
 import {
   Badge,
   Button,
-  CopyButton,
   Field,
   FormActions,
   Page,
@@ -72,16 +68,6 @@ function SecretInput({
         {...form.register(name)}
       />
     </Field>
-  )
-}
-
-/** The URL to paste into Ontraport — awkward to select by hand out of prose. */
-function WebhookUrl({ origin, path }: { origin: string; path: string }) {
-  return (
-    <span className="inline-flex items-center gap-1">
-      <code className="text-xs break-all">POST {origin}{path}</code>
-      <CopyButton value={`${origin}${path}`} label={`Copy the ${path} URL`} />
-    </span>
   )
 }
 
@@ -137,29 +123,20 @@ export function AdminSettingsPage() {
   const queryClient = useQueryClient()
 
   const captcha = useQuery(getCaptchaSettingsOptions())
-  const ontraport = useQuery(getOntraportSettingsOptions())
   const email = useQuery(getEmailSettingsOptions())
   const abn = useQuery(getAbnLookupSettingsOptions())
   const renewtron = useQuery(getRenewtronSettingsOptions())
 
   const captchaForm = useForm<FieldValues>({ defaultValues: { apiKey: '' } })
-  const ontraportForm = useForm<FieldValues>({ defaultValues: { webhookSecret: '', renewalSecret: '' } })
   const emailForm = useForm<FieldValues>({
     defaultValues: { from: '', resendApiKey: '', sendGridApiKey: '', siteUrl: '' },
   })
   const abnForm = useForm<FieldValues>({ defaultValues: { apiToken: '' } })
-  const renewtronForm = useForm<FieldValues>({ defaultValues: { baseUrl: '', apiKey: '' } })
+  const renewtronForm = useForm<FieldValues>({ defaultValues: { baseUrl: '', apiKey: '', checkoutUrl: '' } })
 
   // Re-baseline each form once its values arrive, so isDirty means "you changed
   // something" rather than "the data loaded".
   useHydrate(captchaForm, captcha.data && { apiKey: captcha.data.apiKey ?? '' })
-  useHydrate(
-    ontraportForm,
-    ontraport.data && {
-      webhookSecret: ontraport.data.webhookSecret ?? '',
-      renewalSecret: ontraport.data.renewalSecret ?? '',
-    },
-  )
   useHydrate(
     emailForm,
     email.data && {
@@ -172,7 +149,11 @@ export function AdminSettingsPage() {
   useHydrate(abnForm, abn.data && { apiToken: abn.data.apiToken ?? '' })
   useHydrate(
     renewtronForm,
-    renewtron.data && { baseUrl: renewtron.data.baseUrl ?? '', apiKey: renewtron.data.apiKey ?? '' },
+    renewtron.data && {
+      baseUrl: renewtron.data.baseUrl ?? '',
+      apiKey: renewtron.data.apiKey ?? '',
+      checkoutUrl: renewtron.data.checkoutUrl ?? '',
+    },
   )
 
   const saved = (label: string, key: readonly unknown[], form: UseFormReturn<FieldValues>) => ({
@@ -187,10 +168,6 @@ export function AdminSettingsPage() {
   const saveCaptcha = useMutation({
     ...updateCaptchaSettingsMutation(),
     ...saved('2Captcha key', getCaptchaSettingsQueryKey(), captchaForm),
-  })
-  const saveOntraport = useMutation({
-    ...updateOntraportSettingsMutation(),
-    ...saved('Ontraport secrets', getOntraportSettingsQueryKey(), ontraportForm),
   })
   const saveEmail = useMutation({
     ...updateEmailSettingsMutation(),
@@ -221,7 +198,7 @@ export function AdminSettingsPage() {
   })
 
   const loading =
-    captcha.isPending || ontraport.isPending || email.isPending || abn.isPending || renewtron.isPending
+    captcha.isPending || email.isPending || abn.isPending || renewtron.isPending
 
   if (loading) {
     return (
@@ -231,20 +208,24 @@ export function AdminSettingsPage() {
     )
   }
 
-  const origin = window.location.origin
-
   return (
     <Page title="Integrations" description={DESCRIPTION}>
 
       <SettingsGroup
         title="Renewtron"
-        purpose="Checks Renewtron every 10 minutes for completed business name renewals and creates a portal login for each customer, emailing new ones a link to set a password."
-        whenEmpty="Without an API key the sync is off, and customers who renew won't get a portal account."
+        purpose="Renewtron takes renewal payments, renews names at ASIC, syncs Ontraport and retrieves ASIC keys. Every 10 minutes the portal mirrors its renewals (creating a login for each paying customer) and brings back ASIC keys; the Renew button sends customers to its checkout."
+        whenEmpty="Without the partner key there's no renewal sync, no ASIC key requests, and customers who renew won't get a portal account."
         configured={Boolean(renewtron.data?.apiKey)}
         form={renewtronForm}
         saving={saveRenewtron.isPending}
         onSave={renewtronForm.handleSubmit((values) =>
-          saveRenewtron.mutate({ body: { baseUrl: values.baseUrl || null, apiKey: values.apiKey || null } }),
+          saveRenewtron.mutate({
+            body: {
+              baseUrl: values.baseUrl || null,
+              apiKey: values.apiKey || null,
+              checkoutUrl: values.checkoutUrl || null,
+            },
+          }),
         )}
         footer={
           <>
@@ -254,22 +235,28 @@ export function AdminSettingsPage() {
             {syncResult ? (
               <span className="text-sm text-ink-faint">
                 {syncResult.configured
-                  ? `${syncResult.fetched} checked · ${syncResult.created} created · ${syncResult.updated} updated · ${syncResult.skipped} skipped${Number(syncResult.failed) > 0 ? ` · ${syncResult.failed} failed` : ''}`
+                  ? `${syncResult.fetched} renewals checked · ${syncResult.created} logins created · ${syncResult.keysApplied ?? 0} ASIC keys applied${Number(syncResult.failed) > 0 ? ` · ${syncResult.failed} failed` : ''}`
                   : (syncResult.message ?? 'Not configured.')}
               </span>
             ) : null}
           </>
         }
       >
-        <Field label="Base URL">
+        <Field
+          label="API address"
+          hint="Where the portal calls Renewtron. On the same server, use its internal address so these calls never leave the machine."
+        >
           <Field.Input placeholder="https://businessnames.applyforanabn.au" {...renewtronForm.register('baseUrl')} />
         </Field>
         <SecretInput
-          label="API key"
-          hint="The same X-Api-Key value Renewtron accepts from Mastertron."
+          label="Partner API key"
+          hint="Renewtron's scoped partner key (Security__PartnerApiKey) — not its admin key."
           form={renewtronForm}
           name="apiKey"
         />
+        <Field label="Checkout address" hint="Where customers go to renew. Leave blank if it's the same as the API address.">
+          <Field.Input placeholder="https://businessnames.applyforanabn.au" {...renewtronForm.register('checkoutUrl')} />
+        </Field>
       </SettingsGroup>
 
       <SettingsGroup
@@ -304,36 +291,6 @@ export function AdminSettingsPage() {
         <Field label="Site URL" hint="Used to build emailed links, so it must be the address customers can reach.">
           <Field.Input placeholder="https://myportal.idealbusiness.au" {...emailForm.register('siteUrl')} />
         </Field>
-      </SettingsGroup>
-
-      <SettingsGroup
-        title="Ontraport webhooks"
-        purpose="Shared secrets the Ontraport rules must send in the X-Ontraport-Secret header."
-        whenEmpty="An empty secret rejects every request to that webhook."
-        configured={Boolean(ontraport.data?.webhookSecret || ontraport.data?.renewalSecret)}
-        form={ontraportForm}
-        saving={saveOntraport.isPending}
-        onSave={ontraportForm.handleSubmit((values) =>
-          saveOntraport.mutate({
-            body: {
-              webhookSecret: values.webhookSecret || null,
-              renewalSecret: values.renewalSecret || null,
-            },
-          }),
-        )}
-      >
-        <SecretInput
-          label="Contact sync secret"
-          hint={<WebhookUrl path="/api/integrations/ontraport/webhook" origin={origin} />}
-          form={ontraportForm}
-          name="webhookSecret"
-        />
-        <SecretInput
-          label="Renewal paid secret"
-          hint={<WebhookUrl path="/api/integrations/ontraport/renewal-paid" origin={origin} />}
-          form={ontraportForm}
-          name="renewalSecret"
-        />
       </SettingsGroup>
 
       <SettingsGroup

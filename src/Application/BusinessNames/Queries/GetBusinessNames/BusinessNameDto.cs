@@ -9,6 +9,10 @@ public record BusinessNameDto
     public string AsicKey { get; init; } = string.Empty;
     public DateTimeOffset Created { get; init; }
 
+    /// <summary>Renewtron key request state; KeyReceived while staff verify a held key.</summary>
+    public string? AsicKeyRequestStatus { get; init; }
+    public DateTimeOffset? AsicKeyRequestedAt { get; init; }
+
     public static BusinessNameDto FromEntity(BusinessName b) => new()
     {
         Id = b.Id,
@@ -17,5 +21,7 @@ public record BusinessNameDto
         RenewalDate = b.RenewalDate,
         AsicKey = b.AsicKey,
         Created = b.Created,
+        AsicKeyRequestStatus = b.AsicKeyRequestStatus,
+        AsicKeyRequestedAt = b.AsicKeyRequestedAt,
     };
 }

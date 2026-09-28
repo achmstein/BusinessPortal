@@ -1,43 +1,41 @@
-import { useQuery } from '@tanstack/react-query'
-import { Navigate, useParams, useSearchParams } from 'react-router-dom'
-import { getBusinessNamesOptions } from '@/api/generated/@tanstack/react-query.gen'
-import { useAuth } from '@/auth/AuthContext'
+import { useMutation, useQuery } from '@tanstack/react-query'
+import { Navigate, useParams } from 'react-router-dom'
+import { CalendarCheck, CreditCard, ShieldCheck } from 'lucide-react'
+import {
+  getBusinessNamesOptions,
+  getCompletedRenewalsOptions,
+} from '@/api/generated/@tanstack/react-query.gen'
+import { getRenewalCheckout } from '@/api/generated'
 import { formatDate } from '@/lib/dates'
 import { extendedRenewalDate, renewalStatus } from '@/lib/renewal'
-import { Button, ErrorState, Page, PageSkeleton, Panel, PanelTitle, RadioGroup, TextLink } from '@/ui'
+import { Button, ErrorState, List, Page, PageSkeleton, Panel, PanelTitle, TextLink, toastError } from '@/ui'
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Paying to renew.
+// Renewing hands off to Renewtron's checkout, which takes the card payment
+// (Stripe — card details never touch this application) and starts the renewal
+// with ASIC straight away. The portal passes along what it already knows — ABN,
+// name, email, phone, date of birth — so the customer isn't asked twice, then
+// tracks the renewal from payment to ASIC's confirmation on the Renewals page.
 //
-// The thing someone is actually buying here is a date — how long their name
-// stays theirs — but the old page showed only a price and a term, leaving the
-// customer to do the arithmetic. Each option now leads with the expiry date it
-// produces, and the price sits underneath.
-//
-// It also opened with three summary tiles and a term selector before the
-// payment form, so on a phone you scrolled past a screen of chrome to reach the
-// thing you came to do. The summary is one line now.
-//
-// Payment stays in the hosted form: card details never reach this application.
+// The term is chosen on the checkout itself; this page shows what each term buys
+// (the date it runs to), because that's the question people bring here.
 // ─────────────────────────────────────────────────────────────────────────────
 
-type Term = '1' | '3'
-
-const TERMS: Record<Term, { years: number; price: number; url: string }> = {
-  // Ontraport order forms — both allow framing (verified 2026-06-30). bnId,
-  // email and years ride along so the renewal-paid webhook knows which name to
-  // extend when the payment lands.
-  '1': { years: 1, price: 99, url: 'https://idealbusiness.au/portalpayment' },
-  '3': { years: 3, price: 199, url: 'https://idealbusiness.au/portalrenewal3' },
-}
+const TERMS = [1, 3]
+const IN_FLIGHT = new Set(['Pending', 'Processing'])
 
 export function RenewBusinessNamePage() {
   const { bnId } = useParams<{ bnId: string }>()
-  const [params, setParams] = useSearchParams()
-  const { user } = useAuth()
   const names = useQuery(getBusinessNamesOptions())
+  const renewals = useQuery(getCompletedRenewalsOptions())
 
-  const term: Term = params.get('term') === '3' ? '3' : '1'
+  const checkout = useMutation({
+    mutationFn: async () => (await getRenewalCheckout({ query: { businessNameId: bnId }, throwOnError: true })).data,
+    onSuccess: (data) => {
+      if (data?.url) window.location.assign(data.url)
+    },
+    onError: () => toastError('Online renewal isn’t available right now', 'Try again shortly, or message us.'),
+  })
 
   const back = { to: '/asic-renewals', label: 'Back to renewals' }
 
@@ -68,94 +66,84 @@ export function RenewBusinessNamePage() {
   if (!name) return <Navigate to="/asic-renewals" replace />
 
   const status = renewalStatus(name.renewalDate)
-  const selected = TERMS[term]
-
-  const paymentUrl =
-    `${selected.url}?bnId=${encodeURIComponent(name.id ?? '')}` +
-    `&email=${encodeURIComponent(user?.email ?? '')}` +
-    `&years=${selected.years}` +
-    `&firstname=${encodeURIComponent(user?.firstName ?? '')}` +
-    `&lastname=${encodeURIComponent(user?.lastName ?? '')}`
+  const inFlight = (renewals.data ?? []).find(
+    (r) =>
+      IN_FLIGHT.has(r.status ?? '') &&
+      (r.businessNameId === name.id || r.businessName?.trim().toLowerCase() === name.name?.trim().toLowerCase()),
+  )
 
   return (
     <Page
       back={back}
       title="Renew this business name"
-        description={
-          <>
-            <strong className="font-medium text-ink">{name.name}</strong>
-            {name.renewalDate ? (
-              <>
-                {' '}
-                · {status.tone === 'overdue' ? 'was due' : 'currently runs to'}{' '}
-                {formatDate(name.renewalDate)}
-              </>
-            ) : null}
-          </>
+      description={
+        <>
+          <strong className="font-medium text-ink">{name.name}</strong>
+          {name.renewalDate ? (
+            <>
+              {' '}
+              · {status.tone === 'overdue' ? 'was due' : 'currently runs to'} {formatDate(name.renewalDate)}
+            </>
+          ) : null}
+        </>
       }
     >
-      <fieldset className="flex flex-col gap-3">
-        <legend className="mb-3 font-display text-lg leading-tight font-semibold text-ink">How long for?</legend>
-        <RadioGroup.Root
-          value={term}
-          onValueChange={(details) => setParams({ term: details.value ?? '1' }, { replace: true })}
-        >
-          <div className="grid gap-3 sm:grid-cols-2">
-            {(Object.keys(TERMS) as Term[]).map((key) => {
-              const option = TERMS[key]
-              const until = extendedRenewalDate(name.renewalDate, option.years)
-              return (
-                <RadioGroup.Card key={key} value={key} className="flex-col gap-1">
-                  <span className="flex items-center gap-2">
-                    <RadioGroup.Dot />
-                    <RadioGroup.Text className="text-ink-faint">
-                      {option.years} year{option.years > 1 ? 's' : ''}
-                    </RadioGroup.Text>
+      {inFlight ? (
+        <Panel className="flex flex-col gap-2">
+          <PanelTitle>This renewal is already underway</PanelTitle>
+          <p className="text-sm text-ink-muted">
+            We received your payment on {formatDate(inFlight.renewedAt)} and are renewing it with ASIC now.
+            {inFlight.statusMessage ? ` ${inFlight.statusMessage}` : ''}
+          </p>
+          <TextLink to="/asic-renewals" arrow className="self-start">
+            Follow it on Renewals
+          </TextLink>
+        </Panel>
+      ) : (
+        <>
+          <Panel className="flex flex-col gap-4">
+            <PanelTitle>How long it will run to</PanelTitle>
+            <div className="grid gap-3 sm:grid-cols-2">
+              {TERMS.map((years) => (
+                <div key={years} className="flex flex-col gap-1 rounded-lg border border-rule px-4 py-3">
+                  <span className="text-sm text-ink-faint">
+                    {years} year{years > 1 ? 's' : ''}
                   </span>
-
-                  {/* The date is what's being bought, so it leads. */}
                   <span className="font-display text-xl leading-tight font-semibold text-ink">
-                    Yours until {formatDate(until)}
+                    Yours until {formatDate(extendedRenewalDate(name.renewalDate, years))}
                   </span>
-                  <span className="text-sm text-ink-faint" data-numeric>
-                    ${option.price}
-                  </span>
-                  <RadioGroup.HiddenInput />
-                </RadioGroup.Card>
-              )
-            })}
-          </div>
-        </RadioGroup.Root>
-      </fieldset>
+                </div>
+              ))}
+            </div>
+            <p className="text-sm text-ink-faint">You’ll choose the term and see the price on the next step.</p>
+          </Panel>
 
-      <Panel className="flex flex-col gap-0 overflow-hidden p-0">
-        <div className="flex items-baseline justify-between gap-4 border-b border-rule px-5 py-4 sm:px-6">
-          <PanelTitle as="h2">Payment</PanelTitle>
-          <span className="text-sm text-ink-faint">
-            <span data-numeric className="text-base font-medium text-ink">
-              ${selected.price}
-            </span>{' '}
-            · {selected.years} year{selected.years > 1 ? 's' : ''}
-          </span>
-        </div>
+          <List>
+            <List.Row>
+              <CreditCard aria-hidden className="size-4 shrink-0 text-accent-600" />
+              <span className="min-w-0 flex-1 text-sm text-ink-muted">
+                Pay by card on our secure checkout — your details are filled in for you.
+              </span>
+            </List.Row>
+            <List.Row>
+              <ShieldCheck aria-hidden className="size-4 shrink-0 text-accent-600" />
+              <span className="min-w-0 flex-1 text-sm text-ink-muted">
+                We lodge the renewal with ASIC as soon as your payment clears.
+              </span>
+            </List.Row>
+            <List.Row>
+              <CalendarCheck aria-hidden className="size-4 shrink-0 text-accent-600" />
+              <span className="min-w-0 flex-1 text-sm text-ink-muted">
+                Its progress, ASIC’s reference and the new date appear here under Renewals.
+              </span>
+            </List.Row>
+          </List>
 
-        <iframe
-          key={term} // remount so the form picks up the new term
-          src={paymentUrl}
-          title={`Pay $${selected.price} to renew for ${selected.years} year${selected.years > 1 ? 's' : ''}`}
-          // Taller on narrow screens, not shorter: the hosted form stacks its
-          // fields on a phone, so a fixed 900px left it scrolling inside the
-          // frame — a nested scrollbar in the middle of a payment.
-          className="min-h-[68rem] w-full border-0 bg-surface sm:min-h-[56rem]"
-          loading="lazy"
-        />
-      </Panel>
-
-      <p className="text-sm text-ink-faint">
-        Your renewal date updates automatically once the payment clears, usually within a minute, and the
-        renewal appears under{' '}
-        <TextLink to="/asic-renewals">Business name renewals completed</TextLink>.
-      </p>
+          <Button className="self-start" loading={checkout.isPending} onClick={() => checkout.mutate()}>
+            Continue to secure checkout
+          </Button>
+        </>
+      )}
     </Page>
   )
 }
