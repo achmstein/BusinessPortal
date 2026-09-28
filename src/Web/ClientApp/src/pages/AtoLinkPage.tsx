@@ -189,7 +189,7 @@ export function AtoLinkPage() {
         description="You approve the link in the myID app on your phone. We never see your password or two-factor codes."
       />
 
-      {step !== 'failed' ? <Steps step={stepIndex} items={STEPS} className="max-w-2xl" /> : null}
+      {step !== 'failed' ? <Steps step={stepIndex} items={STEPS} /> : null}
 
       {/* Announces success and failure to screen readers, which previously got
           no notification at all when the state changed. */}
@@ -200,7 +200,7 @@ export function AtoLinkPage() {
       </p>
 
       {step === 'start' ? (
-        <Panel className="flex max-w-2xl flex-col gap-5">
+        <Panel className="flex flex-col gap-5">
           <div className="flex flex-col gap-2">
             <PanelTitle as="h2">Before you start</PanelTitle>
             <ul className="flex list-disc flex-col gap-1.5 pl-5 text-sm text-ink-faint">
@@ -243,7 +243,7 @@ export function AtoLinkPage() {
       ) : null}
 
       {step === 'approve' ? (
-        <Panel className="flex max-w-2xl flex-col gap-6">
+        <Panel className="flex flex-col gap-6">
           <div className="flex flex-col gap-2">
             <PanelTitle as="h2">Approve it on your phone</PanelTitle>
             <p className="text-sm text-ink-faint">
@@ -295,7 +295,7 @@ export function AtoLinkPage() {
       ) : null}
 
       {step === 'chooseAgent' ? (
-        <Panel className="flex max-w-2xl flex-col gap-5">
+        <Panel className="flex flex-col gap-5">
           <div className="flex flex-col gap-2">
             <PanelTitle as="h2">You’re linked to the ATO</PanelTitle>
             <p className="text-sm text-ink-faint">
@@ -329,7 +329,7 @@ export function AtoLinkPage() {
       ) : null}
 
       {step === 'failed' ? (
-        <div className="flex max-w-2xl flex-col gap-4">
+        <div className="flex flex-col gap-4">
           <ErrorState
             title="The link didn’t complete"
             description={

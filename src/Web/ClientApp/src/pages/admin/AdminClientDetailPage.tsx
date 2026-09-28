@@ -49,6 +49,7 @@ interface ClientDetail {
     phone: string
     dob: string
     tfn: string
+    abn: string
     address: string
     suburb: string
     state: string
@@ -144,6 +145,7 @@ export function AdminClientDetailPage() {
               ['Phone', profile.phone || '—'],
               ['Date of birth', profile.dob ? formatDate(profile.dob) : '—'],
               ['Tax file number', maskTfn(profile.tfn) || '—'],
+              ['ABN', profile.abn ? formatAbn(profile.abn) : '—'],
               ['Address', address || '—'],
             ].map(([label, value]) => (
               <div key={label} className="flex flex-wrap gap-x-3">

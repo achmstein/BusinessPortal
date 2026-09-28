@@ -831,6 +831,29 @@
         }
       }
     },
+    "/api/asic-renewals/completed": {
+      "get": {
+        "tags": [
+          "ASIC Renewals"
+        ],
+        "operationId": "GetCompletedRenewals",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/CompletedRenewalDto"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/asic-renewals/{id}/renew": {
       "post": {
         "tags": [
@@ -2313,6 +2336,40 @@
           }
         }
       },
+      "CompletedRenewalDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "businessNameId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "businessName": {
+            "type": "string"
+          },
+          "years": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "newRenewalDate": {
+            "type": "string"
+          },
+          "renewedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
       "CreateBusinessEntityCommand": {
         "required": [
           "name",
@@ -2724,6 +2781,7 @@
           "phone",
           "dob",
           "tfn",
+          "abn",
           "address",
           "suburb",
           "state",
@@ -2756,6 +2814,12 @@
             ]
           },
           "tfn": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "abn": {
             "type": [
               "null",
               "string"

@@ -30,7 +30,7 @@ export const Menu = {
       <ArkMenu.Positioner>
         <ArkMenu.Content
           className={cn(
-            'z-50 min-w-56 rounded-lg border border-rule bg-surface p-1 shadow-overlay',
+            'z-60 min-w-56 rounded-lg border border-rule bg-surface p-1 shadow-overlay',
             'focus:outline-none',
             className,
           )}

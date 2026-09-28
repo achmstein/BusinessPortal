@@ -32,6 +32,10 @@ export function Dialog({
 }: DialogProps) {
   return (
     <ArkDialog.Root open={open} onOpenChange={(details) => onOpenChange(details.open)} lazyMount unmountOnExit>
+      {/* Layers: page chrome 30, overlay backdrop 40, dialog/drawer 50, popups
+          (select, menu, date picker, hover card) 60, tooltip 70. Ark copies a
+          popup Content's z-index onto its Positioner, so popups must sit above
+          50 or they tie with the dialog and can render behind it. */}
       <Portal>
         <ArkDialog.Backdrop className="fixed inset-0 z-40 bg-ink/40 backdrop-blur-[2px] data-[state=open]:animate-in" />
         <ArkDialog.Positioner className="fixed inset-0 z-50 grid place-items-center overflow-y-auto p-4">

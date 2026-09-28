@@ -79,7 +79,7 @@ export function Select({
         <ArkSelect.Positioner>
           <ArkSelect.Content
             className={cn(
-              'z-50 max-h-72 overflow-y-auto rounded-lg border border-rule bg-surface p-1',
+              'z-60 max-h-72 overflow-y-auto rounded-lg border border-rule bg-surface p-1',
               'shadow-overlay focus:outline-none',
             )}
           >

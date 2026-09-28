@@ -90,7 +90,7 @@ public static class AdminEndpoints
             return Results.Ok(new
             {
                 id = user.Id, email = user.Email, atoConnected = user.AtoConnected,
-                profile = new { p.FirstName, p.LastName, p.Phone, p.Dob, p.Tfn, p.Address, p.Suburb, p.State, p.Postcode },
+                profile = new { p.FirstName, p.LastName, p.Phone, p.Dob, p.Tfn, p.Abn, p.Address, p.Suburb, p.State, p.Postcode },
                 entities, businessNames = names,
             });
         }).WithName("GetAdminClient");

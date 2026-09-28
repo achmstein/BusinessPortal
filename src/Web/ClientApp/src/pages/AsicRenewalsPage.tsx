@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { MoreHorizontal } from 'lucide-react'
 import {
   getAsicRenewalsOptions,
+  getCompletedRenewalsOptions,
   startThreadMutation,
 } from '@/api/generated/@tanstack/react-query.gen'
 import { renewalStatus } from '@/lib/renewal'
@@ -14,6 +15,8 @@ import {
   ErrorState,
   Menu,
   PageHeader,
+  Panel,
+  PanelTitle,
   Record,
   RecordList,
   RecordSkeleton,
@@ -43,6 +46,7 @@ import {
 
 export function AsicRenewalsPage() {
   const renewals = useQuery(getAsicRenewalsOptions())
+  const completed = useQuery(getCompletedRenewalsOptions())
 
   const ask = useMutation({
     ...startThreadMutation(),
@@ -190,6 +194,40 @@ export function AsicRenewalsPage() {
           </RecordList>
         </>
       )}
+
+      {/* What they've already paid for — renewals used to be announced as
+          messages; this is the lasting record. */}
+      {completed.data && completed.data.length > 0 ? (
+        <Panel className="flex flex-col gap-3">
+          <PanelTitle as="h2" className="text-lg">
+            Business name renewals completed
+          </PanelTitle>
+          <ul className="flex flex-col divide-y divide-rule">
+            {completed.data.map((renewal) => {
+              const years = Number(renewal.years) || 0
+              return (
+                <li
+                  key={renewal.id}
+                  className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 py-2.5 first:pt-0 last:pb-0"
+                >
+                  <div className="min-w-0">
+                    <p className="font-medium text-ink">{renewal.businessName}</p>
+                    <p className="text-sm text-ink-faint">
+                      Renewed {formatDate(renewal.renewedAt)}
+                      {years > 0 ? ` · ${years} year${years === 1 ? '' : 's'}` : ''}
+                    </p>
+                  </div>
+                  {renewal.newRenewalDate ? (
+                    <p className="text-sm text-ink-muted">
+                      Next due <span data-numeric>{formatDate(renewal.newRenewalDate)}</span>
+                    </p>
+                  ) : null}
+                </li>
+              )
+            })}
+          </ul>
+        </Panel>
+      ) : null}
     </div>
   )
 }

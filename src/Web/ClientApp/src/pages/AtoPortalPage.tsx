@@ -84,7 +84,7 @@ export function AtoPortalPage() {
 
   if (status.isPending) {
     return (
-      <div className="flex max-w-3xl flex-col gap-4">
+      <div className="flex flex-col gap-4">
         <Skeleton className="h-10 w-2/3" />
         <Skeleton className="h-32 w-full" />
       </div>
@@ -107,7 +107,7 @@ export function AtoPortalPage() {
   const connected = status.data?.connected ?? false
 
   return (
-    <div className="flex max-w-3xl flex-col gap-6">
+    <div className="flex flex-col gap-6">
       <PageHeader
         title="ATO connection"
         description="Connecting lets us read your tax registrations and prefill information from the ATO on your behalf. It’s optional — your business names work either way."

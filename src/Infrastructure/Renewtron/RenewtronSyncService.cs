@@ -180,21 +180,20 @@ public class RenewtronSyncService(
         }
         else
         {
-            return; // already applied — don't repeat the confirmation message either
+            return; // already applied — don't record the renewal twice either
         }
 
-        var years = item.RenewalYears;
-        var msg = new Message
+        context.BusinessNameRenewals.Add(new BusinessNameRenewal
         {
             UserId = userId,
-            Direction = MessageDirection.Inbound,
-            Subject = $"Business name renewal confirmed — {bn.Name}",
-            Body = $"Your business name \"{bn.Name}\" has been renewed for {years} year{(years > 1 ? "s" : "")}. New renewal date: {bn.RenewalDate}.",
-            Read = false,
-            AdminRead = true,
-        };
-        msg.ThreadId = msg.Id;
-        context.Messages.Add(msg);
+            BusinessNameId = bn.Id,
+            BusinessName = bn.Name,
+            Years = item.RenewalYears,
+            NewRenewalDate = bn.RenewalDate,
+            Source = "Renewtron",
+            Reference = item.Id.ToString(),
+            RenewedAt = DateTimeOffset.UtcNow,
+        });
     }
 
     /// <summary>A failure may leave half-applied changes in the tracker (e.g. the

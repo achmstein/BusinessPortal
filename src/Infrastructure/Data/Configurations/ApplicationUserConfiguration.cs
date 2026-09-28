@@ -18,6 +18,7 @@ public class ApplicationUserConfiguration : IEntityTypeConfiguration<Application
             profile.Property(p => p.Phone).HasMaxLength(40);
             profile.Property(p => p.Dob).HasMaxLength(20);
             profile.Property(p => p.Tfn).HasMaxLength(20);
+            profile.Property(p => p.Abn).HasMaxLength(20);
             profile.Property(p => p.Address).HasMaxLength(200);
             profile.Property(p => p.Suburb).HasMaxLength(100);
             profile.Property(p => p.State).HasMaxLength(50);
@@ -33,6 +34,11 @@ public class ApplicationUserConfiguration : IEntityTypeConfiguration<Application
         builder.HasMany(u => u.BusinessNames)
             .WithOne()
             .HasForeignKey(b => b.UserId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        builder.HasMany<BusinessNameRenewal>()
+            .WithOne()
+            .HasForeignKey(r => r.UserId)
             .OnDelete(DeleteBehavior.Cascade);
 
         builder.HasMany(u => u.Messages)

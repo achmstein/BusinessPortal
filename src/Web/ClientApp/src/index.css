@@ -88,6 +88,19 @@
     border-color: var(--color-rule);
   }
 
+  /* Tailwind v4's preflight dropped v3's `cursor: pointer` on buttons, so
+     every button, menu item and trigger fell back to the arrow. Restore it for
+     anything clickable, and keep the not-allowed cursor when disabled. */
+  button:not(:disabled),
+  [role='button']:not([aria-disabled='true']),
+  [role='menuitem']:not([data-disabled]),
+  [role='option']:not([data-disabled]),
+  [role='tab']:not([data-disabled]),
+  summary,
+  select:not(:disabled) {
+    cursor: pointer;
+  }
+
   html {
     height: 100%;
     -webkit-text-size-adjust: 100%;

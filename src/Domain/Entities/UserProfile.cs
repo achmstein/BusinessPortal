@@ -10,6 +10,7 @@ public class UserProfile
     public string Phone { get; set; } = string.Empty;
     public string Dob { get; set; } = string.Empty;
     public string Tfn { get; set; } = string.Empty;
+    public string Abn { get; set; } = string.Empty;
     public string Address { get; set; } = string.Empty;
     public string Suburb { get; set; } = string.Empty;
     public string State { get; set; } = string.Empty;

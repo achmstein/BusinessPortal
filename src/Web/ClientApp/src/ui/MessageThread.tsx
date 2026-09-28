@@ -1,22 +1,18 @@
-import { formatDateTime, formatRelativeTime } from '@/lib/dates'
+import { formatDate, formatDateTime } from '@/lib/dates'
 import { cn } from '@/lib/cn'
 import { Avatar } from './Avatar'
 
-// The messages in a thread, for both sides of the conversation.
+// The messages in a thread, for both sides of the conversation, rendered the
+// way chat apps do: your own messages on the right in the accent colour, the
+// other party's on the left in a neutral bubble beside their avatar.
 //
-// This borrows what chat interfaces get right — you can tell at a glance who
-// said what, and runs from one person read as one turn — without borrowing the
-// bubbles. Two reasons it stops short of looking like a chat app:
-//
-//  · Support replies within a business day. Bubbles and a live composer imply
-//    minutes, and an interface that promises what the business does not deliver
-//    makes every reply feel late.
-//  · These messages are letters, not chat lines — several sentences explaining
-//    an ASIC renewal or an ATO link. Bubbles cap line length and read badly at
-//    that size, and threads here carry a subject, which chat has no concept of.
-//
-// What was here before conveyed the sender with a 2px left border and the words
-// "Our team" / "You"; reading the label was the only reliable way to tell.
+//  · Consecutive messages from one sender form a run. Bubbles in a run stack
+//    tightly and square off the corners that face each other, so the run reads
+//    as one turn; the avatar and time appear once, at the end of the run.
+//  · A divider marks each new day, so a thread that spans weeks still reads in
+//    order without a date on every bubble.
+//  · Bubbles cap at ~80% of the width. Replies here can be several sentences
+//    about an ASIC renewal, so the cap is generous rather than phone-narrow.
 
 /** `Inbound` is written by staff; `Outbound` by the client. */
 export interface ThreadMessage {
@@ -26,18 +22,35 @@ export interface ThreadMessage {
   createdAt?: string
 }
 
-interface Group {
-  fromStaff: boolean
+interface Run {
   mine: boolean
-  at: string | undefined
+  day: string
   messages: ThreadMessage[]
+}
+
+const TIME = new Intl.DateTimeFormat('en-AU', { hour: 'numeric', minute: '2-digit' })
+
+function timeOf(value: string | undefined): string {
+  if (!value) return ''
+  const date = new Date(value)
+  return Number.isNaN(date.getTime()) ? '' : TIME.format(date)
+}
+
+function dayLabel(value: string | undefined): string {
+  if (!value) return ''
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return ''
+  const start = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime()
+  const diff = Math.round((start(new Date()) - start(date)) / 86_400_000)
+  if (diff === 0) return 'Today'
+  if (diff === 1) return 'Yesterday'
+  return formatDate(date)
 }
 
 export function MessageThread({
   messages,
   viewer,
   counterpartName,
-  viewerName,
   className,
 }: {
   messages: ThreadMessage[]
@@ -45,78 +58,101 @@ export function MessageThread({
   viewer: 'client' | 'staff'
   /** The other party: 'Our team' in the portal, the client's name in the console. */
   counterpartName: string
-  /** Used only for the avatar on your own turns. */
+  /** Kept for callers; your own turns no longer show an avatar. */
   viewerName?: string
   className?: string
 }) {
-  const groups = groupTurns(messages, viewer)
+  const runs = groupRuns(messages, viewer)
 
   return (
-    <ol className={cn('flex flex-col gap-3', className)}>
-      {groups.map((group, index) => (
-        <li
-          key={group.messages[0]?.id ?? index}
-          className={cn(
-            'flex flex-col gap-2 rounded-lg px-4 py-3',
-            // The other party is tinted and full width; your own turns are
-            // indented and untinted, so a thread reads as a column of replies
-            // rather than two competing blocks of colour.
-            group.mine ? 'ml-6 bg-transparent px-0 py-1' : 'bg-surface-sunken',
-          )}
-        >
-          <div className="flex items-center gap-2">
-            <Avatar name={group.mine ? viewerName : counterpartName} size="sm" />
-            <span className="text-sm font-medium text-ink">
-              {group.mine ? 'You' : counterpartName}
-            </span>
-            {group.at ? (
-              <time
-                dateTime={group.at}
-                title={formatDateTime(group.at)}
-                className="text-xs text-ink-faint"
-              >
-                {formatRelativeTime(group.at)}
-              </time>
+    <ol className={cn('flex flex-col gap-4', className)}>
+      {runs.map((run, index) => {
+        const newDay = index === 0 || runs[index - 1].day !== run.day
+        const last = run.messages[run.messages.length - 1]
+        return (
+          <li key={run.messages[0]?.id ?? index} className="flex flex-col gap-4">
+            {newDay && run.day ? (
+              <div role="separator" className="flex items-center gap-3 text-xs text-ink-faint">
+                <span className="h-px flex-1 bg-rule" />
+                {run.day}
+                <span className="h-px flex-1 bg-rule" />
+              </div>
             ) : null}
-          </div>
 
-          {group.messages.map((message, i) => (
-            <p
-              key={message.id ?? i}
-              className="text-sm leading-relaxed whitespace-pre-wrap text-ink"
-            >
-              {message.body}
-            </p>
-          ))}
-        </li>
-      ))}
+            <div className={cn('flex items-end gap-2', run.mine ? 'justify-end' : 'justify-start')}>
+              {run.mine ? null : (
+                <Avatar name={counterpartName} size="sm" className="mb-5 shrink-0" />
+              )}
+
+              <div className={cn('flex max-w-[80%] flex-col gap-0.5', run.mine ? 'items-end' : 'items-start')}>
+                {run.mine ? null : (
+                  <span className="mb-0.5 px-1 text-xs font-medium text-ink-muted">{counterpartName}</span>
+                )}
+                {run.messages.map((message, i) => {
+                  const first = i === 0
+                  const end = i === run.messages.length - 1
+                  return (
+                    <p
+                      key={message.id ?? i}
+                      title={formatDateTime(message.createdAt)}
+                      className={cn(
+                        'rounded-2xl px-3.5 py-2 text-sm leading-relaxed break-words whitespace-pre-wrap',
+                        run.mine
+                          ? 'bg-accent-600 text-paper'
+                          : 'bg-surface-sunken text-ink ring-1 ring-rule ring-inset',
+                        // Square off the corners that face the rest of the run.
+                        run.mine
+                          ? cn(!first && 'rounded-tr-md', !end && 'rounded-br-md', end && 'rounded-br-sm')
+                          : cn(!first && 'rounded-tl-md', !end && 'rounded-bl-md', end && 'rounded-bl-sm'),
+                      )}
+                    >
+                      {message.body}
+                    </p>
+                  )
+                })}
+                {last?.createdAt ? (
+                  <time
+                    dateTime={last.createdAt}
+                    title={formatDateTime(last.createdAt)}
+                    className="mt-0.5 px-1 text-[0.6875rem] text-ink-faint"
+                  >
+                    {run.mine ? 'You · ' : ''}
+                    {timeOf(last.createdAt)}
+                  </time>
+                ) : null}
+              </div>
+            </div>
+          </li>
+        )
+      })}
     </ol>
   )
 }
 
 /**
- * Oldest first, with consecutive messages from one sender collapsed into a
- * single turn.
+ * Oldest first, with consecutive messages from one sender on the same day
+ * collapsed into a single run.
  *
  * The order matters: both pages rendered `thread.messages` exactly as the API
  * returned it, with nothing guaranteeing chronological sequence — a thread
  * could read out of order and the reply box would not follow the newest
  * message.
  */
-function groupTurns(messages: ThreadMessage[], viewer: 'client' | 'staff'): Group[] {
+function groupRuns(messages: ThreadMessage[], viewer: 'client' | 'staff'): Run[] {
   const ordered = [...messages].sort((a, b) => (a.createdAt ?? '').localeCompare(b.createdAt ?? ''))
 
-  return ordered.reduce<Group[]>((groups, message) => {
+  return ordered.reduce<Run[]>((runs, message) => {
     const fromStaff = message.direction === 'Inbound'
     const mine = viewer === 'staff' ? fromStaff : !fromStaff
-    const last = groups[groups.length - 1]
+    const day = dayLabel(message.createdAt)
+    const last = runs[runs.length - 1]
 
-    if (last && last.fromStaff === fromStaff) {
+    if (last && last.mine === mine && last.day === day) {
       last.messages.push(message)
-      return groups
+      return runs
     }
 
-    groups.push({ fromStaff, mine, at: message.createdAt, messages: [message] })
-    return groups
+    runs.push({ mine, day, messages: [message] })
+    return runs
   }, [])
 }

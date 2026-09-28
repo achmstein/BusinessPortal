@@ -78,7 +78,7 @@ export function DatePicker({
 
       <Portal>
         <ArkDatePicker.Positioner>
-          <ArkDatePicker.Content className="z-50 rounded-xl border border-rule bg-surface p-3 shadow-overlay focus:outline-none">
+          <ArkDatePicker.Content className="z-60 rounded-xl border border-rule bg-surface p-3 shadow-overlay focus:outline-none">
             <ArkDatePicker.View view="day">
               <ArkDatePicker.Context>
                 {(api) => (

@@ -147,8 +147,8 @@ public sealed class AtoService(
             : new AtoStatusResult(user.AtoConnected, user.AtoNominatedAt, user.AtoNominatedFromAbn);
     }
 
-    /// <summary>Look up our agent by RAN, submit the nomination, stamp the user + drop a
-    /// threaded confirmation message. Idempotent — returns "already_nominated" if a prior
+    /// <summary>Look up our agent by RAN, submit the nomination, stamp the user.
+    /// Idempotent — returns "already_nominated" if a prior
     /// nomination already succeeded. Returns "submitted" | "already_nominated" | "failed".</summary>
     private async Task<string> NominateInternalAsync(string userId, string abn, CancellationToken ct)
     {
@@ -168,19 +168,6 @@ public sealed class AtoService(
         user.AtoNominatedAt = now;
         user.AtoNominatedFromAbn = abn;
         await userManager.UpdateAsync(user);
-
-        var msg = new Message
-        {
-            UserId = userId,
-            Direction = MessageDirection.Inbound,
-            Subject = "Tax agent nomination submitted",
-            Body = $"We've been nominated as your tax agent (via ABN {abn}). We have 28 days to accept the " +
-                   "nomination in Online services for Agents; no further action is needed from you.",
-            Read = false,
-        };
-        msg.ThreadId = msg.Id;
-        db.Messages.Add(msg);
-        await db.SaveChangesAsync(ct);
 
         await cookieStore.SaveAsync(userId, session.Email, AtoHttp.SerializeJar(http.Jar), session.Agents, ct: ct);
         logger.LogInformation("ATO nomination {Status} for user {UserId} via ABN {Abn}", result.Status, userId, abn);

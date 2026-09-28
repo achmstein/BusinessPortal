@@ -104,18 +104,6 @@ public class AbnLookupService(
             job.Status = AbnLookupStatus.Done;
             job.CompletedAt = DateTimeOffset.UtcNow;
 
-            context.Messages.Add(new Message
-            {
-                UserId = userId,
-                Direction = MessageDirection.Inbound,
-                Subject = "Re: ABN Lookup information request",
-                Body = added > 0
-                    ? $"We connected to the ABN Register and added {added} business name(s) registered to your ABN(s)."
-                    : "We checked the ABN Register — there were no new business names to add.",
-                Read = false,
-                AdminRead = true,
-            });
-
             await context.SaveChangesAsync(cancellationToken);
             logger.LogInformation("ABN lookup for {UserId} complete: {Added} added across {Total} ABN(s).",
                 userId, added, validAbns.Count);

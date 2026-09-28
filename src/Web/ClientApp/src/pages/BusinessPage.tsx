@@ -9,6 +9,7 @@ import {
   deleteBusinessEntityMutation,
   getBusinessEntitiesOptions,
   getBusinessEntitiesQueryKey,
+  getProfileOptions,
 } from '@/api/generated/@tanstack/react-query.gen'
 import type { BusinessEntityDto, EntityType } from '@/api/generated'
 import { formatAbn, formatAcn, maskTfn } from '@/lib/format'
@@ -61,8 +62,13 @@ const ENTITY_TYPE_LABELS: Record<string, string> = {
   Trust: 'Trust',
 }
 
+// A sole trader trades as themselves, so there is no separate entity name and
+// no ACN to collect — both fields are hidden and the name defaults to the
+// person's own.
+const isSoleTrader = (entityType: string) => entityType === 'SoleTrader'
+
 const schema = z.object({
-  name: z.string().trim().min(1, 'Enter the business name.'),
+  name: z.string().trim(),
   entityType: z.string(),
   abn: z
     .string()
@@ -81,6 +87,10 @@ const schema = z.object({
   employees: z.number().min(0, 'That can’t be negative.'),
   phone: z.string(),
   website: z.string(),
+}).superRefine((values, ctx) => {
+  if (!isSoleTrader(values.entityType) && values.name.length === 0) {
+    ctx.addIssue({ code: 'custom', path: ['name'], message: 'Enter the business name.' })
+  }
 })
 
 type EntityForm = z.infer<typeof schema>
@@ -99,10 +109,25 @@ const EMPTY: EntityForm = {
 export function BusinessPage() {
   const queryClient = useQueryClient()
   const entities = useQuery(getBusinessEntitiesOptions())
+  const profile = useQuery(getProfileOptions())
   const [adding, setAdding] = useState(false)
   const [removing, setRemoving] = useState<BusinessEntityDto | null>(null)
 
   const form = useForm<EntityForm>({ resolver: zodResolver(schema), defaultValues: EMPTY })
+
+  const soleTrader = isSoleTrader(form.watch('entityType'))
+
+  function submit(values: EntityForm) {
+    const ownName = [profile.data?.firstName, profile.data?.lastName].filter(Boolean).join(' ')
+    create.mutate({
+      body: {
+        ...values,
+        entityType: values.entityType as EntityType,
+        name: isSoleTrader(values.entityType) ? ownName || 'Sole trader' : values.name,
+        acn: isSoleTrader(values.entityType) ? '' : values.acn,
+      },
+    })
+  }
 
   const invalidate = () => queryClient.invalidateQueries({ queryKey: getBusinessEntitiesQueryKey() })
 
@@ -242,7 +267,11 @@ export function BusinessPage() {
           if (!open) form.reset(EMPTY)
         }}
         title="Add a business"
-        description="Only the name is required — the ATO sync can fill in the rest."
+        description={
+          soleTrader
+            ? 'Sole traders trade under their own name, so there’s no entity name or ACN.'
+            : 'Only the name is required — the ATO sync can fill in the rest.'
+        }
         footer={
           <>
             <Button variant="ghost" onClick={() => setAdding(false)}>
@@ -250,9 +279,7 @@ export function BusinessPage() {
             </Button>
             <Button
               loading={create.isPending}
-              onClick={form.handleSubmit((values) =>
-                create.mutate({ body: { ...values, entityType: values.entityType as EntityType } }),
-              )}
+              onClick={form.handleSubmit(submit)}
             >
               Add business
             </Button>
@@ -261,20 +288,10 @@ export function BusinessPage() {
       >
         <form
           className="grid grid-cols-1 gap-4 sm:grid-cols-2"
-          onSubmit={form.handleSubmit((values) =>
-            create.mutate({ body: { ...values, entityType: values.entityType as EntityType } }),
-          )}
+          onSubmit={form.handleSubmit(submit)}
           noValidate
         >
-          <Field
-            label="Business name"
-            required
-            className="sm:col-span-2"
-            error={form.formState.errors.name?.message}
-          >
-            <Field.Input {...form.register('name')} />
-          </Field>
-          <Field label="Type">
+          <Field label="Type" className="sm:col-span-2">
             <Controller
               control={form.control}
               name="entityType"
@@ -287,19 +304,31 @@ export function BusinessPage() {
               )}
             />
           </Field>
+          {soleTrader ? null : (
+            <Field
+              label="Business name"
+              required
+              className="sm:col-span-2"
+              error={form.formState.errors.name?.message}
+            >
+              <Field.Input {...form.register('name')} />
+            </Field>
+          )}
           <Field label="Industry" error={form.formState.errors.industry?.message}>
             <Field.Input {...form.register('industry')} placeholder="e.g. Plumbing" />
           </Field>
           <Field label="ABN" hint="11 digits" error={form.formState.errors.abn?.message}>
             <Field.Input inputMode="numeric" {...form.register('abn')} />
           </Field>
-          <Field
-            label="ACN"
-            hint="9 digits, companies only"
-            error={form.formState.errors.acn?.message}
-          >
-            <Field.Input inputMode="numeric" {...form.register('acn')} />
-          </Field>
+          {soleTrader ? null : (
+            <Field
+              label="ACN"
+              hint="9 digits, companies only"
+              error={form.formState.errors.acn?.message}
+            >
+              <Field.Input inputMode="numeric" {...form.register('acn')} />
+            </Field>
+          )}
           <Field label="Employees" error={form.formState.errors.employees?.message}>
             <Controller
               control={form.control}

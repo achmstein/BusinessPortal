@@ -125,7 +125,7 @@ function Section({
         {footer}
         {dirty ? <span className="text-sm text-ink-faint">Unsaved changes</span> : null}
         <Button onClick={onSave} disabled={!dirty} loading={saving}>
-          Save
+          Save changes
         </Button>
       </div>
     </Panel>
@@ -235,7 +235,7 @@ export function AdminSettingsPage() {
   const origin = window.location.origin
 
   return (
-    <div className="flex max-w-3xl flex-col gap-5">
+    <div className="flex flex-col gap-5">
       <PageHeader
         title="Integrations"
         description="Credentials live on the server and take effect immediately — nothing here needs a restart or a redeploy."

@@ -1,263 +1,490 @@
-import { useQuery } from '@tanstack/react-query'
+import type { ReactNode } from 'react'
+import { useMutation, useQuery } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
-import { ArrowRight } from 'lucide-react'
+import {
+  AlertTriangle,
+  ArrowRight,
+  Building2,
+  CalendarClock,
+  CalendarPlus,
+  CheckCircle2,
+  KeyRound,
+  MessageSquare,
+  UserRound,
+} from 'lucide-react'
 import {
   getAsicRenewalsOptions,
+  getBusinessEntitiesOptions,
   getBusinessNamesOptions,
+  getCompletedRenewalsOptions,
   getMessageThreadsOptions,
   getProfileOptions,
+  startThreadMutation,
 } from '@/api/generated/@tanstack/react-query.gen'
 import { renewalStatus } from '@/lib/renewal'
-import { formatDate } from '@/lib/dates'
+import { formatDate, formatRelativeTime } from '@/lib/dates'
+import { cn } from '@/lib/cn'
 import {
   Badge,
   Button,
-  EmptyState,
   ErrorState,
   Panel,
   PanelTitle,
-  Record,
-  RecordList,
-  RecordSkeleton,
   Skeleton,
-  ValidityBand,
+  toastError,
+  toastSuccess,
 } from '@/ui'
 
 // ─────────────────────────────────────────────────────────────────────────────
-// People reach this page once or twice a year, usually straight from a renewal
-// email, and they arrive with exactly one question: do I need to do anything?
+// The Overview answers one question: what do I need to do?
 //
-// So the page answers it in the first line, in words. What replaced what:
+// Everything that wants the customer's attention — a renewal falling due, a
+// reply from the team, a name with no ASIC key, a gap in their details — is
+// gathered into one "To do" list, most urgent first, each with the button that
+// deals with it. People arrive here from a renewal email once or twice a year;
+// they should be able to act without learning where things live.
 //
-//  · A time-of-day greeting — the same information as a clock.
-//  · A "compliance health" scorecard marking five things ✓ or ✗, including ATO
-//    connection, which most customers legitimately never need. Grading someone
-//    on obligations they didn't ask for is the wrong tone for a portal that
-//    holds their TFN. Missing details are now specific asks with a reason, and
-//    nothing at all is said when there's nothing to say.
-//  · A "quick actions" row that duplicated the navigation.
-//  · An employees/industries rollup nobody opens this page to read.
+// The side column is reference, not action: how many names are tracked, when
+// the next one falls due, and what has been renewed recently.
 // ─────────────────────────────────────────────────────────────────────────────
 
-function AnswerLine({ children, tone }: { children: React.ReactNode; tone: 'calm' | 'action' }) {
+type TaskTone = 'overdue' | 'due' | 'info'
+
+interface Task {
+  key: string
+  tone: TaskTone
+  icon: ReactNode
+  title: string
+  detail: string
+  action: ReactNode
+}
+
+const TONE_ORDER: Record<TaskTone, number> = { overdue: 0, due: 1, info: 2 }
+
+const ICON_TONES: Record<TaskTone, string> = {
+  overdue: 'bg-danger-50 text-danger-700',
+  due: 'bg-warn-50 text-warn-700',
+  info: 'bg-accent-50 text-accent-700',
+}
+
+/** Inline ASIC-key requests only while there are few; past that, one grouped task. */
+const MAX_INLINE_KEY_REQUESTS = 2
+
+function Headline({ tone, children }: { tone: 'calm' | 'action' | 'urgent'; children: ReactNode }) {
   return (
     <p
-      className={
-        tone === 'action'
-          ? 'font-display text-3xl leading-tight font-medium text-warn-700 sm:text-4xl'
-          : 'font-display text-3xl leading-tight font-medium text-ink sm:text-4xl'
-      }
+      className={cn(
+        'font-display text-3xl leading-tight font-medium sm:text-4xl',
+        tone === 'urgent' ? 'text-danger-700' : tone === 'action' ? 'text-warn-700' : 'text-ink',
+      )}
     >
       {children}
     </p>
   )
 }
 
+function Stat({ label, value, hint }: { label: string; value: ReactNode; hint?: ReactNode }) {
+  return (
+    <div className="flex flex-col gap-0.5">
+      <dt className="text-xs tracking-[0.08em] text-ink-faint uppercase">{label}</dt>
+      <dd className="font-display text-2xl leading-tight font-medium text-ink" data-numeric>
+        {value}
+      </dd>
+      {hint ? <dd className="text-sm text-ink-faint">{hint}</dd> : null}
+    </div>
+  )
+}
+
 export function DashboardPage() {
   const renewals = useQuery(getAsicRenewalsOptions())
   const names = useQuery(getBusinessNamesOptions())
+  const entities = useQuery(getBusinessEntitiesOptions())
   const profile = useQuery(getProfileOptions())
   const threads = useQuery(getMessageThreadsOptions())
+  const completed = useQuery(getCompletedRenewalsOptions())
+
+  const requestKey = useMutation({
+    ...startThreadMutation(),
+    onSuccess: () => toastSuccess('ASIC key requested', 'We’ll arrange for a copy to be emailed to you.'),
+    onError: () => toastError('Couldn’t send the request', 'Try again in a moment.'),
+  })
 
   const loading = renewals.isPending || names.isPending
-  // If the two queries this page's answer depends on both failed, saying
-  // "nothing needs your attention" would be a lie.
+  // If the two queries the answer depends on both failed, "nothing to do"
+  // would be a lie.
   const failed = renewals.isError && names.isError
 
-  // Urgency is derived from the due date with the same rule the rest of the app
-  // uses, rather than the server's `tone` field — one threshold, one answer.
+  const nameList = [...(names.data ?? [])].sort((a, b) => (a.name ?? '').localeCompare(b.name ?? ''))
+
+  // Urgency comes from the due date via the shared rule, not the server's tone.
   const due = (renewals.data ?? [])
     .map((item) => ({ item, status: renewalStatus(item.dueDate) }))
     .filter(({ status }) => status.needsAction)
     .sort((a, b) => (a.status.days ?? 0) - (b.status.days ?? 0))
+  const overdueCount = due.filter(({ status }) => status.tone === 'overdue').length
 
-  const overdue = due.filter(({ status }) => status.tone === 'overdue')
-  const nameList = [...(names.data ?? [])].sort((a, b) => (a.name ?? '').localeCompare(b.name ?? ''))
-  const unread = (threads.data ?? []).reduce((n, t) => n + (Number(t.unreadForClient) || 0), 0)
+  const unreadThreads = (threads.data ?? []).filter((t) => Number(t.unreadForClient) > 0)
+  const noKey = nameList.filter((n) => !n.asicKey)
+  const noDate = nameList.filter((n) => !n.renewalDate)
 
-  // Only ask for details that have a concrete reason to exist, and only when
-  // they're actually missing.
-  const asks: { label: string; href: string }[] = []
-  if (profile.data && !profile.data.phone) {
-    asks.push({ label: 'Add a phone number so we can reach you about a renewal', href: '/profile' })
+  // ── Build the to-do list ──
+  const tasks: Task[] = []
+
+  for (const { item, status } of due) {
+    const overdue = status.tone === 'overdue'
+    tasks.push({
+      key: `renew-${item.kind}-${item.sourceId}`,
+      tone: overdue ? 'overdue' : 'due',
+      icon: overdue ? <AlertTriangle className="size-4" /> : <CalendarClock className="size-4" />,
+      title: overdue ? `Renew ${item.name} — it’s overdue` : `Renew ${item.name}`,
+      detail: overdue
+        ? `Lapsed ${Math.abs(status.days ?? 0)} days ago. A lapsed name can be registered by someone else.`
+        : `Due ${formatDate(item.dueDate)} — ${status.days} days left.`,
+      action:
+        item.kind === 'Business Name' ? (
+          <Button asChild size="sm" variant={overdue ? 'danger' : 'primary'}>
+            <Link to={`/asic-renewals/${item.sourceId}/renew`}>Renew now</Link>
+          </Button>
+        ) : (
+          <Button asChild size="sm" variant="secondary">
+            <Link to="/asic-renewals">Manage</Link>
+          </Button>
+        ),
+    })
   }
-  if (profile.data && !profile.data.firstName) {
-    asks.push({ label: 'Tell us your name so we know who we’re writing to', href: '/profile' })
+
+  if (unreadThreads.length > 0) {
+    const first = unreadThreads[0]
+    tasks.push({
+      key: 'messages',
+      tone: 'info',
+      icon: <MessageSquare className="size-4" />,
+      title:
+        unreadThreads.length === 1
+          ? `Our team replied: ${first.subject}`
+          : `${unreadThreads.length} conversations have new replies`,
+      detail: first.lastActivityAt ? `Latest ${formatRelativeTime(first.lastActivityAt)}.` : 'Waiting for you.',
+      action: (
+        <Button asChild size="sm" variant="secondary">
+          <Link to="/messages">Read</Link>
+        </Button>
+      ),
+    })
   }
+
+  if (noKey.length > MAX_INLINE_KEY_REQUESTS) {
+    tasks.push({
+      key: 'asic-keys',
+      tone: 'info',
+      icon: <KeyRound className="size-4" />,
+      title: `${noKey.length} business names have no ASIC key`,
+      detail: 'You need the key to make changes with ASIC. Request a copy for each one.',
+      action: (
+        <Button asChild size="sm" variant="secondary">
+          <Link to="/business-names">Review names</Link>
+        </Button>
+      ),
+    })
+  } else {
+    for (const name of noKey) {
+      tasks.push({
+        key: `asic-key-${name.id}`,
+        tone: 'info',
+        icon: <KeyRound className="size-4" />,
+        title: `No ASIC key for ${name.name}`,
+        detail: 'If you don’t have it, we can have a copy emailed to you.',
+        action: (
+          <Button
+            size="sm"
+            variant="secondary"
+            disabled={requestKey.isPending}
+            onClick={() =>
+              requestKey.mutate({
+                body: {
+                  subject: `ASIC key request — ${name.name}`,
+                  body: `I don’t have the ASIC key for the business name "${name.name}". Please request a copy be emailed to me.`,
+                },
+              })
+            }
+          >
+            Request key
+          </Button>
+        ),
+      })
+    }
+  }
+
+  if (noDate.length > 0) {
+    tasks.push({
+      key: 'renewal-dates',
+      tone: 'info',
+      icon: <CalendarPlus className="size-4" />,
+      title:
+        noDate.length === 1
+          ? `Add the renewal date for ${noDate[0].name}`
+          : `${noDate.length} names are missing a renewal date`,
+      detail: 'Without it we can’t remind you before it lapses.',
+      action: (
+        <Button asChild size="sm" variant="secondary">
+          <Link to="/business-names">Add date</Link>
+        </Button>
+      ),
+    })
+  }
+
+  if (entities.data && entities.data.length === 0) {
+    tasks.push({
+      key: 'business',
+      tone: 'info',
+      icon: <Building2 className="size-4" />,
+      title: 'Add your business',
+      detail: 'With your ABN on file we can find every business name registered to it.',
+      action: (
+        <Button asChild size="sm" variant="secondary">
+          <Link to="/business">Add business</Link>
+        </Button>
+      ),
+    })
+  }
+
+  if (profile.data && (!profile.data.firstName || !profile.data.phone)) {
+    tasks.push({
+      key: 'profile',
+      tone: 'info',
+      icon: <UserRound className="size-4" />,
+      title: !profile.data.firstName ? 'Tell us your name' : 'Add a phone number',
+      detail: 'So we can reach you before a renewal falls due.',
+      action: (
+        <Button asChild size="sm" variant="secondary">
+          <Link to="/profile">Update details</Link>
+        </Button>
+      ),
+    })
+  }
+
+  tasks.sort((a, b) => TONE_ORDER[a.tone] - TONE_ORDER[b.tone])
+
+  // ── Side column facts ──
+  const upcoming = nameList
+    .map((n) => ({ name: n, status: renewalStatus(n.renewalDate) }))
+    .filter(({ status }) => status.days !== null && status.days >= 0)
+    .sort((a, b) => (a.status.days ?? 0) - (b.status.days ?? 0))[0]
+  const recentRenewals = (completed.data ?? []).slice(0, 3)
 
   return (
-    <div className="flex flex-col gap-10">
+    <div className="flex flex-col gap-8">
       {/* ── The answer ── */}
-      <section className="flex flex-col gap-4 border-b border-rule-firm pb-8">
+      <section className="flex flex-col gap-3 border-b border-rule-firm pb-8">
         {loading ? (
           <>
             <Skeleton className="h-9 w-3/4" />
             <Skeleton className="h-4 w-1/2" />
           </>
         ) : failed ? (
-          <AnswerLine tone="calm">We couldn’t load your records</AnswerLine>
-        ) : due.length === 0 ? (
+          <Headline tone="calm">We couldn’t load your records</Headline>
+        ) : overdueCount > 0 ? (
           <>
-            <AnswerLine tone="calm">Nothing needs your attention.</AnswerLine>
+            <Headline tone="urgent">
+              {overdueCount === 1 ? 'One registration is' : `${overdueCount} registrations are`} overdue.
+            </Headline>
+            <p className="max-w-prose text-sm text-ink-faint">
+              Renewing restores it if you act quickly — it’s the first thing on your list below.
+            </p>
+          </>
+        ) : due.length > 0 ? (
+          <>
+            <Headline tone="action">
+              {due.length === 1 ? 'One registration needs' : `${due.length} registrations need`} renewing.
+            </Headline>
+            <p className="max-w-prose text-sm text-ink-faint">
+              Renewing early costs the same and takes a couple of minutes.
+            </p>
+          </>
+        ) : tasks.length > 0 ? (
+          <>
+            <Headline tone="calm">Your registrations are in order.</Headline>
+            <p className="max-w-prose text-sm text-ink-faint">
+              {tasks.length === 1 ? 'There’s one small thing' : `There are ${tasks.length} small things`} that
+              would help us look after them.
+            </p>
+          </>
+        ) : (
+          <>
+            <Headline tone="calm">Nothing needs your attention.</Headline>
             <p className="max-w-prose text-sm text-ink-faint">
               {nameList.length > 0
                 ? `We’re watching ${nameList.length === 1 ? 'your business name' : `all ${nameList.length} of your business names`} and will email you well before anything is due.`
                 : 'Add a business name and we’ll track its renewal date for you.'}
             </p>
           </>
-        ) : (
-          <>
-            <AnswerLine tone="action">
-              {overdue.length > 0
-                ? `${overdue.length === 1 ? 'One registration is' : `${overdue.length} registrations are`} overdue.`
-                : `${due.length === 1 ? 'One registration needs' : `${due.length} registrations need`} renewing.`}
-            </AnswerLine>
-            <p className="max-w-prose text-sm text-ink-faint">
-              {overdue.length > 0
-                ? 'A lapsed business name can be taken by someone else. Renewing restores it if you act quickly.'
-                : 'Renewing early costs the same and takes a couple of minutes.'}
-            </p>
-          </>
         )}
       </section>
 
-      {/* ── What to do about it ── */}
-      {due.length > 0 ? (
-        <section className="flex flex-col gap-4">
-          <h2 className="font-display text-xl font-medium text-ink">Needs your attention</h2>
-          <RecordList>
-            {due.map(({ item, status }) => (
-              <Record key={`${item.kind}-${item.sourceId}`} className="flex flex-col gap-1.5">
-                <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-2">
-                  <div className="min-w-0 flex-1">
-                    <h3 className="font-display text-xl leading-tight font-medium text-ink">{item.name}</h3>
-                    <p className="mt-0.5 text-sm text-ink-faint">
-                      {item.kind} · due {formatDate(item.dueDate)}
-                    </p>
-                  </div>
-                  <div className="flex shrink-0 items-center gap-3">
-                    <Badge tone={status.tone}>
-                      {status.tone === 'overdue'
-                        ? `${Math.abs(status.days ?? 0)} days overdue`
-                        : `${status.days} days left`}
-                    </Badge>
-                    {item.kind === 'Business Name' ? (
-                      <Button asChild size="sm">
-                        <Link to={`/asic-renewals/${item.sourceId}/renew`}>Renew</Link>
-                      </Button>
-                    ) : (
-                      <Button asChild size="sm" variant="secondary">
-                        <Link to="/asic-renewals">Manage</Link>
-                      </Button>
-                    )}
-                  </div>
-                </div>
-                <ValidityBand
-                  className="mt-3"
-                  registeredDate={undefined}
-                  renewalDate={item.dueDate}
-                  status={status}
-                />
-              </Record>
-            ))}
-          </RecordList>
-        </section>
-      ) : null}
+      <div className="grid grid-cols-1 gap-8 lg:grid-cols-[minmax(0,1fr)_18rem]">
+        {/* ── Main column: to do, then the register ── */}
+        <div className="flex min-w-0 flex-col gap-8">
+          <section className="flex flex-col gap-3" aria-labelledby="todo-heading">
+            <div className="flex items-baseline justify-between gap-4">
+              <h2 id="todo-heading" className="font-display text-xl font-medium text-ink">
+                To do
+              </h2>
+              {tasks.length > 0 ? (
+                <span className="text-sm text-ink-faint" data-numeric>
+                  {tasks.length} {tasks.length === 1 ? 'item' : 'items'}
+                </span>
+              ) : null}
+            </div>
 
-      {/* ── The register itself ── */}
-      <section className="flex flex-col gap-4">
-        <div className="flex items-baseline justify-between gap-4">
-          <h2 className="font-display text-xl font-medium text-ink">Your business names</h2>
-          {nameList.length > 0 ? (
-            <Link
-              to="/business-names"
-              className="inline-flex items-center gap-1 text-sm text-accent-600 hover:underline"
-            >
-              Manage
-              <ArrowRight aria-hidden className="size-3.5" />
-            </Link>
-          ) : null}
+            {loading ? (
+              <Panel className="flex flex-col gap-3">
+                <Skeleton className="h-12 w-full" />
+                <Skeleton className="h-12 w-full" />
+              </Panel>
+            ) : tasks.length === 0 ? (
+              <Panel className="flex items-center gap-3">
+                <CheckCircle2 aria-hidden className="size-5 shrink-0 text-accent-600" />
+                <p className="text-sm text-ink-muted">You’re all caught up. We’ll let you know when something comes up.</p>
+              </Panel>
+            ) : (
+              <Panel className="p-0 sm:p-0">
+                <ul className="divide-y divide-rule">
+                  {tasks.map((task) => (
+                    <li key={task.key} className="flex flex-wrap items-center gap-x-4 gap-y-3 px-5 py-4">
+                      <span
+                        aria-hidden
+                        className={cn('grid size-9 shrink-0 place-items-center rounded-full', ICON_TONES[task.tone])}
+                      >
+                        {task.icon}
+                      </span>
+                      <div className="min-w-0 flex-1">
+                        <p className="font-medium text-ink">{task.title}</p>
+                        <p className="text-sm text-ink-faint">{task.detail}</p>
+                      </div>
+                      <div className="shrink-0">{task.action}</div>
+                    </li>
+                  ))}
+                </ul>
+              </Panel>
+            )}
+          </section>
+
+          <section className="flex flex-col gap-3" aria-labelledby="names-heading">
+            <div className="flex items-baseline justify-between gap-4">
+              <h2 id="names-heading" className="font-display text-xl font-medium text-ink">
+                Your business names
+              </h2>
+              <Link
+                to="/business-names"
+                className="inline-flex items-center gap-1 text-sm text-accent-600 hover:underline"
+              >
+                {nameList.length > 0 ? 'Manage' : 'Add a name'}
+                <ArrowRight aria-hidden className="size-3.5" />
+              </Link>
+            </div>
+
+            {names.isPending ? (
+              <Panel className="flex flex-col gap-3">
+                <Skeleton className="h-6 w-full" />
+                <Skeleton className="h-6 w-full" />
+              </Panel>
+            ) : names.isError ? (
+              <ErrorState
+                description="We couldn’t load your business names just now."
+                action={
+                  <Button variant="secondary" onClick={() => void names.refetch()}>
+                    Try again
+                  </Button>
+                }
+              />
+            ) : nameList.length === 0 ? (
+              <Panel>
+                <p className="text-sm text-ink-faint">
+                  No business names yet. Add one you hold with ASIC and we’ll track when it needs renewing.
+                </p>
+              </Panel>
+            ) : (
+              <Panel className="p-0 sm:p-0">
+                <ul className="divide-y divide-rule">
+                  {nameList.map((name) => {
+                    const status = renewalStatus(name.renewalDate)
+                    return (
+                      <li key={name.id} className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 px-5 py-3">
+                        <span className="min-w-0 flex-1 truncate font-medium text-ink">{name.name}</span>
+                        <span className="text-sm text-ink-faint" data-numeric>
+                          {name.renewalDate ? `Renews ${formatDate(name.renewalDate)}` : 'No renewal date'}
+                        </span>
+                        {status.needsAction ? (
+                          <Badge tone={status.tone}>{status.label}</Badge>
+                        ) : null}
+                      </li>
+                    )
+                  })}
+                </ul>
+              </Panel>
+            )}
+          </section>
         </div>
 
-        {names.isPending ? (
-          <RecordList aria-busy="true">
-            <RecordSkeleton />
-            <RecordSkeleton />
-          </RecordList>
-        ) : names.isError ? (
-          <ErrorState
-            description="We couldn’t load your business names just now."
-            action={
-              <Button variant="secondary" onClick={() => void names.refetch()}>
-                Try again
-              </Button>
-            }
-          />
-        ) : nameList.length === 0 ? (
-          <EmptyState
-            title="No business names yet"
-            description="Add a name you hold with ASIC and we’ll track when it needs renewing."
-            action={
-              <Button asChild>
-                <Link to="/business-names">Add a business name</Link>
-              </Button>
-            }
-          />
-        ) : (
-          <RecordList>
-            {nameList.map((name) => {
-              const status = renewalStatus(name.renewalDate)
-              return (
-                <Record key={name.id} className="flex flex-col gap-1.5">
-                  <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
-                    <h3 className="font-display min-w-0 flex-1 text-xl leading-tight font-medium text-ink">
-                      {name.name}
-                    </h3>
-                    <span className="shrink-0 text-sm text-ink-faint">
-                      {status.days !== null && status.tone === 'ok' ? `${status.days} days left` : status.label}
-                    </span>
-                  </div>
-                  <ValidityBand
-                    className="mt-3"
-                    registeredDate={name.dateRegistered}
-                    renewalDate={name.renewalDate}
-                    status={status}
-                  />
-                </Record>
-              )
-            })}
-          </RecordList>
-        )}
-      </section>
+        {/* ── Side column: reference ── */}
+        <aside className="flex flex-col gap-6">
+          <Panel className="flex flex-col gap-4">
+            <PanelTitle as="h2" className="text-lg">
+              At a glance
+            </PanelTitle>
+            <dl className="grid grid-cols-2 gap-4 lg:grid-cols-1">
+              <Stat
+                label="Business names"
+                value={names.isPending ? '—' : nameList.length}
+                hint={entities.data ? `${entities.data.length} ${entities.data.length === 1 ? 'business' : 'businesses'}` : undefined}
+              />
+              <Stat
+                label="Next renewal"
+                value={upcoming ? formatDate(upcoming.name.renewalDate) : '—'}
+                hint={upcoming ? upcoming.name.name : 'Nothing scheduled'}
+              />
+              <Stat
+                label="Renewals completed"
+                value={completed.isPending ? '—' : (completed.data?.length ?? 0)}
+              />
+            </dl>
+          </Panel>
 
-      {/* ── Quiet asks, only when there is something to ask ── */}
-      {asks.length > 0 ? (
-        <Panel className="flex flex-col gap-3">
-          <PanelTitle as="h2" className="text-lg">
-            A couple of details would help
-          </PanelTitle>
-          <ul className="flex flex-col gap-2">
-            {asks.map((ask) => (
-              <li key={ask.label}>
-                <Link to={ask.href} className="text-sm text-accent-600 hover:underline">
-                  {ask.label}
-                </Link>
-              </li>
-            ))}
-          </ul>
-        </Panel>
-      ) : null}
+          {recentRenewals.length > 0 ? (
+            <Panel className="flex flex-col gap-3">
+              <PanelTitle as="h2" className="text-lg">
+                Recently renewed
+              </PanelTitle>
+              <ul className="flex flex-col gap-3">
+                {recentRenewals.map((r) => (
+                  <li key={r.id} className="flex items-start gap-2.5">
+                    <CheckCircle2 aria-hidden className="mt-0.5 size-4 shrink-0 text-accent-600" />
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-medium text-ink">{r.businessName}</p>
+                      <p className="text-xs text-ink-faint">
+                        {formatDate(r.renewedAt)}
+                        {r.newRenewalDate ? ` · next due ${formatDate(r.newRenewalDate)}` : ''}
+                      </p>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+              <Link to="/asic-renewals" className="text-sm text-accent-600 hover:underline">
+                See all renewals
+              </Link>
+            </Panel>
+          ) : null}
 
-      {unread > 0 ? (
-        <Panel className="flex flex-wrap items-center justify-between gap-3">
-          <p className="text-sm text-ink">
-            You have {unread} unread {unread === 1 ? 'message' : 'messages'} from our team.
-          </p>
-          <Button asChild size="sm" variant="secondary">
-            <Link to="/messages">Read messages</Link>
-          </Button>
-        </Panel>
-      ) : null}
+          <Panel className="flex flex-col gap-2">
+            <PanelTitle as="h2" className="text-lg">
+              Need a hand?
+            </PanelTitle>
+            <p className="text-sm text-ink-faint">Our team usually replies within one business day.</p>
+            <Button asChild size="sm" variant="secondary" className="self-start">
+              <Link to="/messages">Message us</Link>
+            </Button>
+          </Panel>
+        </aside>
+      </div>
     </div>
   )
 }

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Controller, useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
@@ -12,6 +12,7 @@ import {
   getBusinessNamesOptions,
   getBusinessNamesQueryKey,
   startAbnLookupMutation,
+  startThreadMutation,
   updateBusinessNameMutation,
 } from '@/api/generated/@tanstack/react-query.gen'
 import type { BusinessNameDto } from '@/api/generated'
@@ -63,10 +64,15 @@ const EMPTY_FORM: BusinessNameForm = { name: '', dateRegistered: '', renewalDate
 
 function BusinessNameFields({
   form,
+  onRequestKey,
+  requestingKey,
 }: {
   form: ReturnType<typeof useForm<BusinessNameForm>>
+  onRequestKey: (name: string) => void
+  requestingKey: boolean
 }) {
-  const { control, register, formState } = form
+  const { control, register, formState, watch } = form
+  const name = watch('name').trim()
   return (
     <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
       <Field
@@ -107,11 +113,23 @@ function BusinessNameFields({
       </Field>
       <Field
         label="ASIC key"
-        hint="Leave blank if you don’t have it — ASIC emails it to you."
+        hint="If unknown, you can request a copy be emailed to you."
         error={formState.errors.asicKey?.message}
         className="sm:col-span-2"
       >
-        <Field.Input {...register('asicKey')} placeholder="ASIC key for online services" />
+        <div className="flex flex-col gap-2 sm:flex-row">
+          <Field.Input {...register('asicKey')} placeholder="ASIC key for online services" />
+          <Button
+            type="button"
+            variant="secondary"
+            className="shrink-0"
+            disabled={name.length === 0}
+            loading={requestingKey}
+            onClick={() => onRequestKey(name)}
+          >
+            Request ASIC key
+          </Button>
+        </div>
       </Field>
     </div>
   )
@@ -153,10 +171,25 @@ export function BusinessNamesPage() {
   const running = lookup.data?.status === 'Running'
 
   // When the lookup finishes it has added or enriched names, so the list is stale.
+  // The result is announced once, as a toast, only when we watched it finish —
+  // the old page re-showed a "finished" banner on every visit however many
+  // times it was dismissed.
+  const lastStatus = useRef<string | undefined>(undefined)
   useEffect(() => {
-    if (lookup.data && lookup.data.status !== 'Running') {
+    const status = lookup.data?.status
+    if (lookup.data && status !== 'Running') {
       void queryClient.invalidateQueries({ queryKey: getBusinessNamesQueryKey() })
+      if (lastStatus.current === 'Running') {
+        const added = Number(lookup.data.addedCount) || 0
+        if (status === 'Failed') toastError('ABN Lookup failed', lookup.data.error || 'Try again shortly.')
+        else
+          toastSuccess(
+            'ABN Lookup finished',
+            added > 0 ? `Added ${added} new business name${added === 1 ? '' : 's'}.` : 'No new business names to add.',
+          )
+      }
     }
+    lastStatus.current = status
   }, [lookup.data, queryClient])
 
   const invalidate = () => queryClient.invalidateQueries({ queryKey: getBusinessNamesQueryKey() })
@@ -209,6 +242,24 @@ export function BusinessNamesPage() {
     },
     onError: () => toastError('Could not start the lookup', 'Try again shortly.'),
   })
+
+  // Goes to the support inbox; the team asks ASIC to email the key to the
+  // holder's registered address.
+  const requestKey = useMutation({
+    ...startThreadMutation(),
+    onSuccess: () =>
+      toastSuccess('ASIC key requested', 'We’ll arrange for a copy to be emailed to you.'),
+    onError: () => toastError('Couldn’t send the request', 'Try again in a moment.'),
+  })
+
+  function requestAsicKey(name: string) {
+    requestKey.mutate({
+      body: {
+        subject: `ASIC key request — ${name}`,
+        body: `I don’t have the ASIC key for the business name "${name}". Please request a copy be emailed to me.`,
+      },
+    })
+  }
 
   function openEdit(name: BusinessNameDto) {
     editForm.reset({
@@ -323,7 +374,19 @@ export function BusinessNamesPage() {
                   <p className="text-sm text-ink-faint" data-numeric>
                     ASIC key {name.asicKey}
                   </p>
-                ) : null}
+                ) : (
+                  <p className="flex flex-wrap items-center gap-x-2 text-sm text-ink-faint">
+                    No ASIC key on file.
+                    <button
+                      type="button"
+                      className="font-medium text-accent-700 hover:underline disabled:opacity-50"
+                      disabled={requestKey.isPending}
+                      onClick={() => requestAsicKey(name.name ?? '')}
+                    >
+                      Request ASIC key
+                    </button>
+                  </p>
+                )}
 
                 <ValidityBand
                   className="mt-3"
@@ -361,7 +424,7 @@ export function BusinessNamesPage() {
         }
       >
         <form onSubmit={addForm.handleSubmit((values) => create.mutate({ body: values }))}>
-          <BusinessNameFields form={addForm} />
+          <BusinessNameFields form={addForm} onRequestKey={requestAsicKey} requestingKey={requestKey.isPending} />
         </form>
       </Dialog>
 
@@ -393,7 +456,7 @@ export function BusinessNamesPage() {
             update.mutate({ path: { id: editing!.id! }, body: { id: editing!.id!, ...values } }),
           )}
         >
-          <BusinessNameFields form={editForm} />
+          <BusinessNameFields form={editForm} onRequestKey={requestAsicKey} requestingKey={requestKey.isPending} />
         </form>
       </Dialog>
 

@@ -140,6 +140,15 @@ export type CancelBody = {
     scope: null | string;
 };
 
+export type CompletedRenewalDto = {
+    id?: string;
+    businessNameId?: null | string;
+    businessName?: string;
+    years?: number | string;
+    newRenewalDate?: string;
+    renewedAt?: string;
+};
+
 export type CreateBusinessEntityCommand = {
     name: string;
     entityType: EntityType;
@@ -257,6 +266,7 @@ export type ProfileModel = {
     phone: null | string;
     dob: null | string;
     tfn: null | string;
+    abn: null | string;
     address: null | string;
     suburb: null | string;
     state: null | string;
@@ -993,6 +1003,22 @@ export type GetAsicRenewalsResponses = {
 };
 
 export type GetAsicRenewalsResponse = GetAsicRenewalsResponses[keyof GetAsicRenewalsResponses];
+
+export type GetCompletedRenewalsData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/asic-renewals/completed';
+};
+
+export type GetCompletedRenewalsResponses = {
+    /**
+     * OK
+     */
+    200: Array<CompletedRenewalDto>;
+};
+
+export type GetCompletedRenewalsResponse = GetCompletedRenewalsResponses[keyof GetCompletedRenewalsResponses];
 
 export type RenewBusinessNameData = {
     body: RenewBody;

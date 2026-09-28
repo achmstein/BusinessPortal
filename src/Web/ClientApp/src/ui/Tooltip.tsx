@@ -34,7 +34,7 @@ export function Tooltip({
         <ArkTooltip.Positioner>
           <ArkTooltip.Content
             className={cn(
-              'z-50 max-w-xs rounded-md bg-ink px-2.5 py-1.5 text-xs font-medium text-paper',
+              'z-70 max-w-xs rounded-md bg-ink px-2.5 py-1.5 text-xs font-medium text-paper',
               'shadow-overlay',
               className,
             )}

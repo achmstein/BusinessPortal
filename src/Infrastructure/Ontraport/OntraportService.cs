@@ -101,17 +101,17 @@ public class OntraportService(
         if (!string.IsNullOrEmpty(transactionId))
             bn.RenewalTransactionIds = [.. bn.RenewalTransactionIds, transactionId]; // new list → EF detects the change
 
-        var msg = new Message
+        context.BusinessNameRenewals.Add(new BusinessNameRenewal
         {
             UserId = user.Id,
-            Direction = MessageDirection.Inbound,
-            Subject = $"Business name renewal confirmed — {bn.Name}",
-            Body = $"Your business name \"{bn.Name}\" has been renewed for {years} year{(years > 1 ? "s" : "")}. New renewal date: {bn.RenewalDate}.",
-            Read = false,
-            AdminRead = true,
-        };
-        msg.ThreadId = msg.Id;
-        context.Messages.Add(msg);
+            BusinessNameId = bn.Id,
+            BusinessName = bn.Name,
+            Years = years,
+            NewRenewalDate = bn.RenewalDate,
+            Source = "Ontraport",
+            Reference = transactionId,
+            RenewedAt = DateTimeOffset.UtcNow,
+        });
 
         await context.SaveChangesAsync(ct);
         return new OntraportResult(200, new { ok = true, action = "renewed", userId = user.Id, bnId = bnIdRaw, bnName = bn.Name, renewalDate = bn.RenewalDate });

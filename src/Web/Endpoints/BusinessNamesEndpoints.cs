@@ -43,8 +43,8 @@ public static class BusinessNamesEndpoints
             .WithName("DeleteBusinessName")
             .Produces(StatusCodes.Status204NoContent);
 
-        // Cancellation removes the name and posts the confirmation / ABN support
-        // messages.
+        // Cancellation removes the name and, when the ABN is included, raises an
+        // ABN support ticket.
         //
         // This used to accept a cardholder name, full card number, expiry and CCV,
         // validate their shape, and then discard them — CancelBusinessNameCommand

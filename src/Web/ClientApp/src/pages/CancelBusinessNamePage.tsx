@@ -75,7 +75,7 @@ export function CancelBusinessNamePage() {
 
   if (names.isPending) {
     return (
-      <div className="flex max-w-2xl flex-col gap-4">
+      <div className="flex flex-col gap-4">
         <Skeleton className="h-10 w-2/3" />
         <Skeleton className="h-40 w-full" />
       </div>
@@ -99,7 +99,7 @@ export function CancelBusinessNamePage() {
   if (!name) return <Navigate to="/asic-renewals" replace />
 
   return (
-    <div className="flex max-w-2xl flex-col gap-6">
+    <div className="flex flex-col gap-6">
       <Link
         to="/asic-renewals"
         className="inline-flex items-center gap-1.5 self-start text-sm text-accent-600 hover:underline"

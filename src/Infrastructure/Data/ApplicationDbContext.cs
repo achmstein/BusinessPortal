@@ -21,6 +21,7 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
     public DbSet<AtoSession> AtoSessions => Set<AtoSession>();
     public DbSet<AtoLinkAttempt> AtoLinkAttempts => Set<AtoLinkAttempt>();
     public DbSet<RenewtronProvisionLog> RenewtronProvisionLogs => Set<RenewtronProvisionLog>();
+    public DbSet<BusinessNameRenewal> BusinessNameRenewals => Set<BusinessNameRenewal>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {

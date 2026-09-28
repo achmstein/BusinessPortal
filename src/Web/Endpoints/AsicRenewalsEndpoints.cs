@@ -1,5 +1,6 @@
 using BusinessPortal.Application.AsicRenewals.Commands.RenewBusinessName;
 using BusinessPortal.Application.AsicRenewals.Queries.GetAsicRenewals;
+using BusinessPortal.Application.AsicRenewals.Queries.GetCompletedRenewals;
 using MediatR;
 
 namespace BusinessPortal.Web.Endpoints;
@@ -18,6 +19,12 @@ public static class AsicRenewalsEndpoints
                 Results.Ok(await sender.Send(new GetAsicRenewalsQuery())))
             .WithName("GetAsicRenewals")
             .Produces<IReadOnlyList<AsicRenewalDto>>();
+
+        // Paid renewals — the "Renewals completed" history.
+        group.MapGet("/completed", async (ISender sender) =>
+                Results.Ok(await sender.Send(new GetCompletedRenewalsQuery())))
+            .WithName("GetCompletedRenewals")
+            .Produces<IReadOnlyList<CompletedRenewalDto>>();
 
         group.MapPost("/{id:guid}/renew", async (Guid id, RenewBody body, ISender sender) =>
                 Results.Ok(new RenewalResponse(await sender.Send(new RenewBusinessNameCommand(id, body.Years)))))

@@ -30,8 +30,8 @@ import {
 
 // ─────────────────────────────────────────────────────────────────────────────
 // A support inbox for a relationship that produces a handful of threads a year.
-// The turns inside a thread borrow what chat gets right — see MessageThread in
-// src/ui for why they stop short of bubbles.
+// The turns inside a thread render as chat bubbles — see MessageThread in
+// src/ui for how runs, days and alignment work.
 //
 // What changed and why:
 //

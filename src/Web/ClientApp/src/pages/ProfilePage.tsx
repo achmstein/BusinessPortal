@@ -51,6 +51,11 @@ const schema = z.object({
     .refine((v) => v.replace(/\D/g, '').length === 0 || v.replace(/\D/g, '').length === 9, {
       message: 'A tax file number has 9 digits.',
     }),
+  abn: z
+    .string()
+    .refine((v) => v.replace(/\D/g, '').length === 0 || v.replace(/\D/g, '').length === 11, {
+      message: 'An ABN has 11 digits.',
+    }),
   address: z.string(),
   suburb: z.string(),
   state: z.string(),
@@ -69,6 +74,7 @@ const EMPTY: ProfileForm = {
   phone: '',
   dob: '',
   tfn: '',
+  abn: '',
   address: '',
   suburb: '',
   state: '',
@@ -91,6 +97,7 @@ export function ProfilePage() {
       phone: profile.data.phone ?? '',
       dob: profile.data.dob ?? '',
       tfn: profile.data.tfn ?? '',
+      abn: profile.data.abn ?? '',
       address: profile.data.address ?? '',
       suburb: profile.data.suburb ?? '',
       state: profile.data.state ?? '',
@@ -111,7 +118,7 @@ export function ProfilePage() {
 
   if (profile.isPending) {
     return (
-      <div className="flex max-w-2xl flex-col gap-4">
+      <div className="flex flex-col gap-4">
         <Skeleton className="h-10 w-1/2" />
         <Skeleton className="h-64 w-full" />
       </div>
@@ -135,7 +142,7 @@ export function ProfilePage() {
 
   return (
     <form
-      className="flex max-w-2xl flex-col gap-6"
+      className="flex flex-col gap-6"
       onSubmit={form.handleSubmit((values) => save.mutate({ body: values }))}
       noValidate
     >
@@ -205,6 +212,9 @@ export function ProfilePage() {
               {...form.register('tfn')}
             />
           </Field>
+          <Field label="ABN" hint="11 digits" error={form.formState.errors.abn?.message}>
+            <Field.Input inputMode="numeric" autoComplete="off" {...form.register('abn')} />
+          </Field>
         </div>
       </Panel>
 
@@ -248,9 +258,9 @@ export function ProfilePage() {
       </Panel>
 
       <div className="flex items-center justify-end gap-3 border-t border-rule pt-5">
-        {dirty ? <span className="text-sm text-ink-faint">You have unsaved changes.</span> : null}
-        <Button type="submit" size="lg" disabled={!dirty} loading={save.isPending}>
-          Save details
+        {dirty ? <span className="text-sm text-ink-faint">Unsaved changes</span> : null}
+        <Button type="submit" disabled={!dirty} loading={save.isPending}>
+          Save changes
         </Button>
       </div>
     </form>

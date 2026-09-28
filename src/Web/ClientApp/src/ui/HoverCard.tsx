@@ -30,7 +30,7 @@ export function HoverCard({
         <ArkHoverCard.Positioner>
           <ArkHoverCard.Content
             className={cn(
-              'z-50 w-64 rounded-lg border border-rule bg-surface p-3 shadow-overlay',
+              'z-60 w-64 rounded-lg border border-rule bg-surface p-3 shadow-overlay',
               'focus:outline-none',
               className,
             )}
