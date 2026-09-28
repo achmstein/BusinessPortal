@@ -29,6 +29,15 @@ export function Record({ className, ...props }: ComponentProps<'article'>) {
   return <article className={cn('px-5 py-5 sm:px-6', className)} {...props} />
 }
 
+/** The name at the head of a register entry — one size on every register page. */
+export function RecordTitle({
+  as: Tag = 'h2',
+  className,
+  ...props
+}: ComponentProps<'h2'> & { as?: ElementType }) {
+  return <Tag className={cn('font-display text-xl leading-tight font-medium text-ink', className)} {...props} />
+}
+
 /** A bounded panel for content that isn't a register entry — forms, summaries. */
 export function Panel({ className, ...props }: ComponentProps<'section'>) {
   return (
@@ -44,36 +53,8 @@ export function PanelTitle({
   className,
   ...props
 }: ComponentProps<'h2'> & { as?: ElementType }) {
-  return <Tag className={cn('font-display text-xl leading-tight font-semibold text-ink', className)} {...props} />
-}
-
-/**
- * Page heading. `eyebrow` names the section the page belongs to — used only
- * where that's genuinely true, not as decoration on every screen.
- */
-export function PageHeader({
-  title,
-  description,
-  eyebrow,
-  actions,
-}: {
-  title: string
-  description?: ReactNode
-  eyebrow?: string
-  actions?: ReactNode
-}) {
-  return (
-    <header className="flex flex-wrap items-end justify-between gap-4 border-b border-rule-firm pb-5">
-      <div className="flex min-w-0 flex-col gap-1.5">
-        {eyebrow ? (
-          <span className="text-xs font-semibold tracking-[0.12em] text-ink-faint uppercase">{eyebrow}</span>
-        ) : null}
-        <h1 className="font-display text-3xl leading-none font-semibold text-ink sm:text-4xl">{title}</h1>
-        {description ? <p className="max-w-prose text-sm text-ink-faint">{description}</p> : null}
-      </div>
-      {actions ? <div className="flex shrink-0 items-center gap-2">{actions}</div> : null}
-    </header>
-  )
+  // Same style as Section's heading — one heading level for every block.
+  return <Tag className={cn('font-display text-lg leading-tight font-semibold text-ink', className)} {...props} />
 }
 
 /**

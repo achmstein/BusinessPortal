@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useMutation, useQuery } from '@tanstack/react-query'
 import { Link, useNavigate, useParams } from 'react-router-dom'
-import { ArrowLeft, MessageSquare } from 'lucide-react'
+import { MessageSquare } from 'lucide-react'
 import { getAdminClientOptions } from '@/api/generated/@tanstack/react-query.gen'
 import { startImpersonation } from '@/api/generated'
 import { formatAbn, formatAcn, maskTfn } from '@/lib/format'
@@ -14,11 +14,11 @@ import {
   Dialog,
   ErrorState,
   Field,
-  PageHeader,
+  Page,
+  PageSkeleton,
   Panel,
   PanelTitle,
   ShowMore,
-  Skeleton,
   toastError,
   ValidityBand,
 } from '@/ui'
@@ -59,6 +59,20 @@ interface ClientDetail {
   businessNames: { id: string; name: string; renewalDate: string; asicKey: string }[]
 }
 
+const BACK = { to: '/admin/clients', label: 'All clients' }
+
+const ENTITY_TYPE_LABELS: Record<string, string> = {
+  Unspecified: '', // says nothing — left out of the line
+  SoleTrader: 'Sole trader',
+  Partnership: 'Partnership',
+  Company: 'Company',
+  Trust: 'Trust',
+}
+
+function NoneRecorded({ what }: { what: string }) {
+  return <p className="text-sm text-ink-faint">No {what} recorded.</p>
+}
+
 export function AdminClientDetailPage() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
@@ -81,24 +95,25 @@ export function AdminClientDetailPage() {
 
   if (client.isPending) {
     return (
-      <div className="flex flex-col gap-4">
-        <Skeleton className="h-10 w-1/2" />
-        <Skeleton className="h-48 w-full" />
-      </div>
+      <Page title="Client" back={BACK}>
+        <PageSkeleton blocks={3} />
+      </Page>
     )
   }
 
   if (client.isError || !client.data) {
     return (
-      <ErrorState
-        title="We couldn’t open this client"
-        description="They may have been removed, or the link may be out of date."
-        action={
-          <Button asChild variant="secondary">
-            <Link to="/admin/clients">Back to clients</Link>
-          </Button>
-        }
-      />
+      <Page title="Client" back={BACK}>
+        <ErrorState
+          title="We couldn’t open this client"
+          description="They may have been removed, or the link may be out of date."
+          action={
+            <Button asChild variant="secondary">
+              <Link to="/admin/clients">Back to clients</Link>
+            </Button>
+          }
+        />
+      </Page>
     )
   }
 
@@ -108,36 +123,28 @@ export function AdminClientDetailPage() {
   const address = [profile.address, profile.suburb, profile.state, profile.postcode].filter(Boolean).join(', ')
 
   return (
-    <div className="flex flex-col gap-6">
-      <Link
-        to="/admin/clients"
-        className="inline-flex items-center gap-1.5 self-start text-sm text-accent-600 hover:underline"
-      >
-        <ArrowLeft aria-hidden className="size-3.5" />
-        All clients
-      </Link>
+    <Page
+      title={name}
+      back={BACK}
+      description={
+        <span className="flex items-center gap-1">
+          {detail.email}
+          <CopyButton value={detail.email} label="Copy this client’s email" />
+        </span>
+      }
+      actions={
+        <Button asChild variant="secondary">
+          <Link to={`/admin/messages/${detail.id}`}>
+            <MessageSquare aria-hidden className="size-4" />
+            Messages
+          </Link>
+        </Button>
+      }
+    >
 
-      <PageHeader
-        title={name}
-        description={
-          <span className="flex items-center gap-1">
-            {detail.email}
-            <CopyButton value={detail.email} label="Copy this client’s email" />
-          </span>
-        }
-        actions={
-          <Button asChild variant="secondary">
-            <Link to={`/admin/messages/${detail.id}`}>
-              <MessageSquare aria-hidden className="size-4" />
-              Messages
-            </Link>
-          </Button>
-        }
-      />
-
-      <div className="grid gap-5 lg:grid-cols-2">
+      <div className="grid gap-6 lg:grid-cols-2">
         <Panel className="flex flex-col gap-4">
-          <PanelTitle as="h2" className="text-lg">
+          <PanelTitle>
             Contact
           </PanelTitle>
           <dl className="flex flex-col gap-2.5 text-sm">
@@ -165,11 +172,11 @@ export function AdminClientDetailPage() {
         </Panel>
 
         <Panel className="flex flex-col gap-4">
-          <PanelTitle as="h2" className="text-lg">
+          <PanelTitle>
             Businesses
           </PanelTitle>
           {detail.entities.length === 0 ? (
-            <p className="text-sm text-ink-faint">None recorded.</p>
+            <NoneRecorded what="businesses" />
           ) : (
             <ul className="flex flex-col gap-3 text-sm">
               <ShowMore
@@ -178,7 +185,9 @@ export function AdminClientDetailPage() {
                 <li key={entity.id} className="flex flex-col gap-0.5">
                   <span className="font-medium text-ink">{entity.name}</span>
                   <span className="flex flex-wrap items-center gap-x-1 text-ink-faint" data-numeric>
-                    {[entity.entityType, entity.industry].filter(Boolean).join(' · ') || '—'}
+                    {[ENTITY_TYPE_LABELS[entity.entityType] ?? entity.entityType, entity.industry]
+                      .filter(Boolean)
+                      .join(' · ') || '—'}
                     {entity.abn ? (
                       <span className="flex items-center gap-1">
                         · ABN {formatAbn(entity.abn)}
@@ -203,11 +212,11 @@ export function AdminClientDetailPage() {
       </div>
 
       <Panel className="flex flex-col gap-4">
-        <PanelTitle as="h2" className="text-lg">
+        <PanelTitle>
           Business names
         </PanelTitle>
         {detail.businessNames.length === 0 ? (
-          <p className="text-sm text-ink-faint">None recorded.</p>
+          <NoneRecorded what="business names" />
         ) : (
           <ul className="flex flex-col gap-5">
             <ShowMore
@@ -224,6 +233,16 @@ export function AdminClientDetailPage() {
                       <span className="text-sm text-ink-faint">{formatDate(bn.renewalDate)}</span>
                     )}
                   </div>
+                  <span className="flex items-center gap-1 text-sm text-ink-faint" data-numeric>
+                    {bn.asicKey ? (
+                      <>
+                        ASIC key {bn.asicKey}
+                        <CopyButton value={bn.asicKey} label={`Copy the ASIC key for ${bn.name}`} />
+                      </>
+                    ) : (
+                      'No ASIC key on file'
+                    )}
+                  </span>
                   <ValidityBand
                     className="mt-1"
                     registeredDate={undefined}
@@ -239,7 +258,7 @@ export function AdminClientDetailPage() {
       </Panel>
 
       <Panel className="flex flex-col gap-3">
-        <PanelTitle as="h2" className="text-lg">
+        <PanelTitle>
           Sign in as this client
         </PanelTitle>
         <p className="max-w-prose text-sm text-ink-faint">
@@ -295,6 +314,6 @@ export function AdminClientDetailPage() {
           />
         </Field>
       </Dialog>
-    </div>
+    </Page>
   )
 }

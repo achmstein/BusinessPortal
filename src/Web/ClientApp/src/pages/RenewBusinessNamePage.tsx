@@ -1,11 +1,10 @@
 import { useQuery } from '@tanstack/react-query'
-import { Link, Navigate, useParams, useSearchParams } from 'react-router-dom'
-import { ArrowLeft } from 'lucide-react'
+import { Navigate, useParams, useSearchParams } from 'react-router-dom'
 import { getBusinessNamesOptions } from '@/api/generated/@tanstack/react-query.gen'
 import { useAuth } from '@/auth/AuthContext'
 import { formatDate } from '@/lib/dates'
 import { extendedRenewalDate, renewalStatus } from '@/lib/renewal'
-import { Button, ErrorState, PageHeader, Panel, RadioGroup, Skeleton } from '@/ui'
+import { Button, ErrorState, Page, PageSkeleton, Panel, PanelTitle, RadioGroup, TextLink } from '@/ui'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Paying to renew.
@@ -40,25 +39,28 @@ export function RenewBusinessNamePage() {
 
   const term: Term = params.get('term') === '3' ? '3' : '1'
 
+  const back = { to: '/asic-renewals', label: 'Back to renewals' }
+
   if (names.isPending) {
     return (
-      <div className="flex flex-col gap-4">
-        <Skeleton className="h-10 w-2/3" />
-        <Skeleton className="h-32 w-full" />
-      </div>
+      <Page title="Renew this business name" back={back}>
+        <PageSkeleton />
+      </Page>
     )
   }
 
   if (names.isError) {
     return (
-      <ErrorState
-        description="We couldn’t load that business name."
-        action={
-          <Button variant="secondary" onClick={() => void names.refetch()}>
-            Try again
-          </Button>
-        }
-      />
+      <Page title="Renew this business name" back={back}>
+        <ErrorState
+          description="We couldn’t load that business name."
+          action={
+            <Button variant="secondary" onClick={() => void names.refetch()}>
+              Try again
+            </Button>
+          }
+        />
+      </Page>
     )
   }
 
@@ -76,17 +78,9 @@ export function RenewBusinessNamePage() {
     `&lastname=${encodeURIComponent(user?.lastName ?? '')}`
 
   return (
-    <div className="flex flex-col gap-6">
-      <Link
-        to="/asic-renewals"
-        className="inline-flex items-center gap-1.5 self-start text-sm text-accent-600 hover:underline"
-      >
-        <ArrowLeft aria-hidden className="size-3.5" />
-        Back to renewals
-      </Link>
-
-      <PageHeader
-        title="Renew this business name"
+    <Page
+      back={back}
+      title="Renew this business name"
         description={
           <>
             <strong className="font-medium text-ink">{name.name}</strong>
@@ -98,11 +92,10 @@ export function RenewBusinessNamePage() {
               </>
             ) : null}
           </>
-        }
-      />
-
+      }
+    >
       <fieldset className="flex flex-col gap-3">
-        <legend className="mb-3 font-display text-xl font-medium text-ink">How long for?</legend>
+        <legend className="mb-3 font-display text-lg leading-tight font-semibold text-ink">How long for?</legend>
         <RadioGroup.Root
           value={term}
           onValueChange={(details) => setParams({ term: details.value ?? '1' }, { replace: true })}
@@ -121,7 +114,7 @@ export function RenewBusinessNamePage() {
                   </span>
 
                   {/* The date is what's being bought, so it leads. */}
-                  <span className="font-display text-2xl leading-tight font-semibold text-ink">
+                  <span className="font-display text-xl leading-tight font-semibold text-ink">
                     Yours until {formatDate(until)}
                   </span>
                   <span className="text-sm text-ink-faint" data-numeric>
@@ -136,8 +129,8 @@ export function RenewBusinessNamePage() {
       </fieldset>
 
       <Panel className="flex flex-col gap-0 overflow-hidden p-0">
-        <div className="flex items-baseline justify-between gap-4 border-b border-rule px-5 py-4">
-          <h2 className="font-display text-xl font-medium text-ink">Payment</h2>
+        <div className="flex items-baseline justify-between gap-4 border-b border-rule px-5 py-4 sm:px-6">
+          <PanelTitle as="h2">Payment</PanelTitle>
           <span className="text-sm text-ink-faint">
             <span data-numeric className="text-base font-medium text-ink">
               ${selected.price}
@@ -159,13 +152,10 @@ export function RenewBusinessNamePage() {
       </Panel>
 
       <p className="text-sm text-ink-faint">
-        Your renewal date updates automatically once the payment clears, usually within a minute, and we
-        confirm it in{' '}
-        <Link to="/messages" className="text-accent-600 hover:underline">
-          Messages
-        </Link>
-        .
+        Your renewal date updates automatically once the payment clears, usually within a minute, and the
+        renewal appears under{' '}
+        <TextLink to="/asic-renewals">Business name renewals completed</TextLink>.
       </p>
-    </div>
+    </Page>
   )
 }

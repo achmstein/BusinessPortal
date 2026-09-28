@@ -25,7 +25,8 @@ import {
   EmptyState,
   ErrorState,
   HoverCard,
-  PageHeader,
+  Page,
+  PageSkeleton,
   Pagination,
   SearchInput,
   Tabs,
@@ -251,15 +252,14 @@ export function AdminRegistryPage() {
   )
 
   return (
-    <div className="flex flex-col gap-5">
-      <PageHeader
-        title="Registry"
-        description={
-          summary.data
-            ? `Across ${summary.data.clients} ${Number(summary.data.clients) === 1 ? 'client' : 'clients'}.`
-            : undefined
-        }
-      />
+    <Page
+      title="Registry"
+      description={
+        summary.data
+          ? `Every client’s business names, entities and companies — across ${summary.data.clients} ${Number(summary.data.clients) === 1 ? 'client' : 'clients'}.`
+          : 'Every client’s business names, entities and companies.'
+      }
+    >
 
       <Tabs.Root
         lazyMount
@@ -269,7 +269,7 @@ export function AdminRegistryPage() {
           setTab(details.value as Tab)
           setPage(1)
         }}
-        className="flex flex-col gap-5"
+        className="flex flex-col gap-4"
       >
         <div className="flex flex-wrap items-center justify-between gap-3 border-b border-rule">
           <Tabs.List aria-label="Registry sections">
@@ -294,7 +294,9 @@ export function AdminRegistryPage() {
           />
         </div>
 
-        {active.isError ? (
+        {active.isPending ? (
+          <PageSkeleton blocks={1} />
+        ) : active.isError ? (
           <ErrorState
             description="We couldn’t load that part of the registry."
             action={
@@ -339,6 +341,6 @@ export function AdminRegistryPage() {
           </>
         )}
       </Tabs.Root>
-    </div>
+    </Page>
   )
 }

@@ -4,7 +4,7 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { z } from 'zod'
 import { Link, useParams } from 'react-router-dom'
-import { ArrowLeft, UserRound } from 'lucide-react'
+import { UserRound } from 'lucide-react'
 import {
   adminMarkAllReadMutation,
   adminReplyToClientMutation,
@@ -21,9 +21,11 @@ import {
   ErrorState,
   Field,
   MessageThread,
-  PageHeader,
+  Page,
+  PageSkeleton,
   Panel,
-  Skeleton,
+  PanelTitle,
+  ReplyBox,
   toastError,
   toastSuccess,
 } from '@/ui'
@@ -41,13 +43,11 @@ import {
 // attention above the thread.
 // ─────────────────────────────────────────────────────────────────────────────
 
-const replySchema = z.object({ body: z.string().trim().min(1, 'Write a reply before sending.') })
 const newSchema = z.object({
   subject: z.string().trim().min(1, 'Give it a subject.'),
   body: z.string().trim().min(1, 'Write the message.'),
 })
 
-type ReplyForm = z.infer<typeof replySchema>
 type NewForm = z.infer<typeof newSchema>
 
 function Reply({
@@ -61,12 +61,9 @@ function Reply({
   subject: string
   onSent: () => void
 }) {
-  const form = useForm<ReplyForm>({ resolver: zodResolver(replySchema), defaultValues: { body: '' } })
-
   const reply = useMutation({
     ...adminReplyToClientMutation(),
     onSuccess: () => {
-      form.reset({ body: '' })
       onSent()
       toastSuccess('Reply sent')
     },
@@ -74,22 +71,14 @@ function Reply({
   })
 
   return (
-    <form
-      className="flex flex-col gap-3 border-t border-rule pt-4"
-      onSubmit={form.handleSubmit((values) =>
-        reply.mutate({ path: { id: clientId }, body: { threadId, subject, body: values.body } }),
-      )}
-      noValidate
-    >
-      <Field label="Reply" error={form.formState.errors.body?.message}>
-        <Field.Textarea rows={3} placeholder="Type your reply…" {...form.register('body')} />
-      </Field>
-      <Button type="submit" size="sm" className="self-end" loading={reply.isPending}>
-        Send reply
-      </Button>
-    </form>
+    <ReplyBox
+      sending={reply.isPending}
+      onSend={(body) => reply.mutateAsync({ path: { id: clientId }, body: { threadId, subject, body } })}
+    />
   )
 }
+
+const BACK = { to: '/admin/messages', label: 'Inbox' }
 
 export function AdminMessageThreadPage() {
   const { clientId } = useParams<{ clientId: string }>()
@@ -134,23 +123,24 @@ export function AdminMessageThreadPage() {
 
   if (conversation.isPending) {
     return (
-      <div className="flex flex-col gap-4">
-        <Skeleton className="h-10 w-1/2" />
-        <Skeleton className="h-64 w-full" />
-      </div>
+      <Page title="Conversation" back={BACK}>
+        <PageSkeleton />
+      </Page>
     )
   }
 
   if (conversation.isError || !conversation.data) {
     return (
-      <ErrorState
-        description="We couldn’t open this conversation."
-        action={
-          <Button asChild variant="secondary">
-            <Link to="/admin/messages">Back to the inbox</Link>
-          </Button>
-        }
-      />
+      <Page title="Conversation" back={BACK}>
+        <ErrorState
+          description="We couldn’t open this conversation."
+          action={
+            <Button asChild variant="secondary">
+              <Link to="/admin/messages">Back to the inbox</Link>
+            </Button>
+          }
+        />
+      </Page>
     )
   }
 
@@ -161,30 +151,22 @@ export function AdminMessageThreadPage() {
   )
 
   return (
-    <div className="flex flex-col gap-6">
-      <Link
-        to="/admin/messages"
-        className="inline-flex items-center gap-1.5 self-start text-sm text-accent-600 hover:underline"
-      >
-        <ArrowLeft aria-hidden className="size-3.5" />
-        Inbox
-      </Link>
-
-      <PageHeader
-        title={name}
-        description={client.email ?? undefined}
-        actions={
-          <>
-            <Button asChild variant="ghost">
-              <Link to={`/admin/clients/${client.id}`}>
-                <UserRound aria-hidden className="size-4" />
-                Client record
-              </Link>
-            </Button>
-            <Button onClick={() => setComposing(true)}>New message</Button>
-          </>
-        }
-      />
+    <Page
+      title={name}
+      description={client.email ?? undefined}
+      back={BACK}
+      actions={
+        <>
+          <Button asChild variant="secondary">
+            <Link to={`/admin/clients/${client.id}`}>
+              <UserRound aria-hidden className="size-4" />
+              Client record
+            </Link>
+          </Button>
+          <Button onClick={() => setComposing(true)}>New message</Button>
+        </>
+      }
+    >
 
       {threads.length === 0 ? (
         <EmptyState
@@ -193,11 +175,11 @@ export function AdminMessageThreadPage() {
           action={<Button onClick={() => setComposing(true)}>Send the first message</Button>}
         />
       ) : (
-        <div className="flex flex-col gap-5">
+        <div className="flex flex-col gap-6">
           {threads.map((thread) => (
             <Panel key={thread.threadId} className="flex flex-col gap-4">
               <div className="flex flex-wrap items-baseline justify-between gap-2">
-                <h2 className="font-display text-lg leading-tight font-medium text-ink">{thread.subject}</h2>
+                <PanelTitle>{thread.subject}</PanelTitle>
                 <span className="text-xs text-ink-faint">{formatDateTime(thread.lastActivityAt)}</span>
               </div>
 
@@ -257,6 +239,6 @@ export function AdminMessageThreadPage() {
           </Field>
         </form>
       </Dialog>
-    </div>
+    </Page>
   )
 }

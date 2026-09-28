@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom'
 import { getAdminMessagesOptions } from '@/api/generated/@tanstack/react-query.gen'
 import { formatDateTime } from '@/lib/dates'
 import { cn } from '@/lib/cn'
-import { Avatar, Button, EmptyState, ErrorState, PageHeader, RecordList, Skeleton } from '@/ui'
+import { Avatar, Button, EmptyState, ErrorState, List, Page, PageSkeleton, Section } from '@/ui'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // The shared inbox. One question: who is waiting on a reply?
@@ -50,10 +50,10 @@ interface Row {
 function InboxRow({ row }: { row: Row }) {
   const fromClient = row.last.direction === 'Outbound'
   return (
-    <li>
+    <List.Row className="p-0 sm:p-0">
       <Link
         to={`/admin/messages/${row.clientId}`}
-        className="flex items-start gap-3 px-5 py-4 hover:bg-surface-sunken/60"
+        className="flex w-full items-start gap-3 px-5 py-4 first:rounded-t-xl last:rounded-b-xl hover:bg-surface-sunken/60 sm:px-6"
       >
         {/* The dot marks unread; the avatar identifies who. Keeping both, with
             the dot overlaid, avoids a third column of chrome per row. */}
@@ -80,7 +80,7 @@ function InboxRow({ row }: { row: Row }) {
         </span>
         <span className="shrink-0 text-xs text-ink-faint">{formatDateTime(row.last.createdAt)}</span>
       </Link>
-    </li>
+    </List.Row>
   )
 }
 
@@ -92,23 +92,24 @@ export function AdminMessagesPage() {
 
   if (inbox.isPending) {
     return (
-      <div className="flex flex-col gap-4">
-        <Skeleton className="h-10 w-1/3" />
-        <Skeleton className="h-56 w-full" />
-      </div>
+      <Page title="Messages">
+        <PageSkeleton />
+      </Page>
     )
   }
 
   if (inbox.isError) {
     return (
-      <ErrorState
-        description="We couldn’t load the inbox."
-        action={
-          <Button variant="secondary" onClick={() => void inbox.refetch()}>
-            Try again
-          </Button>
-        }
-      />
+      <Page title="Messages">
+        <ErrorState
+          description="We couldn’t load the inbox."
+          action={
+            <Button variant="secondary" onClick={() => void inbox.refetch()}>
+              Try again
+            </Button>
+          }
+        />
+      </Page>
     )
   }
 
@@ -132,15 +133,14 @@ export function AdminMessagesPage() {
   const settled = rows.filter((row) => row.unread === 0)
 
   return (
-    <div className="flex flex-col gap-6">
-      <PageHeader
-        title={waiting.length === 0 ? 'Inbox clear' : `${waiting.length} waiting on a reply`}
-        description={
-          rows.length === 0
-            ? undefined
-            : `${rows.length} ${rows.length === 1 ? 'conversation' : 'conversations'} in total.`
-        }
-      />
+    <Page
+      title={waiting.length === 0 ? 'Inbox clear' : `${waiting.length} waiting on a reply`}
+      description={
+        rows.length === 0
+          ? 'Conversations with clients.'
+          : `${rows.length} ${rows.length === 1 ? 'client' : 'clients'} with conversations.`
+      }
+    >
 
       {rows.length === 0 ? (
         <EmptyState
@@ -150,29 +150,26 @@ export function AdminMessagesPage() {
       ) : (
         <div className="flex flex-col gap-6">
           {waiting.length > 0 ? (
-            <RecordList as="ul">
-              {waiting.map((row) => (
-                <InboxRow key={row.clientId} row={row} />
-              ))}
-            </RecordList>
+            <Section title="Waiting on a reply" meta={waiting.length}>
+              <List>
+                {waiting.map((row) => (
+                  <InboxRow key={row.clientId} row={row} />
+                ))}
+              </List>
+            </Section>
           ) : null}
 
           {settled.length > 0 ? (
-            <section className="flex flex-col gap-3">
-              {waiting.length > 0 ? (
-                <h2 className="text-xs font-semibold tracking-[0.12em] text-ink-faint uppercase">
-                  Nothing outstanding
-                </h2>
-              ) : null}
-              <RecordList as="ul">
+            <Section title={waiting.length > 0 ? 'Nothing outstanding' : 'All conversations'}>
+              <List>
                 {settled.map((row) => (
                   <InboxRow key={row.clientId} row={row} />
                 ))}
-              </RecordList>
-            </section>
+              </List>
+            </Section>
           ) : null}
         </div>
       )}
-    </div>
+    </Page>
   )
 }

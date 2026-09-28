@@ -12,7 +12,8 @@ import {
   DataTable,
   EmptyState,
   ErrorState,
-  PageHeader,
+  Page,
+  PageSkeleton,
   Pagination,
   SearchInput,
   type DataTableColumn,
@@ -87,8 +88,7 @@ export function AdminClientsPage() {
   const total = Number(clients.data?.totalCount ?? 0)
 
   return (
-    <div className="flex flex-col gap-5">
-      <PageHeader title="Clients" description="Everyone with a portal account." />
+    <Page title="Clients" description="Everyone with a portal account.">
 
       <SearchInput
         label="Search clients"
@@ -101,7 +101,9 @@ export function AdminClientsPage() {
         placeholder="Search by name or email"
       />
 
-      {clients.isError ? (
+      {clients.isPending ? (
+        <PageSkeleton blocks={1} />
+      ) : clients.isError ? (
         <ErrorState
           description="We couldn’t load the client list."
           action={
@@ -131,6 +133,6 @@ export function AdminClientsPage() {
           <Pagination page={page} pageSize={PAGE_SIZE} total={total} onPage={setPage} />
         </>
       )}
-    </div>
+    </Page>
   )
 }

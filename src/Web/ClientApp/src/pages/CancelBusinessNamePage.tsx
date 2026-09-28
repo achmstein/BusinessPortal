@@ -1,7 +1,6 @@
 import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link, Navigate, useNavigate, useParams } from 'react-router-dom'
-import { ArrowLeft } from 'lucide-react'
 import {
   cancelBusinessNameMutation,
   getBusinessNamesOptions,
@@ -12,11 +11,11 @@ import {
   Button,
   Checkbox,
   ErrorState,
-  PageHeader,
+  Page,
+  PageSkeleton,
   Panel,
   PanelTitle,
   RadioGroup,
-  Skeleton,
   toastError,
   toastSuccess,
 } from '@/ui'
@@ -67,31 +66,34 @@ export function CancelBusinessNamePage() {
     ...cancelBusinessNameMutation(),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: getBusinessNamesQueryKey() })
-      toastSuccess('Business name cancelled', 'We’ve confirmed it in your messages.')
+      toastSuccess('Business name cancelled', 'It’s been removed from your portal.')
       navigate('/asic-renewals', { replace: true })
     },
     onError: () => toastError('We couldn’t cancel that name', 'Nothing has changed. Try again in a moment.'),
   })
 
+  const back = { to: '/asic-renewals', label: 'Back to renewals' }
+
   if (names.isPending) {
     return (
-      <div className="flex flex-col gap-4">
-        <Skeleton className="h-10 w-2/3" />
-        <Skeleton className="h-40 w-full" />
-      </div>
+      <Page title="Cancel this business name" back={back}>
+        <PageSkeleton />
+      </Page>
     )
   }
 
   if (names.isError) {
     return (
-      <ErrorState
-        description="We couldn’t load that business name."
-        action={
-          <Button variant="secondary" onClick={() => void names.refetch()}>
-            Try again
-          </Button>
-        }
-      />
+      <Page title="Cancel this business name" back={back}>
+        <ErrorState
+          description="We couldn’t load that business name."
+          action={
+            <Button variant="secondary" onClick={() => void names.refetch()}>
+              Try again
+            </Button>
+          }
+        />
+      </Page>
     )
   }
 
@@ -99,19 +101,10 @@ export function CancelBusinessNamePage() {
   if (!name) return <Navigate to="/asic-renewals" replace />
 
   return (
-    <div className="flex flex-col gap-6">
-      <Link
-        to="/asic-renewals"
-        className="inline-flex items-center gap-1.5 self-start text-sm text-accent-600 hover:underline"
-      >
-        <ArrowLeft aria-hidden className="size-3.5" />
-        Back to renewals
-      </Link>
-
-      <PageHeader title="Cancel this business name" description={name.name ?? undefined} />
+    <Page title="Cancel this business name" description={name.name ?? undefined} back={back}>
 
       <div className="flex flex-col gap-2 rounded-sm border-l-2 border-danger-600 bg-danger-50/60 px-5 py-4">
-        <h2 className="font-display text-lg font-medium text-danger-700">This can’t be undone</h2>
+        <h2 className="font-display text-lg leading-tight font-semibold text-danger-700">This can’t be undone</h2>
         <p className="text-sm leading-relaxed text-danger-600">
           Once <strong className="font-medium">{name.name}</strong> is cancelled you can’t trade under it,
           and anyone else is free to register it. Getting it back means registering again from scratch — and
@@ -123,9 +116,7 @@ export function CancelBusinessNamePage() {
       </div>
 
       <Panel className="flex flex-col gap-4">
-        <PanelTitle as="h2" className="text-lg">
-          What should we cancel?
-        </PanelTitle>
+        <PanelTitle as="h2">What should we cancel?</PanelTitle>
 
         <RadioGroup.Root value={scope} onValueChange={(details) => setScope(details.value as Scope)}>
           <div className="flex flex-col gap-3">
@@ -147,7 +138,7 @@ export function CancelBusinessNamePage() {
         I understand this is permanent and that {name.name} may be registered by someone else afterwards.
       </Checkbox>
 
-      <div className="flex flex-wrap justify-end gap-2 border-t border-rule pt-5">
+      <div className="flex flex-wrap justify-end gap-3 border-t border-rule pt-4">
         <Button asChild variant="ghost">
           <Link to="/asic-renewals">Keep this name</Link>
         </Button>
@@ -160,6 +151,6 @@ export function CancelBusinessNamePage() {
           Cancel {name.name}
         </Button>
       </div>
-    </div>
+    </Page>
   )
 }

@@ -29,10 +29,11 @@ import {
   Menu,
   toastError,
   toastSuccess,
-  PageHeader,
+  Page,
   Panel,
   Progress,
   Record,
+  RecordTitle,
   RecordList,
   RecordSkeleton,
   Tooltip,
@@ -275,27 +276,26 @@ export function BusinessNamesPage() {
   const dueCount = list.filter((b) => renewalStatus(b.renewalDate).needsAction).length
 
   return (
-    <div className="flex flex-col gap-6">
-      <PageHeader
-        title="Your business names"
-        description="Every name you hold with ASIC, and when each one next needs renewing."
-        actions={
-          <>
-            <Button
-              variant="secondary"
-              onClick={() => startLookup.mutate({})}
-              loading={startLookup.isPending || running}
-            >
-              <RefreshCw aria-hidden className="size-4" />
-              {running ? 'Checking…' : 'Check ABN Lookup'}
-            </Button>
-            <Button onClick={() => setAdding(true)}>
-              <Plus aria-hidden className="size-4" />
-              Add a name
-            </Button>
-          </>
-        }
-      />
+    <Page
+      title="Your business names"
+      description="Every name you hold with ASIC, and when each one next needs renewing."
+      actions={
+        <>
+          <Button
+            variant="secondary"
+            onClick={() => startLookup.mutate({})}
+            loading={startLookup.isPending || running}
+          >
+            <RefreshCw aria-hidden className="size-4" />
+            {running ? 'Checking…' : 'Check ABN Lookup'}
+          </Button>
+          <Button onClick={() => setAdding(true)}>
+            <Plus aria-hidden className="size-4" />
+            Add a name
+          </Button>
+        </>
+      }
+    >
 
       {running ? <LookupProgress job={lookup.data ?? {}} /> : null}
 
@@ -341,9 +341,9 @@ export function BusinessNamesPage() {
             return (
               <Record key={name.id} className="flex flex-col gap-1.5">
                 <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-2">
-                  <h2 className="font-display min-w-0 flex-1 text-2xl leading-tight font-medium text-ink">
+                  <RecordTitle className="min-w-0 flex-1">
                     {name.name}
-                  </h2>
+                  </RecordTitle>
                   <div className="flex shrink-0 items-center gap-3">
                     {status.needsAction ? (
                       <Badge tone={status.tone}>{status.label}</Badge>
@@ -477,6 +477,6 @@ export function BusinessNamesPage() {
         loading={remove.isPending}
         onConfirm={() => remove.mutate({ path: { id: removing!.id! } })}
       />
-    </div>
+    </Page>
   )
 }

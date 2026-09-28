@@ -41,12 +41,14 @@ export { ValidityBand } from './ValidityBand'
 export {
   RecordList,
   Record,
+  RecordTitle,
   Panel,
   PanelTitle,
-  PageHeader,
   EmptyState,
   ErrorState,
   Skeleton,
   RecordSkeleton,
 } from './Surfaces'
+export { Page, PageSkeleton, Section, List, FormActions, TextLink } from './Page'
+export { ReplyBox } from './ReplyBox'
 export { ToastRegion, toaster, toastSuccess, toastError, toastInfo } from './toast'

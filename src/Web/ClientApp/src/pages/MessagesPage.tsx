@@ -22,8 +22,9 @@ import {
   MessageThread,
   ErrorState,
   Field,
-  PageHeader,
-  Skeleton,
+  Page,
+  PageSkeleton,
+  ReplyBox,
   toastError,
   toastSuccess,
 } from '@/ui'
@@ -52,20 +53,12 @@ const newThreadSchema = z.object({
   body: z.string().trim().min(1, 'Tell us what you need help with.'),
 })
 
-const replySchema = z.object({
-  body: z.string().trim().min(1, 'Write a reply before sending.'),
-})
-
 type NewThreadForm = z.infer<typeof newThreadSchema>
-type ReplyForm = z.infer<typeof replySchema>
 
 function ThreadReply({ threadId, onSent }: { threadId: string; onSent: () => void }) {
-  const form = useForm<ReplyForm>({ resolver: zodResolver(replySchema), defaultValues: { body: '' } })
-
   const reply = useMutation({
     ...replyToThreadMutation(),
     onSuccess: () => {
-      form.reset({ body: '' })
       onSent()
       toastSuccess('Reply sent')
     },
@@ -73,18 +66,10 @@ function ThreadReply({ threadId, onSent }: { threadId: string; onSent: () => voi
   })
 
   return (
-    <form
-      className="flex flex-col gap-3 border-t border-rule pt-4"
-      onSubmit={form.handleSubmit((values) => reply.mutate({ path: { threadId }, body: values }))}
-      noValidate
-    >
-      <Field label="Reply" error={form.formState.errors.body?.message}>
-        <Field.Textarea rows={3} placeholder="Type your reply…" {...form.register('body')} />
-      </Field>
-      <Button type="submit" size="sm" className="self-end" loading={reply.isPending}>
-        Send reply
-      </Button>
-    </form>
+    <ReplyBox
+      sending={reply.isPending}
+      onSend={(body) => reply.mutateAsync({ path: { threadId }, body: { body } })}
+    />
   )
 }
 
@@ -149,18 +134,13 @@ export function MessagesPage() {
   }, [unreadOpenIds, markReadMutate])
 
   return (
-    <div className="flex flex-col gap-6">
-      <PageHeader
-        title="Messages"
-        description="Your conversations with our support team."
-        actions={<Button onClick={() => setComposing(true)}>New conversation</Button>}
-      />
-
+    <Page
+      title="Messages"
+      description="Your conversations with our support team."
+      actions={<Button onClick={() => setComposing(true)}>New conversation</Button>}
+    >
       {threads.isPending ? (
-        <div className="flex flex-col gap-3">
-          <Skeleton className="h-20 w-full" />
-          <Skeleton className="h-20 w-full" />
-        </div>
+        <PageSkeleton />
       ) : threads.isError ? (
         <ErrorState
           description="We couldn’t load your messages just now."
@@ -260,6 +240,6 @@ export function MessagesPage() {
           </Field>
         </form>
       </Dialog>
-    </div>
+    </Page>
   )
 }

@@ -24,8 +24,9 @@ import {
   Field,
   toastError,
   toastSuccess,
-  PageHeader,
+  Page,
   Record,
+  RecordTitle,
   RecordList,
   RecordSkeleton,
   NumberInput,
@@ -156,17 +157,16 @@ export function BusinessPage() {
   const fromAto = removing?.source === 'Ato'
 
   return (
-    <div className="flex flex-col gap-6">
-      <PageHeader
-        title="Your businesses"
-        description="The entities behind your business names. We use these when syncing with the ATO."
-        actions={
-          <Button onClick={() => setAdding(true)}>
-            <Plus aria-hidden className="size-4" />
-            Add a business
-          </Button>
-        }
-      />
+    <Page
+      title="Your businesses"
+      description="The entities behind your business names. We use these when syncing with the ATO."
+      actions={
+        <Button onClick={() => setAdding(true)}>
+          <Plus aria-hidden className="size-4" />
+          Add a business
+        </Button>
+      }
+    >
 
       {entities.isPending ? (
         <RecordList aria-busy="true">
@@ -194,9 +194,9 @@ export function BusinessPage() {
             <Record key={entity.id} className="flex flex-col gap-2">
               <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-2">
                 <div className="min-w-0 flex-1">
-                  <h2 className="font-display text-xl leading-tight font-medium text-ink">
+                  <RecordTitle>
                     {entity.name}
-                  </h2>
+                  </RecordTitle>
                   <p className="mt-0.5 text-sm text-ink-faint">
                     {ENTITY_TYPE_LABELS[entity.entityType ?? 'Unspecified'] ?? entity.entityType}
                     {entity.industry ? ` · ${entity.industry}` : ''}
@@ -375,6 +375,6 @@ export function BusinessPage() {
         loading={remove.isPending}
         onConfirm={() => remove.mutate({ path: { id: removing!.id! } })}
       />
-    </div>
+    </Page>
   )
 }

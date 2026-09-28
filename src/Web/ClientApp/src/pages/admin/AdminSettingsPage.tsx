@@ -25,10 +25,12 @@ import {
   Button,
   CopyButton,
   Field,
-  PageHeader,
+  FormActions,
+  Page,
+  PageSkeleton,
   Panel,
+  PanelTitle,
   PasswordInput,
-  Skeleton,
   toastError,
   toastSuccess,
 } from '@/ui'
@@ -83,7 +85,7 @@ function WebhookUrl({ origin, path }: { origin: string; path: string }) {
   )
 }
 
-function Section({
+function SettingsGroup({
   title,
   purpose,
   whenEmpty,
@@ -109,7 +111,7 @@ function Section({
     <Panel className="flex flex-col gap-4">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="flex flex-col gap-1">
-          <h2 className="font-display text-xl leading-tight font-semibold text-ink">{title}</h2>
+          <PanelTitle>{title}</PanelTitle>
           <p className="max-w-prose text-sm text-ink-faint">{purpose}</p>
         </div>
         <Badge tone={configured ? 'ok' : 'due'} className="shrink-0">
@@ -121,16 +123,15 @@ function Section({
 
       <div className="flex flex-col gap-4">{children}</div>
 
-      <div className="flex flex-wrap items-center justify-end gap-3 border-t border-rule pt-4">
+      <FormActions dirty={dirty} saving={saving} onSave={onSave}>
         {footer}
-        {dirty ? <span className="text-sm text-ink-faint">Unsaved changes</span> : null}
-        <Button onClick={onSave} disabled={!dirty} loading={saving}>
-          Save changes
-        </Button>
-      </div>
+      </FormActions>
     </Panel>
   )
 }
+
+const DESCRIPTION =
+  'Credentials live on the server and take effect immediately — nothing here needs a restart or a redeploy.'
 
 export function AdminSettingsPage() {
   const queryClient = useQueryClient()
@@ -224,24 +225,18 @@ export function AdminSettingsPage() {
 
   if (loading) {
     return (
-      <div className="flex flex-col gap-5">
-        <Skeleton className="h-10 w-1/3" />
-        <Skeleton className="h-40 w-full" />
-        <Skeleton className="h-40 w-full" />
-      </div>
+      <Page title="Integrations" description={DESCRIPTION}>
+        <PageSkeleton blocks={3} />
+      </Page>
     )
   }
 
   const origin = window.location.origin
 
   return (
-    <div className="flex flex-col gap-5">
-      <PageHeader
-        title="Integrations"
-        description="Credentials live on the server and take effect immediately — nothing here needs a restart or a redeploy."
-      />
+    <Page title="Integrations" description={DESCRIPTION}>
 
-      <Section
+      <SettingsGroup
         title="Renewtron"
         purpose="Checks Renewtron every 10 minutes for completed business name renewals and creates a portal login for each customer, emailing new ones a link to set a password."
         whenEmpty="Without an API key the sync is off, and customers who renew won't get a portal account."
@@ -252,7 +247,7 @@ export function AdminSettingsPage() {
           saveRenewtron.mutate({ body: { baseUrl: values.baseUrl || null, apiKey: values.apiKey || null } }),
         )}
         footer={
-          <div className="mr-auto flex flex-wrap items-center gap-3">
+          <>
             <Button variant="secondary" loading={sync.isPending} onClick={() => sync.mutate()}>
               Sync now
             </Button>
@@ -263,7 +258,7 @@ export function AdminSettingsPage() {
                   : (syncResult.message ?? 'Not configured.')}
               </span>
             ) : null}
-          </div>
+          </>
         }
       >
         <Field label="Base URL">
@@ -275,9 +270,9 @@ export function AdminSettingsPage() {
           form={renewtronForm}
           name="apiKey"
         />
-      </Section>
+      </SettingsGroup>
 
-      <Section
+      <SettingsGroup
         title="Email"
         purpose="Sends password resets, portal invites and notifications."
         whenEmpty="Without a key, emails are written to the server log instead of sent — invited customers never receive their link."
@@ -309,9 +304,9 @@ export function AdminSettingsPage() {
         <Field label="Site URL" hint="Used to build emailed links, so it must be the address customers can reach.">
           <Field.Input placeholder="https://myportal.idealbusiness.au" {...emailForm.register('siteUrl')} />
         </Field>
-      </Section>
+      </SettingsGroup>
 
-      <Section
+      <SettingsGroup
         title="Ontraport webhooks"
         purpose="Shared secrets the Ontraport rules must send in the X-Ontraport-Secret header."
         whenEmpty="An empty secret rejects every request to that webhook."
@@ -339,9 +334,9 @@ export function AdminSettingsPage() {
           form={ontraportForm}
           name="renewalSecret"
         />
-      </Section>
+      </SettingsGroup>
 
-      <Section
+      <SettingsGroup
         title="ABN Lookup"
         purpose="Looks up businesses by ABN against the Australian Business Register."
         whenEmpty="Without a token, the “Check ABN Lookup” button on a client's business names does nothing."
@@ -357,9 +352,9 @@ export function AdminSettingsPage() {
           form={abnForm}
           name="apiToken"
         />
-      </Section>
+      </SettingsGroup>
 
-      <Section
+      <SettingsGroup
         title="2Captcha"
         purpose="Solves the reCAPTCHA on ASIC Connect when enriching renewal dates."
         whenEmpty="Without a key, ASIC lookups are skipped and renewal dates must be entered by hand."
@@ -371,8 +366,8 @@ export function AdminSettingsPage() {
         )}
       >
         <SecretInput label="API key" hint="Each solve spends 2Captcha credit." form={captchaForm} name="apiKey" />
-      </Section>
-    </div>
+      </SettingsGroup>
+    </Page>
   )
 }
 

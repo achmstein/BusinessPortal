@@ -10,10 +10,11 @@ import {
   Button,
   ConfirmDialog,
   ErrorState,
-  PageHeader,
+  Page,
+  PageSkeleton,
   Panel,
   PanelTitle,
-  Skeleton,
+  TextLink,
   toastError,
   toastSuccess,
 } from '@/ui'
@@ -82,42 +83,45 @@ export function AtoPortalPage() {
     onError: () => toastError('The sync didn’t finish', 'Try again, or message us if it keeps happening.'),
   })
 
+  const header = {
+    title: 'ATO connection',
+    description:
+      'Connecting lets us read your tax registrations and prefill information from the ATO on your behalf. It’s optional — your business names work either way.',
+  }
+
   if (status.isPending) {
     return (
-      <div className="flex flex-col gap-4">
-        <Skeleton className="h-10 w-2/3" />
-        <Skeleton className="h-32 w-full" />
-      </div>
+      <Page {...header}>
+        <PageSkeleton />
+      </Page>
     )
   }
 
   if (status.isError) {
     return (
-      <ErrorState
-        description="We couldn’t check your ATO connection just now."
-        action={
-          <Button variant="secondary" onClick={() => void status.refetch()}>
-            Try again
-          </Button>
-        }
-      />
+      <Page {...header}>
+        <ErrorState
+          description="We couldn’t check your ATO connection just now."
+          action={
+            <Button variant="secondary" onClick={() => void status.refetch()}>
+              Try again
+            </Button>
+          }
+        />
+      </Page>
     )
   }
 
   const connected = status.data?.connected ?? false
 
   return (
-    <div className="flex flex-col gap-6">
-      <PageHeader
-        title="ATO connection"
-        description="Connecting lets us read your tax registrations and prefill information from the ATO on your behalf. It’s optional — your business names work either way."
-      />
+    <Page {...header}>
 
       <Panel className="flex flex-col gap-5">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div className="flex flex-col gap-1">
             <span className="text-xs tracking-[0.12em] text-ink-faint uppercase">Status</span>
-            <p className="font-display text-2xl leading-tight font-medium text-ink">
+            <p className="font-display text-xl leading-tight font-medium text-ink">
               {connected ? 'Connected to the ATO' : 'Not connected'}
             </p>
             <p className="max-w-prose text-sm text-ink-faint">
@@ -132,7 +136,7 @@ export function AtoPortalPage() {
               Disconnect
             </Button>
           ) : (
-            <Button asChild size="lg">
+            <Button asChild>
               <Link to="/ato-portal/link">Connect to the ATO</Link>
             </Button>
           )}
@@ -142,16 +146,14 @@ export function AtoPortalPage() {
       {connected ? (
         <Panel className="flex flex-col gap-4">
           <div className="flex flex-col gap-2">
-            <PanelTitle as="h2" className="text-lg">
+            <PanelTitle as="h2">
               Update your business details from the ATO
             </PanelTitle>
             <p className="max-w-prose text-sm text-ink-faint">
               Pulls the registered name, ABN, ACN, tax accounts and{' '}
               <strong className="font-medium text-ink">tax file number</strong> for each of your businesses
               into{' '}
-              <Link to="/business" className="text-accent-600 hover:underline">
-                Businesses
-              </Link>
+              <TextLink to="/business">Businesses</TextLink>
               . This runs automatically when you connect — use this to pull it again later.
             </p>
             <p className="text-sm text-ink-faint">
@@ -166,9 +168,7 @@ export function AtoPortalPage() {
 
       <p className="text-sm text-ink-faint">
         Stuck at any step?{' '}
-        <Link to="/messages" className="text-accent-600 hover:underline">
-          Message us
-        </Link>{' '}
+        <TextLink to="/messages">Message us</TextLink>{' '}
         and we’ll walk you through it.
       </p>
 
@@ -181,6 +181,6 @@ export function AtoPortalPage() {
         loading={unlink.isPending}
         onConfirm={() => unlink.mutate({})}
       />
-    </div>
+    </Page>
   )
 }

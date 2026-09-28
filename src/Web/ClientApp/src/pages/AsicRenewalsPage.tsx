@@ -14,10 +14,11 @@ import {
   EmptyState,
   ErrorState,
   Menu,
-  PageHeader,
-  Panel,
-  PanelTitle,
+  List,
+  Page,
+  Section,
   Record,
+  RecordTitle,
   RecordList,
   RecordSkeleton,
   Tooltip,
@@ -63,27 +64,26 @@ export function AsicRenewalsPage() {
   const needing = items.filter(({ status }) => status.needsAction)
 
   return (
-    <div className="flex flex-col gap-6">
-      <PageHeader
-        title="Renewals"
-        description="Business names and companies with a renewal date coming up."
-        actions={
-          <Button
-            variant="secondary"
-            loading={ask.isPending}
-            onClick={() =>
-              ask.mutate({
-                body: {
-                  subject: 'Please check my ASIC renewal dates',
-                  body: 'Could you check my upcoming ASIC business name and company review dates and update my records?',
-                },
-              })
-            }
-          >
-            Ask us to check with ASIC
-          </Button>
-        }
-      />
+    <Page
+      title="Renewals"
+      description="Business names and companies with a renewal date coming up."
+      actions={
+        <Button
+          variant="secondary"
+          loading={ask.isPending}
+          onClick={() =>
+            ask.mutate({
+              body: {
+                subject: 'Please check my ASIC renewal dates',
+                body: 'Could you check my upcoming ASIC business name and company review dates and update my records?',
+              },
+            })
+          }
+        >
+          Ask us to check with ASIC
+        </Button>
+      }
+    >
 
       {renewals.isPending ? (
         <RecordList aria-busy="true">
@@ -124,9 +124,9 @@ export function AsicRenewalsPage() {
                 <Record key={`${item.kind}-${item.sourceId}`} className="flex flex-col gap-1.5">
                   <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-3">
                     <div className="min-w-0 flex-1">
-                      <h2 className="font-display text-xl leading-tight font-medium text-ink">
+                      <RecordTitle>
                         {item.name}
-                      </h2>
+                      </RecordTitle>
                       <p className="mt-0.5 text-sm text-ink-faint">
                         {item.kind}
                         {item.identifier && item.identifier !== '—' ? ` · ${item.identifier}` : ''} · due{' '}
@@ -198,18 +198,12 @@ export function AsicRenewalsPage() {
       {/* What they've already paid for — renewals used to be announced as
           messages; this is the lasting record. */}
       {completed.data && completed.data.length > 0 ? (
-        <Panel className="flex flex-col gap-3">
-          <PanelTitle as="h2" className="text-lg">
-            Business name renewals completed
-          </PanelTitle>
-          <ul className="flex flex-col divide-y divide-rule">
+        <Section title="Business name renewals completed" meta={`${completed.data.length}`}>
+          <List>
             {completed.data.map((renewal) => {
               const years = Number(renewal.years) || 0
               return (
-                <li
-                  key={renewal.id}
-                  className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 py-2.5 first:pt-0 last:pb-0"
-                >
+                <List.Row key={renewal.id} className="justify-between">
                   <div className="min-w-0">
                     <p className="font-medium text-ink">{renewal.businessName}</p>
                     <p className="text-sm text-ink-faint">
@@ -222,12 +216,12 @@ export function AsicRenewalsPage() {
                       Next due <span data-numeric>{formatDate(renewal.newRenewalDate)}</span>
                     </p>
                   ) : null}
-                </li>
+                </List.Row>
               )
             })}
-          </ul>
-        </Panel>
+          </List>
+        </Section>
       ) : null}
-    </div>
+    </Page>
   )
 }

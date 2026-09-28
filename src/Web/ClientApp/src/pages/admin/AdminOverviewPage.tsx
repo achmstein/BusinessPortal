@@ -2,7 +2,7 @@ import { useQuery } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
 import { ArrowRight } from 'lucide-react'
 import { getAdminOverviewOptions } from '@/api/generated/@tanstack/react-query.gen'
-import { Button, ErrorState, PageHeader, Panel, RecordList, Skeleton } from '@/ui'
+import { Button, ErrorState, List, Page, PageSkeleton, Panel, TextLink } from '@/ui'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Staff open this first thing, and the question is "is there anything waiting
@@ -30,7 +30,7 @@ function QueueItem({
   action: string
 }) {
   return (
-    <div className="flex flex-wrap items-center justify-between gap-4 px-5 py-4">
+    <List.Row className="justify-between">
       <div className="flex min-w-0 items-baseline gap-3">
         <span data-numeric className="font-display text-3xl leading-none font-medium text-ink">
           {count}
@@ -46,7 +46,7 @@ function QueueItem({
           <ArrowRight aria-hidden className="size-3.5" />
         </Link>
       </Button>
-    </div>
+    </List.Row>
   )
 }
 
@@ -55,23 +55,24 @@ export function AdminOverviewPage() {
 
   if (overview.isPending) {
     return (
-      <div className="flex flex-col gap-6">
-        <Skeleton className="h-10 w-1/3" />
-        <Skeleton className="h-40 w-full" />
-      </div>
+      <Page title="Overview">
+        <PageSkeleton />
+      </Page>
     )
   }
 
   if (overview.isError) {
     return (
-      <ErrorState
-        description="We couldn’t load the console summary."
-        action={
-          <Button variant="secondary" onClick={() => void overview.refetch()}>
-            Try again
-          </Button>
-        }
-      />
+      <Page title="Overview">
+        <ErrorState
+          description="We couldn’t load the console summary."
+          action={
+            <Button variant="secondary" onClick={() => void overview.refetch()}>
+              Try again
+            </Button>
+          }
+        />
+      </Page>
     )
   }
 
@@ -82,17 +83,15 @@ export function AdminOverviewPage() {
   const clear = unread === 0 && renewalsDue === 0
 
   return (
-    <div className="flex flex-col gap-6">
-      <PageHeader
-        title={clear ? 'Nothing waiting' : 'Waiting on you'}
-        description={
-          clear
-            ? 'No unread messages, and nothing falling due in the next 30 days.'
-            : 'Two queues to work through.'
-        }
-      />
-
-      <RecordList>
+    <Page
+      title={clear ? 'Nothing waiting' : 'Waiting on you'}
+      description={
+        clear
+          ? 'No unread messages, and nothing falling due in the next 30 days.'
+          : 'Work through the queues below.'
+      }
+    >
+      <List>
         <QueueItem
           count={unread}
           singular="unread message"
@@ -109,7 +108,7 @@ export function AdminOverviewPage() {
           to="/admin/registry"
           action="View registry"
         />
-      </RecordList>
+      </List>
 
       <Panel className="flex flex-wrap items-center justify-between gap-3">
         <p className="text-sm text-ink-faint">
@@ -122,14 +121,10 @@ export function AdminOverviewPage() {
           </span>{' '}
           {threads === 1 ? 'conversation' : 'conversations'}
         </p>
-        <Link
-          to="/admin/clients"
-          className="inline-flex items-center gap-1 text-sm text-accent-600 hover:underline"
-        >
+        <TextLink to="/admin/clients" arrow>
           Browse clients
-          <ArrowRight aria-hidden className="size-3.5" />
-        </Link>
+        </TextLink>
       </Panel>
-    </div>
+    </Page>
   )
 }

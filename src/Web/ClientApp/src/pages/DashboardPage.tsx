@@ -3,7 +3,6 @@ import { useMutation, useQuery } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
 import {
   AlertTriangle,
-  ArrowRight,
   Building2,
   CalendarClock,
   CalendarPlus,
@@ -28,9 +27,13 @@ import {
   Badge,
   Button,
   ErrorState,
+  List,
+  Page,
   Panel,
   PanelTitle,
-  Skeleton,
+  PageSkeleton,
+  Section,
+  TextLink,
   toastError,
   toastSuccess,
 } from '@/ui'
@@ -70,18 +73,7 @@ const ICON_TONES: Record<TaskTone, string> = {
 /** Inline ASIC-key requests only while there are few; past that, one grouped task. */
 const MAX_INLINE_KEY_REQUESTS = 2
 
-function Headline({ tone, children }: { tone: 'calm' | 'action' | 'urgent'; children: ReactNode }) {
-  return (
-    <p
-      className={cn(
-        'font-display text-3xl leading-tight font-medium sm:text-4xl',
-        tone === 'urgent' ? 'text-danger-700' : tone === 'action' ? 'text-warn-700' : 'text-ink',
-      )}
-    >
-      {children}
-    </p>
-  )
-}
+const HEADLINE_TONES = { calm: 'text-ink', action: 'text-warn-700', urgent: 'text-danger-700' } as const
 
 function Stat({ label, value, hint }: { label: string; value: ReactNode; hint?: ReactNode }) {
   return (
@@ -271,122 +263,83 @@ export function DashboardPage() {
     .sort((a, b) => (a.status.days ?? 0) - (b.status.days ?? 0))[0]
   const recentRenewals = (completed.data ?? []).slice(0, 3)
 
+  // ── The answer: the page title itself ──
+  let tone: keyof typeof HEADLINE_TONES = 'calm'
+  let title: string
+  let description: string
+  if (failed) {
+    title = 'We couldn’t load your records'
+    description = 'Try again in a moment.'
+  } else if (overdueCount > 0) {
+    tone = 'urgent'
+    title = `${overdueCount === 1 ? 'One registration is' : `${overdueCount} registrations are`} overdue.`
+    description = 'Renewing restores it if you act quickly — it’s the first thing on your list below.'
+  } else if (due.length > 0) {
+    tone = 'action'
+    title = `${due.length === 1 ? 'One registration needs' : `${due.length} registrations need`} renewing.`
+    description = 'Renewing early costs the same and takes a couple of minutes.'
+  } else if (tasks.length > 0) {
+    title = 'Your registrations are in order.'
+    description = `${tasks.length === 1 ? 'There’s one small thing' : `There are ${tasks.length} small things`} that would help us look after them.`
+  } else {
+    title = 'Nothing needs your attention.'
+    description =
+      nameList.length > 0
+        ? `We’re watching ${nameList.length === 1 ? 'your business name' : `all ${nameList.length} of your business names`} and will email you well before anything is due.`
+        : 'Add a business name and we’ll track its renewal date for you.'
+  }
+
   return (
-    <div className="flex flex-col gap-8">
-      {/* ── The answer ── */}
-      <section className="flex flex-col gap-3 border-b border-rule-firm pb-8">
-        {loading ? (
-          <>
-            <Skeleton className="h-9 w-3/4" />
-            <Skeleton className="h-4 w-1/2" />
-          </>
-        ) : failed ? (
-          <Headline tone="calm">We couldn’t load your records</Headline>
-        ) : overdueCount > 0 ? (
-          <>
-            <Headline tone="urgent">
-              {overdueCount === 1 ? 'One registration is' : `${overdueCount} registrations are`} overdue.
-            </Headline>
-            <p className="max-w-prose text-sm text-ink-faint">
-              Renewing restores it if you act quickly — it’s the first thing on your list below.
-            </p>
-          </>
-        ) : due.length > 0 ? (
-          <>
-            <Headline tone="action">
-              {due.length === 1 ? 'One registration needs' : `${due.length} registrations need`} renewing.
-            </Headline>
-            <p className="max-w-prose text-sm text-ink-faint">
-              Renewing early costs the same and takes a couple of minutes.
-            </p>
-          </>
-        ) : tasks.length > 0 ? (
-          <>
-            <Headline tone="calm">Your registrations are in order.</Headline>
-            <p className="max-w-prose text-sm text-ink-faint">
-              {tasks.length === 1 ? 'There’s one small thing' : `There are ${tasks.length} small things`} that
-              would help us look after them.
-            </p>
-          </>
-        ) : (
-          <>
-            <Headline tone="calm">Nothing needs your attention.</Headline>
-            <p className="max-w-prose text-sm text-ink-faint">
-              {nameList.length > 0
-                ? `We’re watching ${nameList.length === 1 ? 'your business name' : `all ${nameList.length} of your business names`} and will email you well before anything is due.`
-                : 'Add a business name and we’ll track its renewal date for you.'}
-            </p>
-          </>
-        )}
-      </section>
-
-      <div className="grid grid-cols-1 gap-8 lg:grid-cols-[minmax(0,1fr)_18rem]">
+    <Page
+      eyebrow="Overview"
+      title={loading ? 'Checking your records…' : <span className={HEADLINE_TONES[tone]}>{title}</span>}
+      description={loading ? undefined : description}
+    >
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_18rem]">
         {/* ── Main column: to do, then the register ── */}
-        <div className="flex min-w-0 flex-col gap-8">
-          <section className="flex flex-col gap-3" aria-labelledby="todo-heading">
-            <div className="flex items-baseline justify-between gap-4">
-              <h2 id="todo-heading" className="font-display text-xl font-medium text-ink">
-                To do
-              </h2>
-              {tasks.length > 0 ? (
-                <span className="text-sm text-ink-faint" data-numeric>
-                  {tasks.length} {tasks.length === 1 ? 'item' : 'items'}
-                </span>
-              ) : null}
-            </div>
-
+        <div className="flex min-w-0 flex-col gap-6">
+          <Section
+            title="To do"
+            meta={tasks.length > 0 ? `${tasks.length} ${tasks.length === 1 ? 'item' : 'items'}` : undefined}
+          >
             {loading ? (
-              <Panel className="flex flex-col gap-3">
-                <Skeleton className="h-12 w-full" />
-                <Skeleton className="h-12 w-full" />
-              </Panel>
+              <PageSkeleton blocks={1} />
             ) : tasks.length === 0 ? (
               <Panel className="flex items-center gap-3">
                 <CheckCircle2 aria-hidden className="size-5 shrink-0 text-accent-600" />
                 <p className="text-sm text-ink-muted">You’re all caught up. We’ll let you know when something comes up.</p>
               </Panel>
             ) : (
-              <Panel className="p-0 sm:p-0">
-                <ul className="divide-y divide-rule">
-                  {tasks.map((task) => (
-                    <li key={task.key} className="flex flex-wrap items-center gap-x-4 gap-y-3 px-5 py-4">
-                      <span
-                        aria-hidden
-                        className={cn('grid size-9 shrink-0 place-items-center rounded-full', ICON_TONES[task.tone])}
-                      >
-                        {task.icon}
-                      </span>
-                      <div className="min-w-0 flex-1">
-                        <p className="font-medium text-ink">{task.title}</p>
-                        <p className="text-sm text-ink-faint">{task.detail}</p>
-                      </div>
-                      <div className="shrink-0">{task.action}</div>
-                    </li>
-                  ))}
-                </ul>
-              </Panel>
+              <List>
+                {tasks.map((task) => (
+                  <List.Row key={task.key}>
+                    <span
+                      aria-hidden
+                      className={cn('grid size-9 shrink-0 place-items-center rounded-full', ICON_TONES[task.tone])}
+                    >
+                      {task.icon}
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <p className="font-medium text-ink">{task.title}</p>
+                      <p className="text-sm text-ink-faint">{task.detail}</p>
+                    </div>
+                    <div className="shrink-0">{task.action}</div>
+                  </List.Row>
+                ))}
+              </List>
             )}
-          </section>
+          </Section>
 
-          <section className="flex flex-col gap-3" aria-labelledby="names-heading">
-            <div className="flex items-baseline justify-between gap-4">
-              <h2 id="names-heading" className="font-display text-xl font-medium text-ink">
-                Your business names
-              </h2>
-              <Link
-                to="/business-names"
-                className="inline-flex items-center gap-1 text-sm text-accent-600 hover:underline"
-              >
+          <Section
+            title="Your business names"
+            action={
+              <TextLink to="/business-names" arrow>
                 {nameList.length > 0 ? 'Manage' : 'Add a name'}
-                <ArrowRight aria-hidden className="size-3.5" />
-              </Link>
-            </div>
-
+              </TextLink>
+            }
+          >
             {names.isPending ? (
-              <Panel className="flex flex-col gap-3">
-                <Skeleton className="h-6 w-full" />
-                <Skeleton className="h-6 w-full" />
-              </Panel>
+              <PageSkeleton blocks={1} />
             ) : names.isError ? (
               <ErrorState
                 description="We couldn’t load your business names just now."
@@ -403,32 +356,28 @@ export function DashboardPage() {
                 </p>
               </Panel>
             ) : (
-              <Panel className="p-0 sm:p-0">
-                <ul className="divide-y divide-rule">
-                  {nameList.map((name) => {
-                    const status = renewalStatus(name.renewalDate)
-                    return (
-                      <li key={name.id} className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 px-5 py-3">
-                        <span className="min-w-0 flex-1 truncate font-medium text-ink">{name.name}</span>
-                        <span className="text-sm text-ink-faint" data-numeric>
-                          {name.renewalDate ? `Renews ${formatDate(name.renewalDate)}` : 'No renewal date'}
-                        </span>
-                        {status.needsAction ? (
-                          <Badge tone={status.tone}>{status.label}</Badge>
-                        ) : null}
-                      </li>
-                    )
-                  })}
-                </ul>
-              </Panel>
+              <List>
+                {nameList.map((name) => {
+                  const status = renewalStatus(name.renewalDate)
+                  return (
+                    <List.Row key={name.id} className="justify-between py-3">
+                      <span className="min-w-0 flex-1 truncate font-medium text-ink">{name.name}</span>
+                      <span className="text-sm text-ink-faint" data-numeric>
+                        {name.renewalDate ? `Renews ${formatDate(name.renewalDate)}` : 'No renewal date'}
+                      </span>
+                      {status.needsAction ? <Badge tone={status.tone}>{status.label}</Badge> : null}
+                    </List.Row>
+                  )
+                })}
+              </List>
             )}
-          </section>
+          </Section>
         </div>
 
         {/* ── Side column: reference ── */}
         <aside className="flex flex-col gap-6">
           <Panel className="flex flex-col gap-4">
-            <PanelTitle as="h2" className="text-lg">
+            <PanelTitle as="h2">
               At a glance
             </PanelTitle>
             <dl className="grid grid-cols-2 gap-4 lg:grid-cols-1">
@@ -451,7 +400,7 @@ export function DashboardPage() {
 
           {recentRenewals.length > 0 ? (
             <Panel className="flex flex-col gap-3">
-              <PanelTitle as="h2" className="text-lg">
+              <PanelTitle as="h2">
                 Recently renewed
               </PanelTitle>
               <ul className="flex flex-col gap-3">
@@ -468,14 +417,14 @@ export function DashboardPage() {
                   </li>
                 ))}
               </ul>
-              <Link to="/asic-renewals" className="text-sm text-accent-600 hover:underline">
+              <TextLink to="/asic-renewals" arrow>
                 See all renewals
-              </Link>
+              </TextLink>
             </Panel>
           ) : null}
 
           <Panel className="flex flex-col gap-2">
-            <PanelTitle as="h2" className="text-lg">
+            <PanelTitle as="h2">
               Need a hand?
             </PanelTitle>
             <p className="text-sm text-ink-faint">Our team usually replies within one business day.</p>
@@ -485,6 +434,6 @@ export function DashboardPage() {
           </Panel>
         </aside>
       </div>
-    </div>
+    </Page>
   )
 }

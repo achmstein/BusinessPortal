@@ -3,7 +3,7 @@ import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { Link, useNavigate } from 'react-router-dom'
-import { ArrowLeft, Smartphone } from 'lucide-react'
+import { Smartphone } from 'lucide-react'
 import {
   pollAtoLink,
   selectAtoAgent,
@@ -18,7 +18,7 @@ import {
   Countdown,
   ErrorState,
   Field,
-  PageHeader,
+  Page,
   Panel,
   PanelTitle,
   Select,
@@ -175,19 +175,11 @@ export function AtoLinkPage() {
   const stepIndex = step === 'start' ? 0 : step === 'approve' ? 1 : step === 'chooseAgent' ? 2 : 0
 
   return (
-    <div className="flex flex-col gap-6">
-      <Link
-        to="/ato-portal"
-        className="inline-flex items-center gap-1.5 self-start text-sm text-accent-600 hover:underline"
-      >
-        <ArrowLeft aria-hidden className="size-3.5" />
-        Back to ATO
-      </Link>
-
-      <PageHeader
-        title="Link your business to the ATO"
-        description="You approve the link in the myID app on your phone. We never see your password or two-factor codes."
-      />
+    <Page
+      title="Link your business to the ATO"
+      description="You approve the link in the myID app on your phone. We never see your password or two-factor codes."
+      back={{ to: '/ato-portal', label: 'Back to ATO' }}
+    >
 
       {step !== 'failed' ? <Steps step={stepIndex} items={STEPS} /> : null}
 
@@ -235,7 +227,7 @@ export function AtoLinkPage() {
               recorded.
             </Checkbox>
 
-            <Button type="submit" size="lg" loading={busy} className="self-start">
+            <Button type="submit" loading={busy} className="self-start">
               Start the link
             </Button>
           </form>
@@ -322,7 +314,7 @@ export function AtoLinkPage() {
             </p>
           ) : null}
 
-          <Button size="lg" loading={busy} onClick={() => void onSaveAgent()} className="self-start">
+          <Button loading={busy} onClick={() => void onSaveAgent()} className="self-start">
             Finish
           </Button>
         </Panel>
@@ -348,6 +340,6 @@ export function AtoLinkPage() {
           </div>
         </div>
       ) : null}
-    </div>
+    </Page>
   )
 }
