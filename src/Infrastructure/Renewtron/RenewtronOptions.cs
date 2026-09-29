@@ -30,6 +30,19 @@ public class RenewtronOptions
     /// re-scanning free.</summary>
     public int PollWindowDays { get; set; } = 90;
 
+    /// <summary>Only customers from this date on (UTC): renewals started and Ontraport
+    /// sales first seen on or after it. Lets the integration go live for new customers
+    /// without creating accounts for — and emailing — everyone who renewed before.
+    /// Empty = the full poll window.</summary>
+    public DateTime? SyncFrom { get; set; }
+
+    /// <summary>The earliest date a run looks at: the poll window, cut off by SyncFrom.</summary>
+    public DateTime EffectiveSince(DateTime utcNow)
+    {
+        var window = utcNow.AddDays(-Math.Max(1, PollWindowDays)).Date;
+        return SyncFrom is { } from && from.Date > window ? from.Date : window;
+    }
+
     /// <summary>Give up retrying a failing renewal after this many attempts.</summary>
     public int MaxAttempts { get; set; } = 10;
 }

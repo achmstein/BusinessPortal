@@ -76,6 +76,12 @@ public class RenewtronSyncService(
                 continue;
             if (log is { Outcome: ProvisionOutcome.Failed } && log.Attempts >= current.MaxAttempts)
                 continue;
+            // With a start date set, an Ontraport renewal is only new if its sale is:
+            // Renewtron lodges old sales' renewals weeks later, so a renewal started
+            // after the cutoff can still belong to a customer from before it. New sales
+            // were linked to their renewal by the sales step above.
+            if (current.SyncFrom is not null && item.Source == "Ontraport" && !mirrored.ContainsKey(item.Id))
+                continue;
 
             try
             {
@@ -120,7 +126,7 @@ public class RenewtronSyncService(
 
     private async Task<List<RenewtronRenewalItem>> FetchRenewalsAsync(RenewtronOptions current, CancellationToken ct)
     {
-        var since = DateTime.UtcNow.AddDays(-Math.Max(1, current.PollWindowDays));
+        var since = current.EffectiveSince(DateTime.UtcNow);
         var items = new List<RenewtronRenewalItem>();
         for (var page = 1; page <= MaxPages; page++)
         {
@@ -259,7 +265,7 @@ public class RenewtronSyncService(
 
     private async Task<(int Created, int Failed)> SyncSalesAsync(RenewtronOptions current, CancellationToken ct)
     {
-        var since = DateTime.UtcNow.AddDays(-Math.Max(1, current.PollWindowDays)).Date;
+        var since = current.EffectiveSince(DateTime.UtcNow);
         var sales = await client.GetSalesAsync(since, ct);
         int created = 0, failed = 0;
         foreach (var sale in sales.OrderBy(s => s.SyncedAt))

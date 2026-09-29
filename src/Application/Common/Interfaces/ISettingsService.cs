@@ -14,7 +14,8 @@ public sealed record AbnLookupSettings(string? ApiToken);
 /// <summary>Renewtron (businessnames.applyforanabn.au): its partner API is the
 /// portal's source for renewals and ASIC keys, and its site is the renewal
 /// checkout. The API key is Renewtron's scoped partner key. Empty key = off.</summary>
-public sealed record RenewtronSettings(string? BaseUrl, string? ApiKey, string? CheckoutUrl);
+/// <param name="SyncFrom">yyyy-MM-dd; only customers from this date on. Empty = no cutoff.</param>
+public sealed record RenewtronSettings(string? BaseUrl, string? ApiKey, string? CheckoutUrl, string? SyncFrom);
 
 /// <summary>
 /// Reads and persists the integration credentials that used to be server-only

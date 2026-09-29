@@ -1,5 +1,5 @@
 import { useEffect, useState, type ReactNode } from 'react'
-import { useForm, type UseFormReturn, type DefaultValues, type FieldValues } from 'react-hook-form'
+import { Controller, useForm, type UseFormReturn, type DefaultValues, type FieldValues } from 'react-hook-form'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   getAbnLookupSettingsOptions,
@@ -20,6 +20,7 @@ import type { RenewtronSyncResult } from '@/api/generated'
 import {
   Badge,
   Button,
+  DatePicker,
   Field,
   FormActions,
   Page,
@@ -132,7 +133,7 @@ export function AdminSettingsPage() {
     defaultValues: { from: '', resendApiKey: '', sendGridApiKey: '', siteUrl: '' },
   })
   const abnForm = useForm<FieldValues>({ defaultValues: { apiToken: '' } })
-  const renewtronForm = useForm<FieldValues>({ defaultValues: { baseUrl: '', apiKey: '', checkoutUrl: '' } })
+  const renewtronForm = useForm<FieldValues>({ defaultValues: { baseUrl: '', apiKey: '', checkoutUrl: '', syncFrom: '' } })
 
   // Re-baseline each form once its values arrive, so isDirty means "you changed
   // something" rather than "the data loaded".
@@ -153,6 +154,7 @@ export function AdminSettingsPage() {
       baseUrl: renewtron.data.baseUrl ?? '',
       apiKey: renewtron.data.apiKey ?? '',
       checkoutUrl: renewtron.data.checkoutUrl ?? '',
+      syncFrom: renewtron.data.syncFrom ?? '',
     },
   )
 
@@ -224,6 +226,7 @@ export function AdminSettingsPage() {
               baseUrl: values.baseUrl || null,
               apiKey: values.apiKey || null,
               checkoutUrl: values.checkoutUrl || null,
+              syncFrom: values.syncFrom || null,
             },
           }),
         )}
@@ -256,6 +259,16 @@ export function AdminSettingsPage() {
         />
         <Field label="Checkout address" hint="Where customers go to renew. Leave blank if it's the same as the API address.">
           <Field.Input placeholder="https://businessnames.applyforanabn.au" {...renewtronForm.register('checkoutUrl')} />
+        </Field>
+        <Field
+          label="Only customers from"
+          hint="Renewals and Ontraport sales from this date on get a portal account and welcome email; earlier customers are left alone. Blank = everyone from the last 90 days."
+        >
+          <Controller
+            control={renewtronForm.control}
+            name="syncFrom"
+            render={({ field }) => <DatePicker value={field.value ?? ''} onChange={field.onChange} />}
+          />
         </Field>
       </SettingsGroup>
 

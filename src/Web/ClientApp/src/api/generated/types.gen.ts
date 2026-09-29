@@ -371,6 +371,7 @@ export type RenewtronSettings = {
     baseUrl: null | string;
     apiKey: null | string;
     checkoutUrl: null | string;
+    syncFrom: null | string;
 };
 
 export type RenewtronSyncResult = {

@@ -3332,7 +3332,8 @@
         "required": [
           "baseUrl",
           "apiKey",
-          "checkoutUrl"
+          "checkoutUrl",
+          "syncFrom"
         ],
         "type": "object",
         "properties": {
@@ -3349,6 +3350,12 @@
             ]
           },
           "checkoutUrl": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "syncFrom": {
             "type": [
               "null",
               "string"

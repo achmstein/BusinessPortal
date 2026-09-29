@@ -79,7 +79,7 @@ public sealed class SettingsService : ISettingsService
     public RenewtronSettings GetRenewtronSettings()
     {
         var r = _renewtron.CurrentValue;
-        return new RenewtronSettings(r.BaseUrl, r.ApiKey, r.CheckoutUrl);
+        return new RenewtronSettings(r.BaseUrl, r.ApiKey, r.CheckoutUrl, r.SyncFrom?.ToString("yyyy-MM-dd"));
     }
 
     public Task UpdateRenewtronSettingsAsync(RenewtronSettings settings, CancellationToken cancellationToken) =>
@@ -88,6 +88,7 @@ public sealed class SettingsService : ISettingsService
             BaseUrl = settings.BaseUrl?.Trim().TrimEnd('/'),
             ApiKey = settings.ApiKey?.Trim(),
             CheckoutUrl = settings.CheckoutUrl?.Trim().TrimEnd('/'),
+            SyncFrom = DateOnly.TryParse(settings.SyncFrom, out var from) ? from.ToString("yyyy-MM-dd") : null,
         }, cancellationToken);
 
     private async Task UpdateSectionAsync(string sectionName, object section, CancellationToken cancellationToken)
