@@ -17,6 +17,7 @@ public interface IApplicationDbContext
     DbSet<RenewtronProvisionLog> RenewtronProvisionLogs { get; }
     DbSet<BusinessNameRenewal> BusinessNameRenewals { get; }
     DbSet<SignInLinkRedemption> SignInLinkRedemptions { get; }
+    DbSet<EmailLog> EmailLogs { get; }
 
     Task<int> SaveChangesAsync(CancellationToken cancellationToken);
 }

@@ -23,6 +23,7 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
     public DbSet<RenewtronProvisionLog> RenewtronProvisionLogs => Set<RenewtronProvisionLog>();
     public DbSet<BusinessNameRenewal> BusinessNameRenewals => Set<BusinessNameRenewal>();
     public DbSet<SignInLinkRedemption> SignInLinkRedemptions => Set<SignInLinkRedemption>();
+    public DbSet<EmailLog> EmailLogs => Set<EmailLog>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {

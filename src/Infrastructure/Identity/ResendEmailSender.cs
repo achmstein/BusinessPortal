@@ -1,4 +1,6 @@
 using System.Net.Http.Json;
+using BusinessPortal.Application.Common.Interfaces;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -29,18 +31,33 @@ public sealed class EmailOptions
 public sealed class ResendEmailSender(
     IHttpClientFactory httpClientFactory,
     IOptionsMonitor<EmailOptions> options,
+    IServiceScopeFactory scopes,
     ILogger<ResendEmailSender> logger) : IEmailSender<ApplicationUser>
 {
     public const string HttpClientName = "resend";
 
+    public static class Kinds
+    {
+        public const string Welcome = "Welcome";
+        public const string PasswordReset = "PasswordReset";
+        public const string Confirmation = "Confirmation";
+    }
+
+    public static class Statuses
+    {
+        public const string Sent = "Sent";
+        public const string Failed = "Failed";
+        public const string NotConfigured = "NotConfigured";
+    }
+
     public Task SendConfirmationLinkAsync(ApplicationUser user, string email, string confirmationLink) =>
-        SendAsync(email,
+        SendAsync(Kinds.Confirmation, user.Id, email,
             "Confirm your Business Portal email",
             $"<p>Hi {EscapeHtml(NameOf(user))},</p><p>Confirm your email by clicking the link below.</p><p><a href=\"{confirmationLink}\">{confirmationLink}</a></p>",
             $"Hi {NameOf(user)},\n\nConfirm your Business Portal email: {confirmationLink}");
 
     public Task SendPasswordResetLinkAsync(ApplicationUser user, string email, string resetLink) =>
-        SendAsync(email,
+        SendAsync(Kinds.PasswordReset, user.Id, email,
             "Reset your Business Portal password",
             ResetHtml(NameOf(user), resetLink),
             ResetText(NameOf(user), resetLink));
@@ -50,7 +67,7 @@ public sealed class ResendEmailSender(
     public Task SendPasswordResetCodeAsync(ApplicationUser user, string email, string resetCode)
     {
         var link = ResetLink(email, resetCode);
-        return SendAsync(email, "Reset your Business Portal password",
+        return SendAsync(Kinds.PasswordReset, user.Id, email, "Reset your Business Portal password",
             ResetHtml(NameOf(user), link), ResetText(NameOf(user), link));
     }
 
@@ -59,7 +76,8 @@ public sealed class ResendEmailSender(
     /// invite reuses the existing /reset-password page. <paramref name="signInUrl"/>
     /// is a one-click sign-in link, when that feature is configured — it opens the
     /// portal straight away; the password is for coming back later.</summary>
-    public Task SendInviteAsync(ApplicationUser user, string email, string resetCode, string? signInUrl = null)
+    /// <returns>The logged status: Sent, Failed or NotConfigured.</returns>
+    public Task<string> SendInviteAsync(ApplicationUser user, string email, string resetCode, string? signInUrl = null)
     {
         // welcome=1 tells the reset page this person is choosing a first
         // password, not replacing a forgotten one — the copy differs.
@@ -74,7 +92,7 @@ public sealed class ResendEmailSender(
             $"Open your Business Portal (signs you in; works once, for 72 hours): {signInUrl}\n\n" +
             "To sign in again later, set a password.\n";
 
-        return SendAsync(email,
+        return SendAsync(Kinds.Welcome, user.Id, email,
             "Your Business Portal account is ready",
             $"<p>Hi {EscapeHtml(name)},</p>" +
             "<p>A Business Portal account has been created for you as part of your business name renewal. " +
@@ -116,18 +134,22 @@ public sealed class ResendEmailSender(
         $"Hi {name},\n\nReset your Business Portal password: {link}\n\n" +
         $"Link expires in {TokenTtl}. If you didn't request this, ignore this email.";
 
-    private async Task SendAsync(string to, string subject, string html, string text)
+    private async Task<string> SendAsync(string kind, string? userId, string to, string subject, string html, string text)
     {
         var email = options.CurrentValue;
+        string status;
+        string? error = null;
         try
         {
             if (!string.IsNullOrWhiteSpace(email.ResendApiKey))
             {
                 await SendViaResendAsync(email, to, subject, html, text);
+                status = Statuses.Sent;
             }
             else if (!string.IsNullOrWhiteSpace(email.SendGridApiKey))
             {
                 await SendViaSendGridAsync(email, to, subject, html, text);
+                status = Statuses.Sent;
             }
             else
             {
@@ -135,11 +157,41 @@ public sealed class ResendEmailSender(
                     "📧 [EMAIL — console adapter; set Email:ResendApiKey or Email:SendGridApiKey to send for real]\n" +
                     "To:      {To}\nFrom:    {From}\nSubject: {Subject}\n{Body}",
                     to, email.From, subject, text);
+                status = Statuses.NotConfigured;
             }
         }
         catch (Exception ex)
         {
             logger.LogError(ex, "[email] send failed");
+            status = Statuses.Failed;
+            error = ex.Message.Length > 500 ? ex.Message[..500] : ex.Message;
+        }
+
+        await RecordAsync(kind, userId, to, status, error);
+        return status;
+    }
+
+    /// <summary>Best effort: a logging failure must never turn into a send failure.</summary>
+    private async Task RecordAsync(string kind, string? userId, string to, string status, string? error)
+    {
+        try
+        {
+            using var scope = scopes.CreateScope();
+            var db = scope.ServiceProvider.GetRequiredService<IApplicationDbContext>();
+            db.EmailLogs.Add(new EmailLog
+            {
+                UserId = userId,
+                To = to,
+                Kind = kind,
+                Status = status,
+                Error = error,
+                At = DateTimeOffset.UtcNow,
+            });
+            await db.SaveChangesAsync(CancellationToken.None);
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "[email] could not record the send in EmailLogs");
         }
     }
 

@@ -10,7 +10,13 @@ public record MeResponse(string Id, string? Email, bool IsAdmin, bool AtoConnect
 public record JobStartedResponse(Guid JobId);
 public record ThreadStartedResponse(Guid ThreadId);
 public record RenewalResponse(string RenewalDate);
-public record AdminOverviewResponse(int Clients, int ActiveThreads, int UnreadMessages, int RenewalsDue);
+public record AdminOverviewResponse(
+    int Clients, int ActiveThreads, int UnreadMessages, int RenewalsDue,
+    int EmailFailures24h, string? LastEmailError, int WelcomePending);
+
+public record EmailLogRow(string Kind, string Status, string? Error, DateTimeOffset At);
+public record ResendWelcomeResponse(string Status);
+public record ResendPendingResponse(int Attempted, int Sent, string? StoppedBecause);
 
 // ─── Admin registry (cross-client flatten of names/entities/companies) ───
 public record RegistryClientRef(string Id, string Name, string? Email);

@@ -35,7 +35,17 @@ public static class AdminEndpoints
                 var d = AsicRenewalEvaluator.DaysUntil(b.RenewalDate, today);
                 return d.HasValue && d.Value <= 30;
             });
-            return Results.Ok(new AdminOverviewResponse(clients, activeThreads, unread, renewalsDue));
+            // Email health: a dead provider key shows up here within one send.
+            var since = DateTimeOffset.UtcNow.AddHours(-24);
+            var failures = await context.EmailLogs.AsNoTracking()
+                .Where(e => e.At >= since && e.Status != ResendEmailSender.Statuses.Sent)
+                .OrderByDescending(e => e.At).ToListAsync(ct);
+            var lastError = failures.FirstOrDefault()?.Error
+                ?? (failures.Count > 0 ? "No email provider key is set." : null);
+            var welcomePending = (await WelcomePendingAsync(context, ct)).Count;
+
+            return Results.Ok(new AdminOverviewResponse(
+                clients, activeThreads, unread, renewalsDue, failures.Count, lastError, welcomePending));
         }).WithName("GetAdminOverview").Produces<AdminOverviewResponse>();
 
         // Searched and paged on the server. The console previously fetched every
@@ -86,14 +96,59 @@ public static class AdminEndpoints
                 .Where(b => b.UserId == id).OrderBy(b => b.Name)
                 .Select(b => new { b.Id, b.Name, b.RenewalDate, b.AsicKey, b.PendingAsicKey, b.AsicKeyRequestStatus }).ToListAsync(ct);
 
+            var emails = await context.EmailLogs.AsNoTracking()
+                .Where(e => e.UserId == id).OrderByDescending(e => e.At).Take(10)
+                .Select(e => new EmailLogRow(e.Kind, e.Status, e.Error, e.At)).ToListAsync(ct);
+
             var p = user.Profile;
             return Results.Ok(new
             {
+                emails,
                 id = user.Id, email = user.Email, atoConnected = user.AtoConnected,
                 profile = new { p.FirstName, p.LastName, p.Phone, p.Dob, p.Tfn, p.Abn, p.Address, p.Suburb, p.State, p.Postcode },
                 entities, businessNames = names,
             });
         }).WithName("GetAdminClient");
+
+        // Re-send one client's welcome email (fresh set-password + sign-in links).
+        group.MapPost("/clients/{id}/resend-welcome", async (
+                string id, UserManager<ApplicationUser> users, UserProvisioningService provisioning) =>
+            {
+                var user = await users.FindByIdAsync(id);
+                if (user is null) return Results.NotFound();
+                if (await users.IsInRoleAsync(user, Roles.Admin))
+                    return Results.BadRequest(new ErrorResponse("Staff accounts don't get welcome emails."));
+                return Results.Ok(new ResendWelcomeResponse(await provisioning.SendWelcomeAsync(user)));
+            })
+            .WithName("ResendWelcomeEmail")
+            .Produces<ResendWelcomeResponse>();
+
+        // Re-send to every auto-created account whose welcome never went out. Stops at
+        // the first failure: with a dead provider key every send fails the same way,
+        // and there's no point burning through the list.
+        group.MapPost("/clients/resend-welcome-pending", async (
+                UserManager<ApplicationUser> users, UserProvisioningService provisioning,
+                IApplicationDbContext context, CancellationToken ct) =>
+            {
+                var pending = await WelcomePendingAsync(context, ct);
+                int attempted = 0, sent = 0;
+                foreach (var userId in pending)
+                {
+                    var user = await users.FindByIdAsync(userId);
+                    if (user is null) continue;
+                    attempted++;
+                    var status = await provisioning.SendWelcomeAsync(user);
+                    if (status != ResendEmailSender.Statuses.Sent)
+                        return Results.Ok(new ResendPendingResponse(attempted, sent,
+                            status == ResendEmailSender.Statuses.NotConfigured
+                                ? "No email provider key is set."
+                                : "The email provider rejected the send — check the key in Integrations."));
+                    sent++;
+                }
+                return Results.Ok(new ResendPendingResponse(attempted, sent, null));
+            })
+            .WithName("ResendPendingWelcomeEmails")
+            .Produces<ResendPendingResponse>();
 
         // Shared inbox — every client's threads, grouped.
         group.MapGet("/messages", async (UserManager<ApplicationUser> users, IApplicationDbContext context, CancellationToken ct) =>
@@ -366,5 +421,18 @@ public static class AdminEndpoints
         }).WithName("StopImpersonation").RequireAuthorization();
 
         return app;
+    }
+
+    /// <summary>Accounts the Renewtron sync created (so they never chose to sign up)
+    /// that have no welcome email on record as sent.</summary>
+    private static async Task<List<string>> WelcomePendingAsync(IApplicationDbContext context, CancellationToken ct)
+    {
+        var created = await context.RenewtronProvisionLogs.AsNoTracking()
+            .Where(l => l.Outcome == ProvisionOutcome.Created && l.UserId != null)
+            .Select(l => l.UserId!).Distinct().ToListAsync(ct);
+        var welcomed = await context.EmailLogs.AsNoTracking()
+            .Where(e => e.Kind == ResendEmailSender.Kinds.Welcome && e.Status == ResendEmailSender.Statuses.Sent && e.UserId != null)
+            .Select(e => e.UserId!).Distinct().ToListAsync(ct);
+        return created.Except(welcomed).ToList();
     }
 }

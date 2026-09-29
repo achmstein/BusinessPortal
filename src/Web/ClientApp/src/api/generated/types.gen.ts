@@ -54,6 +54,9 @@ export type AdminOverviewResponse = {
     activeThreads: number | string;
     unreadMessages: number | string;
     renewalsDue: number | string;
+    emailFailures24h: number | string;
+    lastEmailError: null | string;
+    welcomePending: number | string;
 };
 
 export type AdminReplyBody = {
@@ -391,6 +394,16 @@ export type ReplyBody = {
 
 export type ResendConfirmationEmailRequest = {
     email: string;
+};
+
+export type ResendPendingResponse = {
+    attempted: number | string;
+    sent: number | string;
+    stoppedBecause: null | string;
+};
+
+export type ResendWelcomeResponse = {
+    status: string;
 };
 
 export type ResetPasswordRequest = {
@@ -1241,6 +1254,40 @@ export type GetAdminClientResponses = {
      */
     200: unknown;
 };
+
+export type ResendWelcomeEmailData = {
+    body?: never;
+    path: {
+        id: string;
+    };
+    query?: never;
+    url: '/api/admin/clients/{id}/resend-welcome';
+};
+
+export type ResendWelcomeEmailResponses = {
+    /**
+     * OK
+     */
+    200: ResendWelcomeResponse;
+};
+
+export type ResendWelcomeEmailResponse = ResendWelcomeEmailResponses[keyof ResendWelcomeEmailResponses];
+
+export type ResendPendingWelcomeEmailsData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/admin/clients/resend-welcome-pending';
+};
+
+export type ResendPendingWelcomeEmailsResponses = {
+    /**
+     * OK
+     */
+    200: ResendPendingResponse;
+};
+
+export type ResendPendingWelcomeEmailsResponse = ResendPendingWelcomeEmailsResponses[keyof ResendPendingWelcomeEmailsResponses];
 
 export type GetAdminMessagesData = {
     body?: never;

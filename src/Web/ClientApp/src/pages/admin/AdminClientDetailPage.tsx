@@ -4,12 +4,13 @@ import { Link, useNavigate, useParams } from 'react-router-dom'
 import { MessageSquare } from 'lucide-react'
 import {
   applyPendingAsicKeyMutation,
+  resendWelcomeEmailMutation,
   getAdminClientOptions,
   getAdminClientQueryKey,
 } from '@/api/generated/@tanstack/react-query.gen'
 import { startImpersonation } from '@/api/generated'
 import { formatAbn, formatAcn, maskTfn } from '@/lib/format'
-import { formatDate } from '@/lib/dates'
+import { formatDate, formatDateTime } from '@/lib/dates'
 import { renewalStatus } from '@/lib/renewal'
 import {
   Badge,
@@ -44,6 +45,12 @@ import {
 // conversation starts from the same picture the customer is looking at.
 // ─────────────────────────────────────────────────────────────────────────────
 
+const EMAIL_KINDS: Record<string, string> = {
+  Welcome: 'Welcome email',
+  PasswordReset: 'Password reset',
+  Confirmation: 'Email confirmation',
+}
+
 interface ClientDetail {
   id: string
   email: string
@@ -61,6 +68,7 @@ interface ClientDetail {
     postcode: string
   }
   entities: { id: string; name: string; entityType: string; abn: string; acn: string; industry: string }[]
+  emails: { kind: string; status: string; error: string | null; at: string }[]
   businessNames: {
     id: string
     name: string
@@ -109,6 +117,17 @@ export function AdminClientDetailPage() {
       toastSuccess('ASIC key added to the client’s business name')
     },
     onError: () => toastError('Couldn’t apply that key', 'Try again in a moment.'),
+  })
+
+  const resendWelcome = useMutation({
+    ...resendWelcomeEmailMutation(),
+    onSuccess: async (result) => {
+      await queryClient.invalidateQueries({ queryKey: getAdminClientQueryKey({ path: { id: id! } }) })
+      if (result.status === 'Sent') toastSuccess('Welcome email sent')
+      else if (result.status === 'NotConfigured') toastError('Email isn’t set up', 'Add the provider key in Integrations.')
+      else toastError('The email provider rejected it', 'Check the key in Integrations.')
+    },
+    onError: () => toastError('Couldn’t send the welcome email', 'Try again in a moment.'),
   })
 
   const impersonate = useMutation({
@@ -298,6 +317,42 @@ export function AdminClientDetailPage() {
                 )
               })}
             />
+          </ul>
+        )}
+      </Panel>
+
+      <Panel className="flex flex-col gap-3">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <PanelTitle>Emails</PanelTitle>
+          <Button
+            size="sm"
+            variant="secondary"
+            loading={resendWelcome.isPending}
+            onClick={() => resendWelcome.mutate({ path: { id: detail.id } })}
+          >
+            Resend welcome email
+          </Button>
+        </div>
+        <p className="text-sm text-ink-faint">
+          The welcome email carries a fresh one-click sign-in link and a set-password link. Contents aren’t kept —
+          only whether each email went out.
+        </p>
+        {(detail.emails ?? []).length === 0 ? (
+          <p className="text-sm text-ink-faint">No emails recorded yet.</p>
+        ) : (
+          <ul className="flex flex-col divide-y divide-rule text-sm">
+            {detail.emails.map((e, i) => (
+              <li key={`${e.at}-${i}`} className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 py-2">
+                <span className="text-ink">{EMAIL_KINDS[e.kind] ?? e.kind}</span>
+                <span className="text-ink-faint">{formatDateTime(e.at)}</span>
+                {e.status === 'Sent' ? (
+                  <Badge tone="ok">Sent</Badge>
+                ) : (
+                  <Badge tone="overdue">{e.status === 'NotConfigured' ? 'Not sent — email not set up' : 'Failed'}</Badge>
+                )}
+                {e.error ? <span className="basis-full text-xs break-words text-danger-600">{e.error}</span> : null}
+              </li>
+            ))}
           </ul>
         )}
       </Panel>

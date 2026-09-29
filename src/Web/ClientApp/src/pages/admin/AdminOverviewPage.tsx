@@ -1,8 +1,23 @@
-import { useQuery } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
-import { ArrowRight } from 'lucide-react'
-import { getAdminOverviewOptions } from '@/api/generated/@tanstack/react-query.gen'
-import { Button, ErrorState, List, Page, PageSkeleton, Panel, TextLink } from '@/ui'
+import { AlertTriangle, ArrowRight } from 'lucide-react'
+import {
+  getAdminOverviewOptions,
+  getAdminOverviewQueryKey,
+  resendPendingWelcomeEmailsMutation,
+} from '@/api/generated/@tanstack/react-query.gen'
+import {
+  Button,
+  ErrorState,
+  List,
+  Page,
+  PageSkeleton,
+  Panel,
+  PanelTitle,
+  TextLink,
+  toastError,
+  toastSuccess,
+} from '@/ui'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Staff open this first thing, and the question is "is there anything waiting
@@ -12,6 +27,9 @@ import { Button, ErrorState, List, Page, PageSkeleton, Panel, TextLink } from '@
 // Unread messages and renewals falling due are work. Client and thread counts
 // are context, and sit below in one quiet line rather than occupying the same
 // visual weight as the queue.
+//
+// Email health sits above everything when it's broken: a revoked provider key
+// once meant weeks of welcome and renewal emails silently going nowhere.
 // ─────────────────────────────────────────────────────────────────────────────
 
 function QueueItem({
@@ -52,6 +70,17 @@ function QueueItem({
 
 export function AdminOverviewPage() {
   const overview = useQuery(getAdminOverviewOptions())
+  const queryClient = useQueryClient()
+
+  const resendPending = useMutation({
+    ...resendPendingWelcomeEmailsMutation(),
+    onSuccess: async (result) => {
+      await queryClient.invalidateQueries({ queryKey: getAdminOverviewQueryKey() })
+      if (result.stoppedBecause) toastError(`Sent ${result.sent} before stopping`, result.stoppedBecause)
+      else toastSuccess(`Sent ${result.sent} welcome ${Number(result.sent) === 1 ? 'email' : 'emails'}`)
+    },
+    onError: () => toastError('Couldn’t send the welcome emails', 'Try again in a moment.'),
+  })
 
   if (overview.isPending) {
     return (
@@ -81,6 +110,8 @@ export function AdminOverviewPage() {
   const clients = Number(overview.data?.clients ?? 0)
   const threads = Number(overview.data?.activeThreads ?? 0)
   const clear = unread === 0 && renewalsDue === 0
+  const emailFailures = Number(overview.data?.emailFailures24h ?? 0)
+  const welcomePending = Number(overview.data?.welcomePending ?? 0)
 
   return (
     <Page
@@ -91,6 +122,43 @@ export function AdminOverviewPage() {
           : 'Work through the queues below.'
       }
     >
+      {emailFailures > 0 ? (
+        <Panel className="flex flex-col gap-2 border-danger-100 bg-danger-50/60" role="alert">
+          <div className="flex items-center gap-2 text-danger-700">
+            <AlertTriangle aria-hidden className="size-4 shrink-0" />
+            <PanelTitle className="text-danger-700">
+              {emailFailures} {emailFailures === 1 ? 'email' : 'emails'} failed in the last 24 hours
+            </PanelTitle>
+          </div>
+          <p className="text-sm text-danger-700">
+            Clients aren’t receiving welcome or password emails. Check the email provider key in{' '}
+            <TextLink to="/admin/settings" className="text-danger-700 underline">
+              Integrations
+            </TextLink>
+            .
+          </p>
+          {overview.data?.lastEmailError ? (
+            <p className="text-xs break-words text-danger-600">Last error: {overview.data.lastEmailError}</p>
+          ) : null}
+        </Panel>
+      ) : null}
+
+      {welcomePending > 0 ? (
+        <Panel className="flex flex-wrap items-center justify-between gap-3">
+          <div className="min-w-0 flex-1">
+            <p className="text-sm font-medium text-ink">
+              {welcomePending} new {welcomePending === 1 ? 'client hasn’t' : 'clients haven’t'} received a welcome email
+            </p>
+            <p className="text-sm text-ink-faint">
+              Their accounts were created from Renewtron, but the email didn’t go out.
+            </p>
+          </div>
+          <Button size="sm" loading={resendPending.isPending} onClick={() => resendPending.mutate({})}>
+            Send welcome emails
+          </Button>
+        </Panel>
+      ) : null}
+
       <List>
         <QueueItem
           count={unread}

@@ -1182,6 +1182,56 @@
         }
       }
     },
+    "/api/admin/clients/{id}/resend-welcome": {
+      "post": {
+        "tags": [
+          "Admin"
+        ],
+        "operationId": "ResendWelcomeEmail",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResendWelcomeResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/clients/resend-welcome-pending": {
+      "post": {
+        "tags": [
+          "Admin"
+        ],
+        "operationId": "ResendPendingWelcomeEmails",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResendPendingResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/admin/messages": {
       "get": {
         "tags": [
@@ -2073,7 +2123,10 @@
           "clients",
           "activeThreads",
           "unreadMessages",
-          "renewalsDue"
+          "renewalsDue",
+          "emailFailures24h",
+          "lastEmailError",
+          "welcomePending"
         ],
         "type": "object",
         "properties": {
@@ -2102,6 +2155,28 @@
             "format": "int32"
           },
           "renewalsDue": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "emailFailures24h": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "lastEmailError": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "welcomePending": {
             "pattern": "^-?(?:0|[1-9]\\d*)$",
             "type": [
               "integer",
@@ -3453,6 +3528,49 @@
         "type": "object",
         "properties": {
           "email": {
+            "type": "string"
+          }
+        }
+      },
+      "ResendPendingResponse": {
+        "required": [
+          "attempted",
+          "sent",
+          "stoppedBecause"
+        ],
+        "type": "object",
+        "properties": {
+          "attempted": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "sent": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "stoppedBecause": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
+      "ResendWelcomeResponse": {
+        "required": [
+          "status"
+        ],
+        "type": "object",
+        "properties": {
+          "status": {
             "type": "string"
           }
         }

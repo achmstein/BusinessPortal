@@ -67,7 +67,7 @@ public class UserProvisioningService(
         }
 
         context.Messages.Add(WelcomeMessage(user.Id));
-        await SendInviteAsync(user, email);
+        await SendWelcomeAsync(user);
         return new ProvisionUserResult(user, Created: true, null);
     }
 
@@ -76,12 +76,15 @@ public class UserProvisioningService(
     /// /forgotPassword produces, so the existing /reset-password SPA page and
     /// /api/resetPassword endpoint accept it unchanged. Send failures are logged
     /// inside the sender, never thrown — an email outage must not fail
-    /// provisioning (the customer can always use Forgot password).</summary>
-    private async Task SendInviteAsync(ApplicationUser user, string email)
+    /// provisioning (the customer can always use Forgot password).
+    /// Also used by staff to re-send it. Returns the logged status (Sent / Failed /
+    /// NotConfigured).</summary>
+    public async Task<string> SendWelcomeAsync(ApplicationUser user)
     {
+        var email = user.Email ?? string.Empty;
         var token = await userManager.GeneratePasswordResetTokenAsync(user);
         var code = Base64Url.EncodeToString(Encoding.UTF8.GetBytes(token));
-        await emailSender.SendInviteAsync(user, email, code, signInLinks.CreateUrl(email));
+        return await emailSender.SendInviteAsync(user, email, code, signInLinks.CreateUrl(email));
     }
 
     /// <summary>Fill gaps only. The portal is where customers keep their details up
