@@ -259,7 +259,8 @@ public class RenewtronSyncService(
 
     private async Task<(int Created, int Failed)> SyncSalesAsync(RenewtronOptions current, CancellationToken ct)
     {
-        var sales = await client.GetSalesAsync(DateTime.UtcNow.AddDays(-Math.Max(1, current.PollWindowDays)), ct);
+        var since = DateTime.UtcNow.AddDays(-Math.Max(1, current.PollWindowDays)).Date;
+        var sales = await client.GetSalesAsync(since, ct);
         int created = 0, failed = 0;
         foreach (var sale in sales.OrderBy(s => s.SyncedAt))
         {
@@ -279,6 +280,23 @@ public class RenewtronSyncService(
                 context.ChangeTracker.Clear();
             }
         }
+        // Renewtron drops a sale from this list when it turns ineligible (refund,
+        // cancellation, underpayment). A scheduled row whose sale is still inside
+        // the window but no longer listed has been withdrawn — flag it rather than
+        // leave it "Scheduled" forever.
+        var listed = sales.Select(x => x.Id).ToHashSet();
+        var sinceOffset = new DateTimeOffset(since, TimeSpan.Zero);
+        var withdrawn = await context.BusinessNameRenewals
+            .Where(r => r.RenewtronSaleId != null && r.RenewtronRenewalId == null
+                        && r.Status == "Scheduled" && r.RenewedAt >= sinceOffset)
+            .ToListAsync(ct);
+        foreach (var row in withdrawn.Where(r => !listed.Contains(r.RenewtronSaleId!.Value)))
+        {
+            row.Status = "Failed";
+            row.StatusMessage = "This renewal needs attention from our team — we'll be in touch.";
+        }
+        await context.SaveChangesAsync(ct);
+
         return (created, failed);
     }
 
