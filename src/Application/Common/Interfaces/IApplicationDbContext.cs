@@ -16,6 +16,7 @@ public interface IApplicationDbContext
     DbSet<AtoLinkAttempt> AtoLinkAttempts { get; }
     DbSet<RenewtronProvisionLog> RenewtronProvisionLogs { get; }
     DbSet<BusinessNameRenewal> BusinessNameRenewals { get; }
+    DbSet<SignInLinkRedemption> SignInLinkRedemptions { get; }
 
     Task<int> SaveChangesAsync(CancellationToken cancellationToken);
 }

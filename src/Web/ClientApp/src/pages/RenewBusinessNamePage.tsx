@@ -22,7 +22,7 @@ import { Button, ErrorState, List, Page, PageSkeleton, Panel, PanelTitle, TextLi
 // ─────────────────────────────────────────────────────────────────────────────
 
 const TERMS = [1, 3]
-const IN_FLIGHT = new Set(['Pending', 'Processing'])
+const IN_FLIGHT = new Set(['Scheduled', 'Pending', 'Processing'])
 
 export function RenewBusinessNamePage() {
   const { bnId } = useParams<{ bnId: string }>()
@@ -90,10 +90,11 @@ export function RenewBusinessNamePage() {
     >
       {inFlight ? (
         <Panel className="flex flex-col gap-2">
-          <PanelTitle>This renewal is already underway</PanelTitle>
+          <PanelTitle>This renewal is already paid for</PanelTitle>
           <p className="text-sm text-ink-muted">
-            We received your payment on {formatDate(inFlight.renewedAt)} and are renewing it with ASIC now.
-            {inFlight.statusMessage ? ` ${inFlight.statusMessage}` : ''}
+            {inFlight.status === 'Scheduled'
+              ? `We received your payment on ${formatDate(inFlight.renewedAt)}. ${inFlight.statusMessage ?? ''}`
+              : `We received your payment on ${formatDate(inFlight.renewedAt)} and are renewing it with ASIC now.${inFlight.statusMessage ? ` ${inFlight.statusMessage}` : ''}`}
           </p>
           <TextLink to="/asic-renewals" arrow className="self-start">
             Follow it on Renewals

@@ -21,5 +21,6 @@ public class BusinessNameRenewalConfiguration : IEntityTypeConfiguration<Busines
         builder.HasIndex(r => r.UserId);
         // One portal row per Renewtron renewal — the sync's upsert key.
         builder.HasIndex(r => r.RenewtronRenewalId).IsUnique();
+        builder.HasIndex(r => r.RenewtronSaleId).IsUnique();
     }
 }

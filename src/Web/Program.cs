@@ -57,6 +57,11 @@ builder.Services.AddRateLimiter(options =>
     options.AddPolicy("register", http => RateLimitPartition.GetFixedWindowLimiter(
         http.Connection.RemoteIpAddress?.ToString() ?? "unknown",
         _ => new FixedWindowRateLimiterOptions { PermitLimit = 5, Window = TimeSpan.FromHours(1) }));
+    // Sign-in links: 20 attempts per 10 minutes per IP is plenty for real clicks
+    // and useless for guessing (tokens are HMAC-signed anyway).
+    options.AddPolicy("sign-in-link", http => RateLimitPartition.GetFixedWindowLimiter(
+        http.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+        _ => new FixedWindowRateLimiterOptions { PermitLimit = 20, Window = TimeSpan.FromMinutes(10) }));
     options.OnRejected = async (context, ct) =>
     {
         var retryAfter = context.Lease.TryGetMetadata(MetadataName.RetryAfter, out var retry)
@@ -64,7 +69,7 @@ builder.Services.AddRateLimiter(options =>
             : 3600;
         context.HttpContext.Response.ContentType = "application/json";
         await context.HttpContext.Response.WriteAsync(
-            $"{{\"error\":\"Too many signups. Try again in {retryAfter}s.\"}}", ct);
+            $"{{\"error\":\"Too many attempts. Try again in {retryAfter}s.\"}}", ct);
     };
 });
 

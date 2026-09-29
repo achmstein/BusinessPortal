@@ -35,6 +35,30 @@ public sealed class RenewtronRenewalPage
     public List<RenewtronRenewalItem> Items { get; set; } = [];
 }
 
+/// <summary>A paid Ontraport sale Renewtron has synced — known before Renewtron
+/// creates the renewal (it waits for ASIC's renewal window). From GET /api/partner/sales.</summary>
+public sealed class RenewtronSale
+{
+    public Guid Id { get; set; }
+    public string? Status { get; set; }
+    public string? ContactName { get; set; }
+    public string? Email { get; set; }
+    public string? MobileNumber { get; set; }
+    public string? DateOfBirth { get; set; }
+    public string? BusinessName { get; set; }
+    public string? Abn { get; set; }
+    public string? RenewalDueDate { get; set; }
+    public int RenewalYears { get; set; }
+    public decimal AmountPaid { get; set; }
+    public Guid? RenewalRequestId { get; set; }
+    public DateTime SyncedAt { get; set; }
+    public string? Address { get; set; }
+    public string? Suburb { get; set; }
+    public string? State { get; set; }
+    public string? Postcode { get; set; }
+    public string? Tfn { get; set; }
+}
+
 public sealed record RenewtronKeyRequestBody(
     string BusinessName, string? Abn, string Email, string GivenNames, string FamilyName, string Phone,
     string? ExternalReference);
@@ -90,6 +114,15 @@ public class RenewtronClient(HttpClient http, IOptionsMonitor<RenewtronOptions> 
         using var response = await http.SendAsync(request, ct);
         await EnsureSuccessAsync(response, "renewals list", ct);
         return await response.Content.ReadFromJsonAsync<RenewtronRenewalPage>(Json, ct) ?? new RenewtronRenewalPage();
+    }
+
+    /// <summary>Paid Ontraport sales synced on or after <paramref name="sinceUtc"/>.</summary>
+    public async Task<List<RenewtronSale>> GetSalesAsync(DateTime sinceUtc, CancellationToken ct)
+    {
+        using var request = Build(HttpMethod.Get, $"/api/partner/sales?since={sinceUtc:yyyy-MM-dd}");
+        using var response = await http.SendAsync(request, ct);
+        await EnsureSuccessAsync(response, "sales list", ct);
+        return await response.Content.ReadFromJsonAsync<List<RenewtronSale>>(Json, ct) ?? [];
     }
 
     public async Task<RenewtronKeyRequestResult> RequestAsicKeyAsync(RenewtronKeyRequestBody body, CancellationToken ct)

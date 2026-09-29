@@ -226,6 +226,8 @@ export function AsicRenewalsPage() {
                 </div>
                 {renewal.status === 'Failed' ? (
                   <Badge tone="overdue">Needs attention</Badge>
+                ) : renewal.status === 'Scheduled' ? (
+                  <Badge tone="ok">Paid · scheduled</Badge>
                 ) : (
                   <Badge tone="due">With ASIC</Badge>
                 )}

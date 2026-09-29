@@ -116,7 +116,7 @@ export function DashboardPage() {
 
   // Paid renewals Renewtron is still working on, and ones that stalled.
   const paid = completed.data ?? []
-  const underway = paid.filter((r) => r.status === 'Pending' || r.status === 'Processing')
+  const underway = paid.filter((r) => r.status === 'Scheduled' || r.status === 'Pending' || r.status === 'Processing')
   const stalled = paid.filter((r) => r.status === 'Failed')
   const isUnderway = (id?: string, name?: string | null) =>
     underway.some(

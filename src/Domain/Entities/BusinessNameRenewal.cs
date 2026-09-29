@@ -34,7 +34,12 @@ public class BusinessNameRenewal : BaseAuditableEntity
     // ─── Live state from Renewtron ───
     public Guid? RenewtronRenewalId { get; set; }
 
-    /// <summary>Pending | Processing | Completed | Failed.</summary>
+    /// <summary>The paid Ontraport sale this row started from, before Renewtron
+    /// created the renewal; RenewtronRenewalId is filled once it does.</summary>
+    public Guid? RenewtronSaleId { get; set; }
+
+    /// <summary>Scheduled (paid, waiting for ASIC's renewal window) | Pending |
+    /// Processing | Completed | Failed.</summary>
     public string Status { get; set; } = "Completed";
 
     /// <summary>Customer-safe explanation from Renewtron when delayed or failed.</summary>

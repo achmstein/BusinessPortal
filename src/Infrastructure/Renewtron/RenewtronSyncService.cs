@@ -13,7 +13,10 @@ namespace BusinessPortal.Infrastructure.Renewtron;
 /// uploads) and for ASIC keys; the portal reads its partner API and never talks
 /// to Ontraport itself.
 ///
-/// Each run, for every renewal initiated inside the poll window:
+/// Each run starts with paid Ontraport sales Renewtron has synced but not yet
+/// renewed (it waits for ASIC's window): the customer gets a login and a
+/// "Scheduled" row straight away. Then, for every renewal initiated inside the
+/// poll window:
 ///  1. provisions a portal login for the customer — once per renewal, guarded by
 ///     RenewtronProvisionLog — as soon as it's paid, not only once ASIC confirms;
 ///  2. upserts a BusinessNameRenewal carrying Renewtron's live status, so the
@@ -43,6 +46,10 @@ public class RenewtronSyncService(
             return new RenewtronSyncResult(Configured: false, 0, 0, 0, 0, 0,
                 "Renewtron sync is off — set the base URL and partner API key in Settings.");
 
+        // Sales first: a paid Ontraport sale gets its login and a "Scheduled" row
+        // now, and the renewal Renewtron creates later lands on that same row.
+        var (salesCreated, salesFailed) = await SyncSalesAsync(current, cancellationToken);
+
         var items = await FetchRenewalsAsync(current, cancellationToken);
 
         var ids = items.Select(i => i.Id).ToList();
@@ -53,7 +60,7 @@ public class RenewtronSyncService(
             .Where(r => r.RenewtronRenewalId != null && ids.Contains(r.RenewtronRenewalId.Value))
             .ToDictionaryAsync(r => r.RenewtronRenewalId!.Value, r => r.Status, cancellationToken);
 
-        int created = 0, updated = 0, skipped = 0, failed = 0;
+        int created = salesCreated, updated = 0, skipped = 0, failed = salesFailed;
         foreach (var item in items.OrderBy(i => i.InitiatedAt))
         {
             cancellationToken.ThrowIfCancellationRequested();
@@ -246,6 +253,151 @@ public class RenewtronSyncService(
         }
 
         row.BusinessNameId = bn?.Id;
+    }
+
+    // ─── Ontraport sales (paid, before Renewtron has created the renewal) ───
+
+    private async Task<(int Created, int Failed)> SyncSalesAsync(RenewtronOptions current, CancellationToken ct)
+    {
+        var sales = await client.GetSalesAsync(DateTime.UtcNow.AddDays(-Math.Max(1, current.PollWindowDays)), ct);
+        int created = 0, failed = 0;
+        foreach (var sale in sales.OrderBy(s => s.SyncedAt))
+        {
+            ct.ThrowIfCancellationRequested();
+            try
+            {
+                if (await ProcessSaleAsync(sale, current, ct)) created++;
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                failed++;
+                logger.LogError(ex, "Renewtron sale sync failed for sale {SaleId} ({Email})", sale.Id, sale.Email);
+                context.ChangeTracker.Clear();
+            }
+        }
+        return (created, failed);
+    }
+
+    /// <summary>Provision the customer once per sale (with the full profile Ontraport
+    /// holds — address and TFN included — but only that first time, so later edits
+    /// in the portal aren't overwritten), and keep a "Scheduled" row for the paid
+    /// renewal until Renewtron creates it. Returns true when a login was created.</summary>
+    private async Task<bool> ProcessSaleAsync(RenewtronSale sale, RenewtronOptions current, CancellationToken ct)
+    {
+        var email = sale.Email?.Trim().ToLowerInvariant() ?? string.Empty;
+        var name = sale.BusinessName?.Trim() ?? string.Empty;
+        if (email.Length == 0 || name.Length == 0) return false;
+
+        // The provision log is keyed by Renewtron id; sale ids are their own Guids.
+        var log = await context.RenewtronProvisionLogs.FirstOrDefaultAsync(l => l.RenewalId == sale.Id, ct);
+        if (log is { Outcome: ProvisionOutcome.Failed } && log.Attempts >= current.MaxAttempts) return false;
+
+        var createdLogin = false;
+        string userId;
+        if (log is { Outcome: ProvisionOutcome.Created or ProvisionOutcome.Updated, UserId: not null })
+        {
+            userId = log.UserId;
+        }
+        else
+        {
+            if (log is null)
+            {
+                log = new RenewtronProvisionLog { RenewalId = sale.Id, Source = "OntraportSale" };
+                context.RenewtronProvisionLogs.Add(log);
+            }
+            log.Email = email;
+            log.BusinessName = name;
+            log.Abn = sale.Abn ?? string.Empty;
+            log.Attempts++;
+            log.ProcessedAt = DateTimeOffset.UtcNow;
+            log.Outcome = ProvisionOutcome.Failed;
+            log.Detail = "processing did not finish";
+
+            var (firstName, lastName) = SplitName(sale.ContactName);
+            var provision = await provisioner.EnsureUserAsync(email, new ProvisionProfile(
+                FirstName: firstName,
+                LastName: lastName,
+                Phone: sale.MobileNumber ?? string.Empty,
+                Dob: sale.DateOfBirth ?? string.Empty,
+                Tfn: sale.Tfn ?? string.Empty,
+                Address: sale.Address ?? string.Empty,
+                Suburb: sale.Suburb ?? string.Empty,
+                State: sale.State ?? string.Empty,
+                Postcode: sale.Postcode ?? string.Empty), ct);
+            if (provision.User is null)
+                throw new InvalidOperationException($"could not create portal user: {provision.Error}");
+
+            userId = provision.User.Id;
+            createdLogin = provision.Created;
+            log.UserId = userId;
+            log.Outcome = provision.Created ? ProvisionOutcome.Created : ProvisionOutcome.Updated;
+            log.Detail = null;
+        }
+
+        // The name they paid to renew, with its current due date.
+        var names = await context.BusinessNames.Where(b => b.UserId == userId).ToListAsync(ct);
+        var bn = names.FirstOrDefault(b => string.Equals(b.Name.Trim(), name, StringComparison.OrdinalIgnoreCase));
+        if (bn is null)
+        {
+            bn = new BusinessName { UserId = userId, Name = name, RenewalDate = sale.RenewalDueDate ?? string.Empty };
+            context.BusinessNames.Add(bn);
+        }
+        else if (string.IsNullOrEmpty(bn.RenewalDate) && !string.IsNullOrEmpty(sale.RenewalDueDate))
+        {
+            bn.RenewalDate = sale.RenewalDueDate;
+        }
+
+        var row = await context.BusinessNameRenewals.FirstOrDefaultAsync(r => r.RenewtronSaleId == sale.Id, ct);
+        if (sale.RenewalRequestId is { } renewalId)
+        {
+            // Renewtron has created the renewal. If an earlier sync already mirrored
+            // it as its own row, fold this sale into that one.
+            var renewalRow = await context.BusinessNameRenewals.FirstOrDefaultAsync(r => r.RenewtronRenewalId == renewalId, ct);
+            if (renewalRow is not null && renewalRow != row)
+            {
+                if (row is not null) context.BusinessNameRenewals.Remove(row);
+                renewalRow.RenewtronSaleId = sale.Id;
+                await context.SaveChangesAsync(ct);
+                return createdLogin;
+            }
+        }
+
+        if (row is null)
+        {
+            row = new BusinessNameRenewal { UserId = userId, RenewtronSaleId = sale.Id, Reference = sale.Id.ToString() };
+            context.BusinessNameRenewals.Add(row);
+        }
+        row.BusinessName = name;
+        row.BusinessNameId = bn.Id;
+        row.Abn = sale.Abn?.Trim() ?? string.Empty;
+        row.Years = sale.RenewalYears;
+        row.Source = "Ontraport";
+        row.RenewedAt = new DateTimeOffset(DateTime.SpecifyKind(sale.SyncedAt, DateTimeKind.Utc));
+
+        if (sale.RenewalRequestId is { } id)
+        {
+            // From here the renewal mirror owns the status.
+            row.RenewtronRenewalId = id;
+        }
+        else
+        {
+            (row.Status, row.StatusMessage) = sale.Status switch
+            {
+                "NotDueForRenewal" or "IneligibleForRenewal" or "RenewalFailed" =>
+                    ("Failed", "This renewal needs attention from our team — we'll be in touch."),
+                "RenewalInProgress" => ("Processing", (string?)null),
+                "AsicNotYetDue" =>
+                    ("Scheduled", "ASIC isn't accepting this renewal yet — we'll lodge it as soon as it opens."),
+                _ => ("Scheduled", "Paid — we'll lodge it with ASIC as soon as its renewal window opens."),
+            };
+        }
+
+        await context.SaveChangesAsync(ct);
+        return createdLogin;
     }
 
     /// <summary>Pull the status of every ASIC key request still open with Renewtron.</summary>

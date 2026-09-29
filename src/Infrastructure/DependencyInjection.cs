@@ -91,6 +91,8 @@ public static class DependencyInjection
         // Registered as itself too: the invite email (SendInviteAsync) isn't part
         // of Identity's IEmailSender<TUser> contract.
         services.Configure<EmailOptions>(configuration.GetSection(EmailOptions.SectionName));
+        services.Configure<SignInLinkOptions>(configuration.GetSection(SignInLinkOptions.SectionName));
+        services.AddSingleton<SignInLinks>();
         services.AddHttpClient(ResendEmailSender.HttpClientName);
         services.AddSingleton<ResendEmailSender>();
         services.AddSingleton<IEmailSender<ApplicationUser>>(sp => sp.GetRequiredService<ResendEmailSender>());

@@ -54,25 +54,38 @@ public sealed class ResendEmailSender(
             ResetHtml(NameOf(user), link), ResetText(NameOf(user), link));
     }
 
-    /// <summary>Set-your-password invite for auto-provisioned accounts (Ontraport
-    /// contact sync, Renewtron renewal sync). The code is a standard password-reset
-    /// token, so the invite reuses the existing /reset-password page.</summary>
-    public Task SendInviteAsync(ApplicationUser user, string email, string resetCode)
+    /// <summary>Set-your-password invite for auto-provisioned accounts (Renewtron
+    /// sales and renewals). The code is a standard password-reset token, so the
+    /// invite reuses the existing /reset-password page. <paramref name="signInUrl"/>
+    /// is a one-click sign-in link, when that feature is configured — it opens the
+    /// portal straight away; the password is for coming back later.</summary>
+    public Task SendInviteAsync(ApplicationUser user, string email, string resetCode, string? signInUrl = null)
     {
         // welcome=1 tells the reset page this person is choosing a first
         // password, not replacing a forgotten one — the copy differs.
         var link = ResetLink(email, resetCode) + "&welcome=1";
         var name = NameOf(user);
+
+        var openHtml = signInUrl is null ? "" :
+            $"<p><a href=\"{EscapeHtml(signInUrl)}\">Open your Business Portal</a> — this link signs you in " +
+            "straight away. It works once, for 72 hours.</p>" +
+            "<p>To sign in again later, set a password:</p>";
+        var openText = signInUrl is null ? "" :
+            $"Open your Business Portal (signs you in; works once, for 72 hours): {signInUrl}\n\n" +
+            "To sign in again later, set a password.\n";
+
         return SendAsync(email,
             "Your Business Portal account is ready",
             $"<p>Hi {EscapeHtml(name)},</p>" +
             "<p>A Business Portal account has been created for you as part of your business name renewal. " +
             "You can see your business names and renewal dates, and message our support team, any time.</p>" +
+            openHtml +
             $"<p>Click the link below to set your password and sign in. The link expires in {TokenTtl}.</p>" +
             $"<p><a href=\"{link}\">{link}</a></p>" +
             $"<p>If the link has expired, use “Forgot password” at {EscapeHtml(LoginUrl)} — it emails you a fresh one.</p>",
             $"Hi {name},\n\n" +
             "A Business Portal account has been created for you as part of your business name renewal.\n\n" +
+            openText +
             $"Set your password and sign in: {link}\n\n" +
             $"The link expires in {TokenTtl}. If it has expired, use “Forgot password” at {LoginUrl} to get a fresh one.");
     }

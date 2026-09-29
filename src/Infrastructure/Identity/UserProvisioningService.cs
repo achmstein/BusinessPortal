@@ -25,6 +25,7 @@ public class UserProvisioningService(
     UserManager<ApplicationUser> userManager,
     IApplicationDbContext context,
     ResendEmailSender emailSender,
+    SignInLinks signInLinks,
     ILogger<UserProvisioningService> logger)
 {
     public async Task<ProvisionUserResult> EnsureUserAsync(string email, ProvisionProfile profile, CancellationToken ct)
@@ -32,7 +33,7 @@ public class UserProvisioningService(
         var existing = await userManager.FindByEmailAsync(email);
         if (existing is not null)
         {
-            // Refresh in place — password / other entities / messages / roles preserved.
+            // Fill any gaps — password / details they've set / messages / roles preserved.
             ApplyProfile(existing, profile);
             return new ProvisionUserResult(existing, Created: false, null);
         }
@@ -80,21 +81,27 @@ public class UserProvisioningService(
     {
         var token = await userManager.GeneratePasswordResetTokenAsync(user);
         var code = Base64Url.EncodeToString(Encoding.UTF8.GetBytes(token));
-        await emailSender.SendInviteAsync(user, email, code);
+        await emailSender.SendInviteAsync(user, email, code, signInLinks.CreateUrl(email));
     }
 
+    /// <summary>Fill gaps only. The portal is where customers keep their details up
+    /// to date, so data arriving from Renewtron/Ontraport never overwrites a value
+    /// they've already got — it only supplies what's missing.</summary>
     private static void ApplyProfile(ApplicationUser user, ProvisionProfile incoming)
     {
         var p = user.Profile;
-        if (!string.IsNullOrEmpty(incoming.FirstName)) p.FirstName = incoming.FirstName;
-        if (!string.IsNullOrEmpty(incoming.LastName)) p.LastName = incoming.LastName;
-        if (!string.IsNullOrEmpty(incoming.Phone)) p.Phone = incoming.Phone;
-        if (!string.IsNullOrEmpty(incoming.Dob)) p.Dob = incoming.Dob;
-        if (!string.IsNullOrEmpty(incoming.Tfn)) p.Tfn = incoming.Tfn;
-        if (!string.IsNullOrEmpty(incoming.Address)) p.Address = incoming.Address;
-        if (!string.IsNullOrEmpty(incoming.Suburb)) p.Suburb = incoming.Suburb;
-        if (!string.IsNullOrEmpty(incoming.State)) p.State = incoming.State;
-        if (!string.IsNullOrEmpty(incoming.Postcode)) p.Postcode = incoming.Postcode;
+        static string Fill(string current, string incoming) =>
+            string.IsNullOrWhiteSpace(current) && !string.IsNullOrWhiteSpace(incoming) ? incoming : current;
+
+        p.FirstName = Fill(p.FirstName, incoming.FirstName);
+        p.LastName = Fill(p.LastName, incoming.LastName);
+        p.Phone = Fill(p.Phone, incoming.Phone);
+        p.Dob = Fill(p.Dob, incoming.Dob);
+        p.Tfn = Fill(p.Tfn, incoming.Tfn);
+        p.Address = Fill(p.Address, incoming.Address);
+        p.Suburb = Fill(p.Suburb, incoming.Suburb);
+        p.State = Fill(p.State, incoming.State);
+        p.Postcode = Fill(p.Postcode, incoming.Postcode);
     }
 
     private static Message WelcomeMessage(string userId)

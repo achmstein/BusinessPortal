@@ -2,8 +2,10 @@ using System.Security.Claims;
 using BusinessPortal.Application.Common.Interfaces;
 using BusinessPortal.Domain.Entities;
 using BusinessPortal.Domain.Enums;
+using BusinessPortal.Domain.Services;
 using BusinessPortal.Infrastructure.Identity;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.EntityFrameworkCore;
 
 namespace BusinessPortal.Web.Endpoints;
 
@@ -13,6 +15,10 @@ namespace BusinessPortal.Web.Endpoints;
 public static class AccountEndpoints
 {
     public record RegisterBody(string Email, string Password, string FirstName, string LastName);
+    public record SignInLinkBody(string Token);
+
+    /// <summary>Reason: "expired" | "used" | "invalid" | "not-ready".</summary>
+    public record SignInLinkError(string Reason);
 
     public static IEndpointRouteBuilder MapAccountEndpoints(this IEndpointRouteBuilder app)
     {
@@ -105,6 +111,63 @@ public static class AccountEndpoints
             })
             .RequireAuthorization()
             .WithName("Logout");
+
+        // One-click sign-in from an emailed link (the portal's invite, Renewtron's
+        // renewal confirmation). POST from the /auth/link page on a click, never on
+        // GET: mail scanners open links to check them, and a GET that signed in
+        // would spend the single use before the customer ever saw it.
+        group.MapPost("/account/sign-in-link", async (
+                SignInLinkBody body,
+                SignInLinks links,
+                UserManager<ApplicationUser> users,
+                SignInManager<ApplicationUser> signIn,
+                IApplicationDbContext context,
+                CancellationToken ct) =>
+            {
+                switch (links.Read(body.Token, out var claims))
+                {
+                    case SignInLinkToken.Failure.Expired:
+                        return Results.BadRequest(new SignInLinkError("expired"));
+                    case not SignInLinkToken.Failure.None:
+                        return Results.BadRequest(new SignInLinkError("invalid"));
+                }
+
+                var user = await users.FindByEmailAsync(claims!.Email);
+                // Renewtron can email the link before the next sync has created the
+                // account — "not-ready" lets the page say to try again shortly.
+                if (user is null) return Results.BadRequest(new SignInLinkError("not-ready"));
+
+                // Staff accounts carry admin access and never sign in by link.
+                if (await users.IsInRoleAsync(user, Roles.Admin) || await users.IsLockedOutAsync(user))
+                    return Results.BadRequest(new SignInLinkError("invalid"));
+
+                if (await context.SignInLinkRedemptions.AnyAsync(r => r.Jti == claims.Jti, ct))
+                    return Results.BadRequest(new SignInLinkError("used"));
+
+                context.SignInLinkRedemptions.Add(new SignInLinkRedemption
+                {
+                    Jti = claims.Jti,
+                    UserId = user.Id,
+                    RedeemedAt = DateTimeOffset.UtcNow,
+                    ExpiresAt = claims.Expires,
+                });
+                try
+                {
+                    await context.SaveChangesAsync(ct);
+                }
+                catch (DbUpdateException)
+                {
+                    // Two clicks racing: the primary key lets exactly one through.
+                    return Results.BadRequest(new SignInLinkError("used"));
+                }
+
+                await signIn.SignInAsync(user, isPersistent: false);
+                return Results.Ok();
+            })
+            .RequireRateLimiting("sign-in-link")
+            .WithName("RedeemSignInLink")
+            .Produces(StatusCodes.Status200OK)
+            .Produces<SignInLinkError>(StatusCodes.Status400BadRequest);
 
         return app;
     }

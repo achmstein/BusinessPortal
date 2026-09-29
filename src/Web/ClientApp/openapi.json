@@ -549,6 +549,39 @@
         }
       }
     },
+    "/api/account/sign-in-link": {
+      "post": {
+        "tags": [
+          "Account"
+        ],
+        "operationId": "RedeemSignInLink",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SignInLinkBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SignInLinkError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/profile": {
       "get": {
         "tags": [
@@ -3443,6 +3476,28 @@
         "type": "object",
         "properties": {
           "abn": {
+            "type": "string"
+          }
+        }
+      },
+      "SignInLinkBody": {
+        "required": [
+          "token"
+        ],
+        "type": "object",
+        "properties": {
+          "token": {
+            "type": "string"
+          }
+        }
+      },
+      "SignInLinkError": {
+        "required": [
+          "reason"
+        ],
+        "type": "object",
+        "properties": {
+          "reason": {
             "type": "string"
           }
         }

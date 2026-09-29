@@ -83,12 +83,13 @@ jobs:
 
       - name: Write .env
         run: |
-          # 2Captcha / Ontraport / email credentials are entered from the admin
+          # 2Captcha / Renewtron / email credentials are entered from the admin
           # Settings UI and persisted on the businessportal-data volume — no longer
           # passed at deploy time.
           cat > publish/.env <<EOF
           BUSINESSPORTAL_SERVER_IMAGE=${{ env.REGISTRY }}/${{ env.IMAGE_NAMESPACE }}/business-portal-server:${{ needs.build-and-push.outputs.image_tag }}
           POSTGRES_PASSWORD=${{ secrets.POSTGRES_PASSWORD }}
+          SIGN_IN_LINK_SIGNING_KEY=${{ secrets.SIGN_IN_LINK_SIGNING_KEY }}
           EOF
 
       - uses: actions/upload-artifact@v4

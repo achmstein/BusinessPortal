@@ -402,6 +402,14 @@ export type SelectAgentRequest = {
     abn: string;
 };
 
+export type SignInLinkBody = {
+    token: string;
+};
+
+export type SignInLinkError = {
+    reason: string;
+};
+
 export type StartLinkRequest = {
     email: string;
 };
@@ -816,6 +824,29 @@ export type LogoutData = {
 };
 
 export type LogoutResponses = {
+    /**
+     * OK
+     */
+    200: unknown;
+};
+
+export type RedeemSignInLinkData = {
+    body: SignInLinkBody;
+    path?: never;
+    query?: never;
+    url: '/api/account/sign-in-link';
+};
+
+export type RedeemSignInLinkErrors = {
+    /**
+     * Bad Request
+     */
+    400: SignInLinkError;
+};
+
+export type RedeemSignInLinkError = RedeemSignInLinkErrors[keyof RedeemSignInLinkErrors];
+
+export type RedeemSignInLinkResponses = {
     /**
      * OK
      */

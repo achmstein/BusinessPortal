@@ -71,6 +71,17 @@ var server = builder.AddProject<Projects.Web>("businessportal-server")
         service.Labels["caddy.reverse_proxy"] = "{{upstreams 8080}}";
     });
 
+// One-click sign-in links ("auto login") are signed with a key shared with
+// Renewtron (its Portal__MagicLinkSigningKey). A deploy-time secret rather than a
+// Settings field: it can mint sign-ins for any customer, so it must never be
+// readable from the admin UI. Publish-only, so local runs don't prompt for it —
+// set SignInLinks:SigningKey in the Web project's user-secrets to try it locally.
+if (builder.ExecutionContext.IsPublishMode)
+{
+    var signInLinkKey = builder.AddParameter("sign-in-link-signing-key", secret: true);
+    server.WithEnvironment("SignInLinks__SigningKey", signInLinkKey);
+}
+
 if (builder.ExecutionContext.IsRunMode)
 {
     // Local dev: Vite dev server with HMR; WithReference injects the /api proxy target.

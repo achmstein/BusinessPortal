@@ -13,6 +13,7 @@ import { LoginPage } from './pages/LoginPage'
 import { RegisterPage } from './pages/RegisterPage'
 import { ForgotPasswordPage } from './pages/ForgotPasswordPage'
 import { ResetPasswordPage } from './pages/ResetPasswordPage'
+import { SignInLinkPage } from './pages/SignInLinkPage'
 
 const named = <T extends string>(name: T) =>
   <M extends Record<T, React.ComponentType<unknown>>>(module: M) => ({ default: module[name] })
@@ -64,6 +65,7 @@ export default function App() {
         <Route path="/register" element={<RegisterPage />} />
         <Route path="/forgot-password" element={<ForgotPasswordPage />} />
         <Route path="/reset-password" element={<ResetPasswordPage />} />
+        <Route path="/auth/link" element={<SignInLinkPage />} />
 
         {/* Client member area */}
         <Route
