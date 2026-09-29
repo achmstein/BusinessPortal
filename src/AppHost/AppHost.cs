@@ -80,6 +80,14 @@ if (builder.ExecutionContext.IsPublishMode)
 {
     var signInLinkKey = builder.AddParameter("sign-in-link-signing-key", secret: true);
     server.WithEnvironment("SignInLinks__SigningKey", signInLinkKey);
+
+    // Renewtron's scoped partner key, and the date the sync starts from (only
+    // customers from then on get an account). Deploy-time defaults; anything saved
+    // from the admin Settings page overrides them.
+    var renewtronPartnerKey = builder.AddParameter("renewtron-partner-api-key", secret: true);
+    var renewtronSyncFrom = builder.AddParameter("renewtron-sync-from");
+    server.WithEnvironment("Renewtron__ApiKey", renewtronPartnerKey)
+        .WithEnvironment("Renewtron__SyncFrom", renewtronSyncFrom);
 }
 
 if (builder.ExecutionContext.IsRunMode)

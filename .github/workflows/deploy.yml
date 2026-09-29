@@ -90,6 +90,8 @@ jobs:
           BUSINESSPORTAL_SERVER_IMAGE=${{ env.REGISTRY }}/${{ env.IMAGE_NAMESPACE }}/business-portal-server:${{ needs.build-and-push.outputs.image_tag }}
           POSTGRES_PASSWORD=${{ secrets.POSTGRES_PASSWORD }}
           SIGN_IN_LINK_SIGNING_KEY=${{ secrets.SIGN_IN_LINK_SIGNING_KEY }}
+          RENEWTRON_PARTNER_API_KEY=${{ secrets.RENEWTRON_PARTNER_API_KEY }}
+          RENEWTRON_SYNC_FROM=${{ vars.RENEWTRON_SYNC_FROM }}
           EOF
 
       - uses: actions/upload-artifact@v4
