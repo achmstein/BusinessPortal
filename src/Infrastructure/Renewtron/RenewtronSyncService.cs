@@ -185,7 +185,8 @@ public class RenewtronSyncService(
                 FirstName: firstName,
                 LastName: lastName,
                 Phone: item.MobileNumber ?? string.Empty,
-                Dob: item.DateOfBirth ?? string.Empty), ct);
+                Dob: item.DateOfBirth ?? string.Empty,
+                Abn: item.Abn?.Trim() ?? string.Empty), ct);
             if (provision.User is null)
                 throw new InvalidOperationException($"could not create portal user: {provision.Error}");
 
@@ -233,24 +234,21 @@ public class RenewtronSyncService(
         var names = await context.BusinessNames.Where(b => b.UserId == userId).ToListAsync(ct);
         var bn = names.FirstOrDefault(b => string.Equals(b.Name.Trim(), name, StringComparison.OrdinalIgnoreCase));
 
+        // The customer's names appear as soon as they've paid — the one being renewed and
+        // every other name the wizard found on their ABN — not only once ASIC confirms.
+        // The renewal date stays empty until a renewal completes and sets it.
+        bn ??= AddBusinessName(names, userId, name, item.RegistrationDate);
+        foreach (var other in item.AbnBusinessNames ?? [])
+        {
+            var otherName = other.Name?.Trim() ?? string.Empty;
+            if (otherName.Length > 0 && !names.Any(b => string.Equals(b.Name.Trim(), otherName, StringComparison.OrdinalIgnoreCase)))
+                AddBusinessName(names, userId, otherName, other.RegistrationDate);
+        }
+
         if (status == "Completed" && item.RenewalYears > 0)
         {
             var marker = $"renewtron:{item.Id}";
-            if (bn is null)
-            {
-                bn = new BusinessName
-                {
-                    UserId = userId,
-                    Name = name,
-                    DateRegistered = string.Empty,
-                    RenewalDate = RenewalDateMath.Extend(string.Empty, item.RenewalYears),
-                    AsicKey = string.Empty,
-                    RenewalTransactionIds = [marker],
-                };
-                context.BusinessNames.Add(bn);
-                row.NewRenewalDate = bn.RenewalDate;
-            }
-            else if (!bn.RenewalTransactionIds.Contains(marker))
+            if (!bn.RenewalTransactionIds.Contains(marker))
             {
                 bn.RenewalDate = RenewalDateMath.Extend(bn.RenewalDate, item.RenewalYears);
                 bn.RenewalTransactionIds = [.. bn.RenewalTransactionIds, marker]; // new list → EF detects the change
@@ -258,7 +256,32 @@ public class RenewtronSyncService(
             }
         }
 
-        row.BusinessNameId = bn?.Id;
+        row.BusinessNameId = bn.Id;
+    }
+
+    private BusinessName AddBusinessName(List<BusinessName> names, string userId, string name, string? registrationDate)
+    {
+        var bn = new BusinessName
+        {
+            UserId = userId,
+            Name = name,
+            DateRegistered = PortalDate(registrationDate),
+            RenewalDate = string.Empty,
+            AsicKey = string.Empty,
+        };
+        context.BusinessNames.Add(bn);
+        names.Add(bn);
+        return bn;
+    }
+
+    /// <summary>Renewtron's dd/MM/yyyy (or ISO) date as the portal's yyyy-MM-dd; empty when unparseable.</summary>
+    private static string PortalDate(string? value)
+    {
+        string[] formats = ["dd/MM/yyyy", "d/MM/yyyy", "d/M/yyyy", "yyyy-MM-dd"];
+        return DateOnly.TryParseExact(value?.Trim(), formats, System.Globalization.CultureInfo.InvariantCulture,
+            System.Globalization.DateTimeStyles.None, out var d)
+            ? d.ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture)
+            : string.Empty;
     }
 
     // ─── Ontraport sales (paid, before Renewtron has created the renewal) ───

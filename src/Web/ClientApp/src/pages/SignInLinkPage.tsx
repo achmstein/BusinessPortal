@@ -14,7 +14,7 @@ import { Button } from '@/ui'
 // arrival would spend its single use before the customer ever saw it.
 // ─────────────────────────────────────────────────────────────────────────────
 
-type Reason = 'expired' | 'used' | 'invalid' | 'not-ready'
+type Reason = 'expired' | 'used' | 'invalid' | 'not-ready' | 'existing-account'
 
 const PROBLEMS: Record<Reason, { title: string; description: string }> = {
   expired: {
@@ -28,6 +28,10 @@ const PROBLEMS: Record<Reason, { title: string; description: string }> = {
   invalid: {
     title: 'This link doesn’t work',
     description: 'It may have been cut short by your email app. Sign in with your email instead.',
+  },
+  'existing-account': {
+    title: 'You already have a portal account',
+    description: 'Sign in with your email to see this renewal — or reset your password if you haven’t set one.',
   },
   'not-ready': {
     title: 'Your account is nearly ready',

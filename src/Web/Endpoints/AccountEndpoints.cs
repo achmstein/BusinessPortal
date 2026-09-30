@@ -16,8 +16,9 @@ public static class AccountEndpoints
 {
     public record RegisterBody(string Email, string Password, string FirstName, string LastName);
     public record SignInLinkBody(string Token);
+    public record SetPasswordBody(string Password);
 
-    /// <summary>Reason: "expired" | "used" | "invalid" | "not-ready".</summary>
+    /// <summary>Reason: "expired" | "used" | "invalid" | "not-ready" | "existing-account".</summary>
     public record SignInLinkError(string Reason);
 
     public static IEndpointRouteBuilder MapAccountEndpoints(this IEndpointRouteBuilder app)
@@ -97,11 +98,49 @@ public static class AccountEndpoints
                     user.AtoConnected,
                     user.Profile.FirstName,
                     user.Profile.LastName,
-                    principal.HasClaim(c => c.Type == ImpersonationClaims.Impersonating)));
+                    principal.HasClaim(c => c.Type == ImpersonationClaims.Impersonating),
+                    user.NeedsPassword && !principal.HasClaim(c => c.Type == ImpersonationClaims.Impersonating)));
             })
             .RequireAuthorization()
             .WithName("GetMe")
             .Produces<MeResponse>()
+            .Produces(StatusCodes.Status401Unauthorized);
+
+        // First password for an account the portal created (the customer arrived by a
+        // sign-in link and has never chosen one). No current password to ask for — they
+        // don't know the generated one — so this only works while NeedsPassword holds;
+        // after that, changing it goes through the usual forgot/reset flow.
+        group.MapPost("/account/set-password", async (
+                SetPasswordBody body,
+                ClaimsPrincipal principal,
+                UserManager<ApplicationUser> users,
+                SignInManager<ApplicationUser> signIn) =>
+            {
+                if (principal.HasClaim(c => c.Type == ImpersonationClaims.Impersonating))
+                    return Results.BadRequest(new ErrorResponse("Staff can't set a client's password."));
+
+                var user = await users.GetUserAsync(principal);
+                if (user is null) return Results.Unauthorized();
+                if (!user.NeedsPassword)
+                    return Results.BadRequest(new ErrorResponse("Your password is already set. Use “Forgot password” on the sign-in page to change it."));
+                if (string.IsNullOrEmpty(body.Password) || body.Password.Length < 8)
+                    return Results.BadRequest(new ErrorResponse("Use a password of at least 8 characters."));
+
+                var token = await users.GeneratePasswordResetTokenAsync(user);
+                var result = await users.ResetPasswordAsync(user, token, body.Password);
+                if (!result.Succeeded)
+                    return Results.BadRequest(new ErrorResponse(string.Join(" ", result.Errors.Select(e => e.Description))));
+
+                user.GeneratedPasswordHash = null;
+                await users.UpdateAsync(user);
+                // The reset rotated the security stamp; re-issue the cookie so this session survives.
+                await signIn.RefreshSignInAsync(user);
+                return Results.Ok();
+            })
+            .RequireAuthorization()
+            .WithName("SetPassword")
+            .Produces(StatusCodes.Status200OK)
+            .Produces<ErrorResponse>(StatusCodes.Status400BadRequest)
             .Produces(StatusCodes.Status401Unauthorized);
 
         group.MapPost("/logout", async (SignInManager<ApplicationUser> signInManager) =>
@@ -122,6 +161,8 @@ public static class AccountEndpoints
                 UserManager<ApplicationUser> users,
                 SignInManager<ApplicationUser> signIn,
                 IApplicationDbContext context,
+                IRenewtronSyncService renewtronSync,
+                ILoggerFactory loggers,
                 CancellationToken ct) =>
             {
                 switch (links.Read(body.Token, out var claims))
@@ -133,9 +174,19 @@ public static class AccountEndpoints
                 }
 
                 var user = await users.FindByEmailAsync(claims!.Email);
-                // Renewtron can email the link before the next sync has created the
-                // account — "not-ready" lets the page say to try again shortly.
+                // Renewtron's checkout sends the customer here seconds after paying,
+                // before the 10-minute sync has created their account: pull from
+                // Renewtron now instead of making them wait. Only a validly signed
+                // token gets this far, and runs are serialised and throttled.
+                if (user is null && await OnDemandRenewtronSync.RunAsync(renewtronSync, loggers, ct))
+                    user = await users.FindByEmailAsync(claims.Email);
+                // Still nothing — "not-ready" lets the page say to try again shortly.
                 if (user is null) return Results.BadRequest(new SignInLinkError("not-ready"));
+
+                // A checkout link only opens the account that purchase created: the payer
+                // typed the email, so an older account must be signed into the usual way.
+                if (claims.NotAccountBefore is { } notBefore && user.CreatedAt < notBefore)
+                    return Results.BadRequest(new SignInLinkError("existing-account"));
 
                 // Staff accounts carry admin access and never sign in by link.
                 if (await users.IsInRoleAsync(user, Roles.Admin) || await users.IsLockedOutAsync(user))

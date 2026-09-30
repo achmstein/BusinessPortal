@@ -6,7 +6,7 @@ namespace BusinessPortal.Web.Endpoints;
 // typed rather than anonymous.
 public record IdResponse(Guid Id);
 public record ErrorResponse(string Error);
-public record MeResponse(string Id, string? Email, bool IsAdmin, bool AtoConnected, string FirstName, string LastName, bool Impersonating);
+public record MeResponse(string Id, string? Email, bool IsAdmin, bool AtoConnected, string FirstName, string LastName, bool Impersonating, bool NeedsPassword);
 public record JobStartedResponse(Guid JobId);
 public record ThreadStartedResponse(Guid ThreadId);
 public record RenewalResponse(string RenewalDate);

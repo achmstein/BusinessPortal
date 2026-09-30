@@ -34,6 +34,29 @@ public class SignInLinkTokenTests
             ".dkG28NM6LgGdZvK5LTOBfinJnwpgdTyr2m9mRcUMc-0"));
     }
 
+    /// <summary>Renewtron's checkout link: same vector plus "nab" (an hour before Now).
+    /// Emailed links omit it, so the vector above must not change.</summary>
+    [Test]
+    public void ReadsRenewtronCheckoutLink_WithNotAccountBefore()
+    {
+        const string token =
+            "eyJlbWFpbCI6ImFsaWNlQHRlc3QuY29tIiwiZXhwIjoxNzkwODk5MjAwLCJqdGkiOiIwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMSIsIm5hYiI6MTc5MDYzNjQwMH0" +
+            ".QwXHqx7QXsBbwKgZ3xK5aR95iuM782Oj3Q6udCd-l-Y";
+
+        var result = SignInLinkToken.TryRead(token, Key, Now, out var claims);
+
+        Assert.That(result, Is.EqualTo(SignInLinkToken.Failure.None));
+        Assert.That(claims!.NotAccountBefore, Is.EqualTo(Now.AddHours(-1)));
+    }
+
+    [Test]
+    public void EmailedLink_HasNoNotAccountBefore()
+    {
+        var token = SignInLinkToken.Create("alice@test.com", Key, Now.AddHours(72), Jti);
+        SignInLinkToken.TryRead(token, Key, Now, out var claims);
+        Assert.That(claims!.NotAccountBefore, Is.Null);
+    }
+
     [Test]
     public void RejectsExpired()
     {

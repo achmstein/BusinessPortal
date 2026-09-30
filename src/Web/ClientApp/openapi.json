@@ -536,6 +536,42 @@
         }
       }
     },
+    "/api/account/set-password": {
+      "post": {
+        "tags": [
+          "Account"
+        ],
+        "operationId": "SetPassword",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetPasswordBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        }
+      }
+    },
     "/api/logout": {
       "post": {
         "tags": [
@@ -2886,7 +2922,8 @@
           "atoConnected",
           "firstName",
           "lastName",
-          "impersonating"
+          "impersonating",
+          "needsPassword"
         ],
         "type": "object",
         "properties": {
@@ -2912,6 +2949,9 @@
             "type": "string"
           },
           "impersonating": {
+            "type": "boolean"
+          },
+          "needsPassword": {
             "type": "boolean"
           }
         }
@@ -3601,6 +3641,17 @@
         "type": "object",
         "properties": {
           "abn": {
+            "type": "string"
+          }
+        }
+      },
+      "SetPasswordBody": {
+        "required": [
+          "password"
+        ],
+        "type": "object",
+        "properties": {
+          "password": {
             "type": "string"
           }
         }

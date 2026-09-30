@@ -11,7 +11,8 @@ namespace BusinessPortal.Infrastructure.Identity;
 /// "unknown" and never overwrite an existing value.</summary>
 public sealed record ProvisionProfile(
     string FirstName = "", string LastName = "", string Phone = "", string Dob = "",
-    string Tfn = "", string Address = "", string Suburb = "", string State = "", string Postcode = "");
+    string Tfn = "", string Address = "", string Suburb = "", string State = "", string Postcode = "",
+    string Abn = "");
 
 public sealed record ProvisionUserResult(ApplicationUser? User, bool Created, string? Error);
 
@@ -55,6 +56,7 @@ public class UserProvisioningService(
                 Suburb = profile.Suburb,
                 State = profile.State,
                 Postcode = profile.Postcode,
+                Abn = profile.Abn,
             },
         };
 
@@ -65,6 +67,10 @@ public class UserProvisioningService(
             logger.LogWarning("Provisioning create failed for {Email}: {Errors}", email, errors);
             return new ProvisionUserResult(null, Created: false, errors);
         }
+
+        // Remember the generated password so the portal can ask them to choose their own.
+        user.GeneratedPasswordHash = user.PasswordHash;
+        await userManager.UpdateAsync(user);
 
         context.Messages.Add(WelcomeMessage(user.Id));
         await SendWelcomeAsync(user);
@@ -105,6 +111,7 @@ public class UserProvisioningService(
         p.Suburb = Fill(p.Suburb, incoming.Suburb);
         p.State = Fill(p.State, incoming.State);
         p.Postcode = Fill(p.Postcode, incoming.Postcode);
+        p.Abn = Fill(p.Abn, incoming.Abn);
     }
 
     private static Message WelcomeMessage(string userId)

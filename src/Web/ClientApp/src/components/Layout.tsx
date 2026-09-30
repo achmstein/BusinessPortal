@@ -2,6 +2,7 @@ import { ChevronDown, LogOut, Shield, UserRound } from 'lucide-react'
 import { NavLink, Outlet, useNavigate } from 'react-router-dom'
 import { useAuth } from '../auth/AuthContext'
 import { stopImpersonation } from '../api/generated'
+import { SetPasswordPanel } from './SetPasswordPanel'
 import { Avatar, Button, Logo, Menu } from '@/ui'
 import { cn } from '@/lib/cn'
 
@@ -149,6 +150,7 @@ export function Layout() {
       </header>
 
       <main id="main" className="mx-auto max-w-5xl px-4 py-8 sm:px-6 sm:py-10">
+        <SetPasswordPanel />
         <Outlet />
       </main>
     </div>

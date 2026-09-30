@@ -15,10 +15,15 @@ namespace BusinessPortal.Domain.Services;
 ///
 /// The token proves who it was issued for and until when. Single use is enforced
 /// by the caller recording the jti.
+///
+/// Optional "nab" (not-account-before, unix seconds): Renewtron's checkout hands its
+/// link straight to the browser, and the payer merely typed that email — so such a
+/// link may only open an account created at or after this time (by that purchase),
+/// never someone's existing account. Emailed links carry no nab.
 /// </summary>
 public static class SignInLinkToken
 {
-    public sealed record Claims(string Email, DateTimeOffset Expires, string Jti);
+    public sealed record Claims(string Email, DateTimeOffset Expires, string Jti, DateTimeOffset? NotAccountBefore = null);
 
     public enum Failure { None, Malformed, BadSignature, Expired }
 
@@ -60,12 +65,15 @@ public static class SignInLinkToken
         var expires = DateTimeOffset.FromUnixTimeSeconds(payload.exp);
         if (expires <= now) return Failure.Expired;
 
-        claims = new Claims(payload.email.Trim().ToLowerInvariant(), expires, payload.jti);
+        claims = new Claims(payload.email.Trim().ToLowerInvariant(), expires, payload.jti,
+            payload.nab is { } nab ? DateTimeOffset.FromUnixTimeSeconds(nab) : null);
         return Failure.None;
     }
 
     // Lower-case property names are the wire format — see the class summary.
-    private sealed record Payload(string email, long exp, string jti);
+    private sealed record Payload(
+        string email, long exp, string jti,
+        [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)] long? nab = null);
 
     private static string Sign(string p, string key)
     {

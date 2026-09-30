@@ -13,7 +13,11 @@ public sealed class RenewtronRenewalItem
     public string? Status { get; set; }
     public string? Source { get; set; }
     public string? BusinessName { get; set; }
+    /// <summary>ASIC registration date of <see cref="BusinessName"/> as Renewtron holds it (dd/MM/yyyy).</summary>
+    public string? RegistrationDate { get; set; }
     public string? Abn { get; set; }
+    /// <summary>Every name the wizard found on the ABN (wizard renewals only), renewed or not.</summary>
+    public List<RenewtronAbnBusinessName>? AbnBusinessNames { get; set; }
     public int RenewalYears { get; set; }
     public decimal Amount { get; set; }
     public string? Email { get; set; }
@@ -25,6 +29,12 @@ public sealed class RenewtronRenewalItem
     public string? TransactionReference { get; set; }
     public string? CustomerMessage { get; set; }
     public DateTime? NextRetryAt { get; set; }
+}
+
+public sealed class RenewtronAbnBusinessName
+{
+    public string? Name { get; set; }
+    public string? RegistrationDate { get; set; }
 }
 
 public sealed class RenewtronRenewalPage
