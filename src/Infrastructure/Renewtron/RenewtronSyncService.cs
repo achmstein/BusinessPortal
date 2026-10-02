@@ -28,6 +28,7 @@ namespace BusinessPortal.Infrastructure.Renewtron;
 /// Pull, not push: a missed run self-heals on the next.</summary>
 public class RenewtronSyncService(
     RenewtronClient client,
+    IAbnLookupClient abnLookup,
     UserProvisioningService provisioner,
     ApplicationDbContext context,
     IOptionsMonitor<RenewtronOptions> options,
@@ -244,6 +245,7 @@ public class RenewtronSyncService(
             if (otherName.Length > 0 && !names.Any(b => string.Equals(b.Name.Trim(), otherName, StringComparison.OrdinalIgnoreCase)))
                 AddBusinessName(names, userId, otherName, other.RegistrationDate);
         }
+        await EnsureBusinessEntityAsync(userId, item.Abn, name, ct);
 
         if (status == "Completed" && item.RenewalYears > 0)
         {
@@ -272,6 +274,22 @@ public class RenewtronSyncService(
         context.BusinessNames.Add(bn);
         names.Add(bn);
         return bn;
+    }
+
+    /// <summary>Pre-fill the customer's Business page: one business for the ABN they
+    /// renewed under, named after the business name they renewed (they can rename it).
+    /// Returns true when it was added, i.e. the first time this customer's ABN is seen.</summary>
+    private async Task<bool> EnsureBusinessEntityAsync(string userId, string? abn, string name, CancellationToken ct)
+    {
+        var clean = AbnUtil.NormaliseAbn(abn);
+        if (clean.Length != 11) return false;
+
+        var held = await context.BusinessEntities.Where(e => e.UserId == userId).Select(e => e.Abn).ToListAsync(ct);
+        if (held.Any(a => AbnUtil.NormaliseAbn(a) == clean)) return false;
+        if (context.BusinessEntities.Local.Any(e => e.UserId == userId && AbnUtil.NormaliseAbn(e.Abn) == clean)) return false;
+
+        context.BusinessEntities.Add(new BusinessEntity { UserId = userId, Name = name, Abn = clean });
+        return true;
     }
 
     /// <summary>Renewtron's dd/MM/yyyy (or ISO) date as the portal's yyyy-MM-dd; empty when unparseable.</summary>
@@ -374,7 +392,8 @@ public class RenewtronSyncService(
                 Address: sale.Address ?? string.Empty,
                 Suburb: sale.Suburb ?? string.Empty,
                 State: sale.State ?? string.Empty,
-                Postcode: sale.Postcode ?? string.Empty), ct);
+                Postcode: sale.Postcode ?? string.Empty,
+                Abn: sale.Abn?.Trim() ?? string.Empty), ct);
             if (provision.User is null)
                 throw new InvalidOperationException($"could not create portal user: {provision.Error}");
 
@@ -396,6 +415,31 @@ public class RenewtronSyncService(
         else if (string.IsNullOrEmpty(bn.RenewalDate) && !string.IsNullOrEmpty(sale.RenewalDueDate))
         {
             bn.RenewalDate = sale.RenewalDueDate;
+        }
+
+        // A sale carries no list of the ABN's other names (only wizard renewals do),
+        // so the first time we see this ABN, read them off the public register.
+        if (await EnsureBusinessEntityAsync(userId, sale.Abn, name, ct))
+        {
+            foreach (var r in await abnLookup.LookupBusinessNamesByAbnAsync(sale.Abn!, ct))
+            {
+                if (!string.IsNullOrEmpty(r.CancelledAt)) continue;
+                var existing = names.FirstOrDefault(b => string.Equals(b.Name.Trim(), r.Name.Trim(), StringComparison.OrdinalIgnoreCase));
+                if (existing is null)
+                {
+                    var added = new BusinessName
+                    {
+                        UserId = userId, Name = r.Name.Trim(), DateRegistered = r.DateRegistered,
+                        RenewalDate = r.RenewalDate, AsicKey = string.Empty,
+                    };
+                    context.BusinessNames.Add(added);
+                    names.Add(added);
+                }
+                else if (string.IsNullOrEmpty(existing.DateRegistered))
+                {
+                    existing.DateRegistered = r.DateRegistered;
+                }
+            }
         }
 
         var row = await context.BusinessNameRenewals.FirstOrDefaultAsync(r => r.RenewtronSaleId == sale.Id, ct);

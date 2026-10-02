@@ -46,9 +46,14 @@ export function SignInLinkPage() {
   const token = params.get('t') ?? ''
 
   const redeem = useMutation({
+    // The client throws on non-2xx (lib/apiClient.ts), handing us the error body.
     mutationFn: async () => {
-      const result = await redeemSignInLink({ body: { token } })
-      if (result.error) throw (result.error as { reason?: Reason }).reason ?? 'invalid'
+      try {
+        await redeemSignInLink({ body: { token } })
+      } catch (error) {
+        const reason = (error as { reason?: string } | undefined)?.reason
+        throw reason && reason in PROBLEMS ? (reason as Reason) : 'invalid'
+      }
     },
     onSuccess: async () => {
       await refresh()

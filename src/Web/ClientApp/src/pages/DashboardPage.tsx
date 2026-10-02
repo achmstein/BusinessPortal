@@ -294,7 +294,7 @@ export function DashboardPage() {
   // ── The answer: the page title itself ──
   let tone: keyof typeof HEADLINE_TONES = 'calm'
   let title: string
-  let description: string
+  let description: string | undefined
   if (failed) {
     title = 'We couldn’t load your records'
     description = 'Try again in a moment.'
@@ -308,7 +308,6 @@ export function DashboardPage() {
     description = 'Renewing early costs the same and takes a couple of minutes.'
   } else if (tasks.length > 0) {
     title = 'Your registrations are in order.'
-    description = `${tasks.length === 1 ? 'There’s one small thing' : `There are ${tasks.length} small things`} that would help us look after them.`
   } else {
     title = 'Nothing needs your attention.'
     description =

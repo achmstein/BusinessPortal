@@ -12,7 +12,7 @@ import { cn } from '@/lib/cn'
 export function Logo({
   className,
   wordmark = true,
-  tagline = 'Your records',
+  tagline = null,
   size = 'md',
 }: {
   className?: string

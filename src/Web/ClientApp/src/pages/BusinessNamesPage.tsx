@@ -37,7 +37,6 @@ import {
   RecordTitle,
   RecordList,
   RecordSkeleton,
-  Tooltip,
   ValidityBand,
 } from '@/ui'
 
@@ -375,11 +374,9 @@ export function BusinessNamesPage() {
                       <span className="text-sm text-ink-faint">{status.label}</span>
                     )}
                     <Menu.Root>
-                      <Tooltip label="More options">
-                        <Menu.Trigger aria-label={`More options for ${name.name}`} className="p-1.5">
-                          <MoreHorizontal aria-hidden className="size-4" />
-                        </Menu.Trigger>
-                      </Tooltip>
+                      <Menu.Trigger aria-label={`More options for ${name.name}`} className="p-1.5">
+                        <MoreHorizontal aria-hidden className="size-4" />
+                      </Menu.Trigger>
                       <Menu.Content>
                         <Menu.Item value="edit" onSelect={() => openEdit(name)}>
                           <Pencil aria-hidden className="size-4" />

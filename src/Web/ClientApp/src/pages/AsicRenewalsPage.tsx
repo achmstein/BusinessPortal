@@ -21,7 +21,6 @@ import {
   RecordTitle,
   RecordList,
   RecordSkeleton,
-  Tooltip,
   ValidityBand,
   toastError,
   toastSuccess,
@@ -167,14 +166,12 @@ export function AsicRenewalsPage() {
                           {/* Cancelling is irreversible, so it sits behind a
                               menu rather than beside the primary action. */}
                           <Menu.Root>
-                            <Tooltip label="More options">
-                              <Menu.Trigger
-                                aria-label={`More options for ${item.name}`}
-                                className="p-1.5"
-                              >
-                                <MoreHorizontal aria-hidden className="size-4" />
-                              </Menu.Trigger>
-                            </Tooltip>
+                            <Menu.Trigger
+                              aria-label={`More options for ${item.name}`}
+                              className="p-1.5"
+                            >
+                              <MoreHorizontal aria-hidden className="size-4" />
+                            </Menu.Trigger>
                             <Menu.Content>
                               <Menu.Item value="manage" asChild>
                                 <Link to="/business-names">Edit this business name</Link>
