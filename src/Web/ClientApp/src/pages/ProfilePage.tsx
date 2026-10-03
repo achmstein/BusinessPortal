@@ -4,9 +4,11 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { z } from 'zod'
 import {
+  getAbnLookupStatusQueryKey,
   getMeOptions,
   getProfileOptions,
   getProfileQueryKey,
+  startAbnLookupMutation,
   updateProfileMutation,
 } from '@/api/generated/@tanstack/react-query.gen'
 import {
@@ -106,13 +108,29 @@ export function ProfilePage() {
     })
   }, [profile.data, reset])
 
+  const lookup = useMutation({
+    ...startAbnLookupMutation(),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: getAbnLookupStatusQueryKey() }),
+  })
+
   const save = useMutation({
     ...updateProfileMutation(),
     onSuccess: async (_data, variables) => {
+      const digits = (abn?: string | null) => (abn ?? '').replace(/\D/g, '')
+      const newAbn = digits(variables.body.abn)
+      // A new ABN here is searched for its registered business names, the same
+      // lookup the Business names page runs.
+      const searchAbn = newAbn.length === 11 && newAbn !== digits(profile.data?.abn)
+
       await queryClient.invalidateQueries({ queryKey: getProfileQueryKey() })
       // Re-baseline so the form is clean again and the button settles.
       reset(variables.body as ProfileForm)
-      toastSuccess('Details saved')
+      if (searchAbn) {
+        lookup.mutate({})
+        toastSuccess('Details saved', 'We’re looking up the business names on your ABN — they’ll appear under Business names.')
+      } else {
+        toastSuccess('Details saved')
+      }
     },
     onError: () => toastError('We couldn’t save your details', 'Try again in a moment.'),
   })

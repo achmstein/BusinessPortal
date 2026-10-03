@@ -51,6 +51,10 @@ export function DatePicker({
 
   return (
     <ArkDatePicker.Root
+      // Ark defaults to en-US (mm/dd/yyyy); our customers are Australian. The
+      // locale drives the typed format, its parsing and the placeholder.
+      locale="en-AU"
+      startOfWeek={1}
       value={selected}
       onValueChange={(details) => onChange(details.valueAsString[0] ?? '')}
       disabled={disabled}

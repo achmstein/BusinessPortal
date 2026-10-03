@@ -1,5 +1,6 @@
 using BusinessPortal.Application.Common.Interfaces;
 using BusinessPortal.Domain.Services;
+using BusinessPortal.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 
@@ -11,7 +12,7 @@ namespace BusinessPortal.Infrastructure.Services;
 /// the original runAbnLookupWork (data.gov.au portion; the ASIC-Connect renewal
 /// enrichment is a separate integration).</summary>
 public class AbnLookupService(
-    IApplicationDbContext context,
+    ApplicationDbContext context,
     IAbnLookupClient client,
     IAsicRegistryClient asic,
     ILogger<AbnLookupService> logger) : IAbnLookupService
@@ -26,10 +27,17 @@ public class AbnLookupService(
 
         try
         {
+            // The businesses' ABNs plus the one on "Your details" — customers type
+            // their ABN there and expect it to be searched too.
+            var profileAbn = await context.Users
+                .Where(u => u.Id == userId)
+                .Select(u => u.Profile.Abn)
+                .FirstOrDefaultAsync(cancellationToken);
             var validAbns = (await context.BusinessEntities
                     .Where(e => e.UserId == userId)
                     .Select(e => e.Abn)
                     .ToListAsync(cancellationToken))
+                .Append(profileAbn ?? string.Empty)
                 .Select(AbnUtil.NormaliseAbn)
                 .Where(a => a.Length == 11)
                 .Distinct()
