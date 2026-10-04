@@ -56,7 +56,8 @@ export function DatePicker({
       locale="en-AU"
       startOfWeek={1}
       value={selected}
-      onValueChange={(details) => onChange(details.valueAsString[0] ?? '')}
+      // valueAsString is the display format (dd/mm/yyyy); toString() is ISO.
+      onValueChange={(details) => onChange(details.value[0]?.toString() ?? '')}
       disabled={disabled}
       positioning={{ placement: 'bottom-start' }}
       className={className}
