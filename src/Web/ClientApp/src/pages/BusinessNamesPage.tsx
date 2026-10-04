@@ -9,15 +9,20 @@ import {
   deleteBusinessNameMutation,
   getAbnLookupStatusOptions,
   getAbnLookupStatusQueryKey,
+  getBusinessEntitiesOptions,
   getBusinessNamesOptions,
   getBusinessNamesQueryKey,
+  getProfileOptions,
+  getProfileQueryKey,
   startAbnLookupMutation,
   requestAsicKeyMutation,
   updateBusinessNameMutation,
+  updateProfileMutation,
 } from '@/api/generated/@tanstack/react-query.gen'
 import type { BusinessNameDto } from '@/api/generated'
 import { renewalStatus } from '@/lib/renewal'
 import { formatDate } from '@/lib/dates'
+import { formatAbn } from '@/lib/format'
 import {
   Badge,
   Button,
@@ -62,6 +67,12 @@ const businessNameSchema = z.object({
 type BusinessNameForm = z.infer<typeof businessNameSchema>
 
 const EMPTY_FORM: BusinessNameForm = { name: '', dateRegistered: '', renewalDate: '', asicKey: '' }
+
+const digitsOnly = (value?: string | null) => (value ?? '').replace(/\D/g, '')
+
+const abnSchema = z.object({
+  abn: z.string().refine((v) => digitsOnly(v).length === 11, { message: 'An ABN has 11 digits.' }),
+})
 
 function BusinessNameFields({
   form,
@@ -178,8 +189,17 @@ export function BusinessNamesPage() {
   const [editing, setEditing] = useState<BusinessNameDto | null>(null)
   const [removing, setRemoving] = useState<BusinessNameDto | null>(null)
   const [adding, setAdding] = useState(false)
+  const [askingAbn, setAskingAbn] = useState(false)
 
   const names = useQuery(getBusinessNamesOptions())
+  const profile = useQuery(getProfileOptions())
+  const entities = useQuery(getBusinessEntitiesOptions())
+
+  // The ABNs the lookup will search: the one on "Your details" plus each business's.
+  const abnsOnFile = [
+    ...new Set([profile.data?.abn, ...(entities.data ?? []).map((e) => e.abn)].map(digitsOnly)),
+  ].filter((abn) => abn.length === 11)
+  const abnsKnown = profile.isSuccess && entities.isSuccess
 
   const lookup = useQuery({
     ...getAbnLookupStatusOptions(),
@@ -260,8 +280,34 @@ export function BusinessNamesPage() {
       await queryClient.invalidateQueries({ queryKey: getAbnLookupStatusQueryKey() })
       toastSuccess('Looking up your business names', 'This runs in the background.')
     },
-    onError: () => toastError('Could not start the lookup', 'Try again shortly.'),
+    onError: (error) =>
+      toastError('Could not start the lookup', (error as { error?: string } | undefined)?.error ?? 'Try again shortly.'),
   })
+
+  // With no ABN on file there's nothing to search, so ask for one first rather
+  // than run a lookup that can only report "no new names".
+  function checkAbnLookup() {
+    if (abnsKnown && abnsOnFile.length === 0) setAskingAbn(true)
+    else startLookup.mutate({})
+  }
+
+  const abnForm = useForm<z.infer<typeof abnSchema>>({ resolver: zodResolver(abnSchema), defaultValues: { abn: '' } })
+
+  // The ABN is kept on "Your details", so it's saved there before the lookup runs.
+  const saveAbn = useMutation({
+    ...updateProfileMutation(),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: getProfileQueryKey() })
+      setAskingAbn(false)
+      abnForm.reset({ abn: '' })
+      startLookup.mutate({})
+    },
+    onError: () => toastError('We couldn’t save your ABN', 'Try again in a moment.'),
+  })
+
+  const submitAbn = abnForm.handleSubmit(({ abn }) =>
+    saveAbn.mutate({ body: { ...profile.data!, abn: digitsOnly(abn) } }),
+  )
 
   // Renewtron asks ASIC for a copy of the key and reads it from ASIC's reply;
   // the portal's sync brings it back onto the name.
@@ -306,7 +352,7 @@ export function BusinessNamesPage() {
         <>
           <Button
             variant="secondary"
-            onClick={() => startLookup.mutate({})}
+            onClick={checkAbnLookup}
             loading={startLookup.isPending || running}
           >
             <RefreshCw aria-hidden className="size-4" />
@@ -320,7 +366,14 @@ export function BusinessNamesPage() {
       }
     >
 
-      {running ? <LookupProgress job={lookup.data ?? {}} /> : null}
+      {running ? (
+        <LookupProgress job={lookup.data ?? {}} />
+      ) : abnsOnFile.length > 0 ? (
+        <p className="text-sm text-ink-faint">
+          ABN Lookup searches {abnsOnFile.length === 1 ? 'ABN' : 'ABNs'}{' '}
+          <span data-numeric>{abnsOnFile.map(formatAbn).join(', ')}</span>.
+        </p>
+      ) : null}
 
       {dueCount > 0 ? (
         <p className="text-sm text-warn-700">
@@ -351,7 +404,7 @@ export function BusinessNamesPage() {
           action={
             <div className="flex flex-wrap justify-center gap-2">
               <Button onClick={() => setAdding(true)}>Add a name</Button>
-              <Button variant="secondary" onClick={() => startLookup.mutate({})} loading={startLookup.isPending}>
+              <Button variant="secondary" onClick={checkAbnLookup} loading={startLookup.isPending}>
                 Check ABN Lookup
               </Button>
             </div>
@@ -464,6 +517,33 @@ export function BusinessNamesPage() {
             onRequestKey={() => void addAndRequestKey()}
             requestingKey={create.isPending || requestKey.isPending}
           />
+        </form>
+      </Dialog>
+
+      {/* ── ABN, when none is on file ── */}
+      <Dialog
+        open={askingAbn}
+        onOpenChange={(open) => {
+          setAskingAbn(open)
+          if (!open) abnForm.reset({ abn: '' })
+        }}
+        title="What’s your ABN?"
+        description="We’ll find the business names registered to it. It’s saved to Your details."
+        footer={
+          <>
+            <Button variant="ghost" onClick={() => setAskingAbn(false)}>
+              Cancel
+            </Button>
+            <Button loading={saveAbn.isPending} onClick={() => void submitAbn()}>
+              Find my names
+            </Button>
+          </>
+        }
+      >
+        <form onSubmit={(e) => void submitAbn(e)} noValidate>
+          <Field label="ABN" hint="11 digits" required error={abnForm.formState.errors.abn?.message}>
+            <Field.Input inputMode="numeric" autoComplete="off" autoFocus {...abnForm.register('abn')} />
+          </Field>
         </form>
       </Dialog>
 
