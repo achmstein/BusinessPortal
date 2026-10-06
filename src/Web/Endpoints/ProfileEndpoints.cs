@@ -39,7 +39,9 @@ public static class ProfileEndpoints
                 p.Phone = model.Phone ?? string.Empty;
                 p.Dob = model.Dob ?? string.Empty;
                 p.Tfn = model.Tfn ?? string.Empty;
-                p.Abn = model.Abn ?? string.Empty;
+                // The ABN is entered under Business now, not on this form; a save
+                // without it keeps the one provisioning stored (ABN Lookup falls back to it).
+                if (model.Abn is not null) p.Abn = model.Abn;
                 p.Address = model.Address ?? string.Empty;
                 p.Suburb = model.Suburb ?? string.Empty;
                 p.State = model.State ?? string.Empty;

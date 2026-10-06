@@ -7,12 +7,15 @@ import {
   CalendarClock,
   CalendarPlus,
   CheckCircle2,
+  FileText,
   KeyRound,
+  Landmark,
   MessageSquare,
   UserRound,
 } from 'lucide-react'
 import {
   getAsicRenewalsOptions,
+  getAtoStatusOptions,
   getBusinessEntitiesOptions,
   getBusinessNamesOptions,
   getCompletedRenewalsOptions,
@@ -50,6 +53,12 @@ import {
 //
 // The side column is reference, not action: how many names are tracked, when
 // the next one falls due, and what has been renewed recently.
+//
+// Until the account is set up — a business, its business names, the ATO link —
+// a "Get set up" checklist leads the page instead, in the order those need
+// doing. Customers who came through a Renewtron sign-in link already have their
+// business and names added for them, so those steps arrive ticked and only ask
+// them to add any others.
 // ─────────────────────────────────────────────────────────────────────────────
 
 type TaskTone = 'overdue' | 'due' | 'info'
@@ -76,6 +85,46 @@ const MAX_INLINE_KEY_REQUESTS = 2
 
 const HEADLINE_TONES = { calm: 'text-ink', action: 'text-warn-700', urgent: 'text-danger-700' } as const
 
+interface SetupStep {
+  key: string
+  icon: ReactNode
+  title: string
+  detail: string
+  done: boolean
+  action?: ReactNode
+}
+
+function SetupChecklist({ steps }: { steps: SetupStep[] }) {
+  const doneCount = steps.filter((s) => s.done).length
+  return (
+    <Section title="Get set up" meta={`${doneCount} of ${steps.length} done`}>
+      <List>
+        {steps.map((step, index) => (
+          <List.Row key={step.key}>
+            <span
+              aria-hidden
+              className={cn(
+                'grid size-9 shrink-0 place-items-center rounded-full',
+                step.done ? 'bg-accent-50 text-accent-700' : 'border border-rule-firm text-ink-faint',
+              )}
+            >
+              {step.done ? <CheckCircle2 className="size-4" /> : step.icon}
+            </span>
+            <div className="min-w-0 flex-1">
+              <p className="font-medium text-ink">
+                <span className="sr-only">{step.done ? 'Done: ' : `Step ${index + 1}: `}</span>
+                {step.title}
+              </p>
+              <p className="text-sm text-ink-faint">{step.detail}</p>
+            </div>
+            {step.action ? <div className="shrink-0">{step.action}</div> : null}
+          </List.Row>
+        ))}
+      </List>
+    </Section>
+  )
+}
+
 function Stat({ label, value, hint }: { label: string; value: ReactNode; hint?: ReactNode }) {
   return (
     <div className="flex flex-col gap-0.5">
@@ -95,6 +144,7 @@ export function DashboardPage() {
   const profile = useQuery(getProfileOptions())
   const threads = useQuery(getMessageThreadsOptions())
   const completed = useQuery(getCompletedRenewalsOptions())
+  const ato = useQuery(getAtoStatusOptions())
 
   const queryClient = useQueryClient()
   const requestKey = useMutation({
@@ -251,21 +301,6 @@ export function DashboardPage() {
     })
   }
 
-  if (entities.data && entities.data.length === 0) {
-    tasks.push({
-      key: 'business',
-      tone: 'info',
-      icon: <Building2 className="size-4" />,
-      title: 'Add your business',
-      detail: 'With your ABN on file we can find every business name registered to it.',
-      action: (
-        <Button asChild size="sm" variant="secondary">
-          <Link to="/business">Add business</Link>
-        </Button>
-      ),
-    })
-  }
-
   if (profile.data && (!profile.data.firstName || !profile.data.phone)) {
     tasks.push({
       key: 'profile',
@@ -282,6 +317,71 @@ export function DashboardPage() {
   }
 
   tasks.sort((a, b) => TONE_ORDER[a.tone] - TONE_ORDER[b.tone])
+
+  // ── Setup checklist ──
+  const entityList = entities.data ?? []
+  const atoConnected = Boolean(ato.data?.connected)
+  const setupSteps: SetupStep[] = [
+    {
+      key: 'account',
+      icon: <UserRound className="size-4" />,
+      title: 'Create your account',
+      detail: 'You’re in.',
+      done: true,
+    },
+    {
+      key: 'business',
+      icon: <Building2 className="size-4" />,
+      title: entityList.length > 0 ? 'Your business' : 'Add your business',
+      detail:
+        entityList.length > 0
+          ? `${entityList[0].name}${entityList.length > 1 ? ` and ${entityList.length - 1} more` : ''} — check the details and add any others you run.`
+          : 'Its ABN lets us find every business name registered to it.',
+      done: entityList.length > 0,
+      action: (
+        <Button asChild size="sm" variant={entityList.length > 0 ? 'secondary' : 'primary'}>
+          <Link to="/business">{entityList.length > 0 ? 'Review' : 'Add business'}</Link>
+        </Button>
+      ),
+    },
+    {
+      key: 'names',
+      icon: <FileText className="size-4" />,
+      title: nameList.length > 0 ? 'Your business names' : 'Add your business names',
+      detail:
+        nameList.length > 0
+          ? `${nameList.length === 1 ? 'One name' : `${nameList.length} names`} on file — add any others you hold.`
+          : 'We’ll track each one’s renewal date and remind you before it lapses.',
+      done: nameList.length > 0,
+      action: (
+        <Button asChild size="sm" variant={nameList.length > 0 || entityList.length === 0 ? 'secondary' : 'primary'}>
+          <Link to="/business-names">{nameList.length > 0 ? 'Review' : 'Add names'}</Link>
+        </Button>
+      ),
+    },
+    {
+      key: 'ato',
+      icon: <Landmark className="size-4" />,
+      title: atoConnected ? 'Linked to the ATO' : 'Link to the ATO',
+      detail: atoConnected
+        ? 'We can keep your business details in step with the ATO.'
+        : 'So we can keep your business details in step with the ATO.',
+      done: atoConnected,
+      action: atoConnected ? undefined : (
+        <Button
+          asChild
+          size="sm"
+          variant={entityList.length > 0 && nameList.length > 0 ? 'primary' : 'secondary'}
+        >
+          <Link to="/ato-portal">Link</Link>
+        </Button>
+      ),
+    },
+  ]
+  // Only once all three answers are in: a checklist that flashes up while the
+  // ATO status loads, then vanishes, is worse than none.
+  const setupKnown = entities.isSuccess && names.isSuccess && ato.isSuccess
+  const settingUp = setupKnown && setupSteps.some((step) => !step.done)
 
   // ── Side column facts ──
   const upcoming = nameList
@@ -306,6 +406,9 @@ export function DashboardPage() {
     tone = 'action'
     title = `${due.length === 1 ? 'One registration needs' : `${due.length} registrations need`} renewing.`
     description = 'Renewing early costs the same and takes a couple of minutes.'
+  } else if (settingUp) {
+    title = 'Let’s get your business set up.'
+    description = 'A few steps, in this order — anything we already hold for you is filled in.'
   } else if (tasks.length > 0) {
     title = 'Your registrations are in order.'
   } else {
@@ -325,37 +428,42 @@ export function DashboardPage() {
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_18rem]">
         {/* ── Main column: to do, then the register ── */}
         <div className="flex min-w-0 flex-col gap-6">
-          <Section
-            title="To do"
-            meta={tasks.length > 0 ? `${tasks.length} ${tasks.length === 1 ? 'item' : 'items'}` : undefined}
-          >
-            {loading ? (
-              <PageSkeleton blocks={1} />
-            ) : tasks.length === 0 ? (
-              <Panel className="flex items-center gap-3">
-                <CheckCircle2 aria-hidden className="size-5 shrink-0 text-accent-600" />
-                <p className="text-sm text-ink-muted">You’re all caught up. We’ll let you know when something comes up.</p>
-              </Panel>
-            ) : (
-              <List>
-                {tasks.map((task) => (
-                  <List.Row key={task.key}>
-                    <span
-                      aria-hidden
-                      className={cn('grid size-9 shrink-0 place-items-center rounded-full', ICON_TONES[task.tone])}
-                    >
-                      {task.icon}
-                    </span>
-                    <div className="min-w-0 flex-1">
-                      <p className="font-medium text-ink">{task.title}</p>
-                      <p className="text-sm text-ink-faint">{task.detail}</p>
-                    </div>
-                    <div className="shrink-0">{task.action}</div>
-                  </List.Row>
-                ))}
-              </List>
-            )}
-          </Section>
+          {settingUp ? <SetupChecklist steps={setupSteps} /> : null}
+
+          {/* Mid-setup, "you're all caught up" would contradict the checklist above. */}
+          {settingUp && tasks.length === 0 ? null : (
+            <Section
+              title="To do"
+              meta={tasks.length > 0 ? `${tasks.length} ${tasks.length === 1 ? 'item' : 'items'}` : undefined}
+            >
+              {loading ? (
+                <PageSkeleton blocks={1} />
+              ) : tasks.length === 0 ? (
+                <Panel className="flex items-center gap-3">
+                  <CheckCircle2 aria-hidden className="size-5 shrink-0 text-accent-600" />
+                  <p className="text-sm text-ink-muted">You’re all caught up. We’ll let you know when something comes up.</p>
+                </Panel>
+              ) : (
+                <List>
+                  {tasks.map((task) => (
+                    <List.Row key={task.key}>
+                      <span
+                        aria-hidden
+                        className={cn('grid size-9 shrink-0 place-items-center rounded-full', ICON_TONES[task.tone])}
+                      >
+                        {task.icon}
+                      </span>
+                      <div className="min-w-0 flex-1">
+                        <p className="font-medium text-ink">{task.title}</p>
+                        <p className="text-sm text-ink-faint">{task.detail}</p>
+                      </div>
+                      <div className="shrink-0">{task.action}</div>
+                    </List.Row>
+                  ))}
+                </List>
+              )}
+            </Section>
+          )}
 
           <Section
             title="Your business names"

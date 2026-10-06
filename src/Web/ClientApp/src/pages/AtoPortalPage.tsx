@@ -153,11 +153,11 @@ export function AtoPortalPage() {
               Pulls the registered name, ABN, ACN, tax accounts and{' '}
               <strong className="font-medium text-ink">tax file number</strong> for each of your businesses
               into{' '}
-              <TextLink to="/business">Businesses</TextLink>
+              <TextLink to="/business">Business</TextLink>
               . This runs automatically when you connect — use this to pull it again later.
             </p>
             <p className="text-sm text-ink-faint">
-              Adding a business we don’t know about yet? Add its ABN under Businesses first, then sync.
+              Adding a business we don’t know about yet? Add its ABN under Business first, then sync.
             </p>
           </div>
           <Button onClick={() => sync.mutate({})} loading={sync.isPending} className="self-start">

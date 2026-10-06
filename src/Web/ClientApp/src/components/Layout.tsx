@@ -24,13 +24,15 @@ import { cn } from '@/lib/cn'
 // backdrop, so opening it with a keyboard left you stranded.
 // ─────────────────────────────────────────────────────────────────────────────
 
+// In the order a new customer sets things up: their business, its business
+// names, then the ATO link. Renewals follows the names it renews.
 const NAV_ITEMS = [
   // `end` matters only on the root: without it NavLink treats "/" as a prefix
   // and Overview stays highlighted on every page in the portal.
   { href: '/', label: 'Overview', end: true },
+  { href: '/business', label: 'Business' },
   { href: '/business-names', label: 'Business names' },
   { href: '/asic-renewals', label: 'Renewals' },
-  { href: '/business', label: 'Businesses' },
   { href: '/ato-portal', label: 'ATO' },
   { href: '/messages', label: 'Messages' },
   { href: '/profile', label: 'Your details' },

@@ -4,11 +4,9 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { z } from 'zod'
 import {
-  getAbnLookupStatusQueryKey,
   getMeOptions,
   getProfileOptions,
   getProfileQueryKey,
-  startAbnLookupMutation,
   updateProfileMutation,
 } from '@/api/generated/@tanstack/react-query.gen'
 import {
@@ -40,6 +38,9 @@ import {
 //
 // The save button only wakes up when something has actually changed, so the
 // page can't tell you it "saved" work you didn't do.
+//
+// No ABN here: it belongs to a business, and is entered under Business. Asking
+// for it on both pages read as a double-up.
 // ─────────────────────────────────────────────────────────────────────────────
 
 const STATES = ['ACT', 'NSW', 'NT', 'QLD', 'SA', 'TAS', 'VIC', 'WA']
@@ -53,11 +54,6 @@ const schema = z.object({
     .string()
     .refine((v) => v.replace(/\D/g, '').length === 0 || v.replace(/\D/g, '').length === 9, {
       message: 'A tax file number has 9 digits.',
-    }),
-  abn: z
-    .string()
-    .refine((v) => v.replace(/\D/g, '').length === 0 || v.replace(/\D/g, '').length === 11, {
-      message: 'An ABN has 11 digits.',
     }),
   address: z.string(),
   suburb: z.string(),
@@ -77,7 +73,6 @@ const EMPTY: ProfileForm = {
   phone: '',
   dob: '',
   tfn: '',
-  abn: '',
   address: '',
   suburb: '',
   state: '',
@@ -100,7 +95,6 @@ export function ProfilePage() {
       phone: profile.data.phone ?? '',
       dob: profile.data.dob ?? '',
       tfn: profile.data.tfn ?? '',
-      abn: profile.data.abn ?? '',
       address: profile.data.address ?? '',
       suburb: profile.data.suburb ?? '',
       state: profile.data.state ?? '',
@@ -108,29 +102,14 @@ export function ProfilePage() {
     })
   }, [profile.data, reset])
 
-  const lookup = useMutation({
-    ...startAbnLookupMutation(),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: getAbnLookupStatusQueryKey() }),
-  })
-
   const save = useMutation({
     ...updateProfileMutation(),
     onSuccess: async (_data, variables) => {
-      const digits = (abn?: string | null) => (abn ?? '').replace(/\D/g, '')
-      const newAbn = digits(variables.body.abn)
-      // A new ABN here is searched for its registered business names, the same
-      // lookup the Business names page runs.
-      const searchAbn = newAbn.length === 11 && newAbn !== digits(profile.data?.abn)
-
       await queryClient.invalidateQueries({ queryKey: getProfileQueryKey() })
       // Re-baseline so the form is clean again and the button settles.
-      reset(variables.body as ProfileForm)
-      if (searchAbn) {
-        lookup.mutate({})
-        toastSuccess('Details saved', 'We’re looking up the business names on your ABN — they’ll appear under Business names.')
-      } else {
-        toastSuccess('Details saved')
-      }
+      const { abn: _abn, ...values } = variables.body
+      reset(values as ProfileForm)
+      toastSuccess('Details saved')
     },
     onError: () => toastError('We couldn’t save your details', 'Try again in a moment.'),
   })
@@ -164,7 +143,7 @@ export function ProfilePage() {
     <Page {...header}>
       <form
         className="flex flex-col gap-6"
-        onSubmit={form.handleSubmit((values) => save.mutate({ body: values }))}
+        onSubmit={form.handleSubmit((values) => save.mutate({ body: { ...values, abn: null } }))}
         noValidate
       >
 
@@ -231,9 +210,6 @@ export function ProfilePage() {
                 invalid={Boolean(form.formState.errors.tfn)}
                 {...form.register('tfn')}
               />
-            </Field>
-            <Field label="ABN" hint="11 digits" error={form.formState.errors.abn?.message}>
-              <Field.Input inputMode="numeric" autoComplete="off" {...form.register('abn')} />
             </Field>
           </div>
         </Panel>
