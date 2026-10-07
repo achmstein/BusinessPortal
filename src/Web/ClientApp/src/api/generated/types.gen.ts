@@ -15,6 +15,16 @@ export type AbnLookupJobDto = {
     completedAt?: null | string;
 };
 
+export type AbnRegisteredName = {
+    abn?: string;
+    name?: string;
+    status?: string;
+    state?: string;
+    dateRegistered?: string;
+    cancelledAt?: string;
+    renewalDate?: string;
+};
+
 export type AbnLookupSettings = {
     apiToken: null | string;
 };
@@ -1243,6 +1253,22 @@ export type GetAbnLookupStatusResponses = {
 };
 
 export type GetAbnLookupStatusResponse = GetAbnLookupStatusResponses[keyof GetAbnLookupStatusResponses];
+
+export type GetAbnRegisteredNamesData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/abn-lookup/names';
+};
+
+export type GetAbnRegisteredNamesResponses = {
+    /**
+     * OK
+     */
+    200: Array<AbnRegisteredName>;
+};
+
+export type GetAbnRegisteredNamesResponse = GetAbnRegisteredNamesResponses[keyof GetAbnRegisteredNamesResponses];
 
 export type GetAdminOverviewData = {
     body?: never;

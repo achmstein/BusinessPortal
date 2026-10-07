@@ -1130,6 +1130,29 @@
         }
       }
     },
+    "/api/abn-lookup/names": {
+      "get": {
+        "tags": [
+          "ABN Lookup"
+        ],
+        "operationId": "GetAbnRegisteredNames",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/AbnRegisteredName"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/admin/overview": {
       "get": {
         "tags": [
@@ -2009,6 +2032,32 @@
               "string"
             ],
             "format": "date-time"
+          }
+        }
+      },
+      "AbnRegisteredName": {
+        "type": "object",
+        "properties": {
+          "abn": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
+          "state": {
+            "type": "string"
+          },
+          "dateRegistered": {
+            "type": "string"
+          },
+          "cancelledAt": {
+            "type": "string"
+          },
+          "renewalDate": {
+            "type": "string"
           }
         }
       },

@@ -340,7 +340,7 @@ export function DashboardPage() {
       done: entityList.length > 0,
       action: (
         <Button asChild size="sm" variant={entityList.length > 0 ? 'secondary' : 'primary'}>
-          <Link to="/business">{entityList.length > 0 ? 'Review' : 'Add business'}</Link>
+          <Link to={entityList.length > 0 ? '/business' : '/business?add=1'}>{entityList.length > 0 ? 'Review' : 'Add business'}</Link>
         </Button>
       ),
     },
@@ -355,7 +355,7 @@ export function DashboardPage() {
       done: nameList.length > 0,
       action: (
         <Button asChild size="sm" variant={nameList.length > 0 || entityList.length === 0 ? 'secondary' : 'primary'}>
-          <Link to="/business-names">{nameList.length > 0 ? 'Review' : 'Add names'}</Link>
+          <Link to={nameList.length > 0 ? '/business-names' : '/business-names?add=1'}>{nameList.length > 0 ? 'Review' : 'Add names'}</Link>
         </Button>
       ),
     },
@@ -468,7 +468,7 @@ export function DashboardPage() {
           <Section
             title="Your business names"
             action={
-              <TextLink to="/business-names" arrow>
+              <TextLink to={nameList.length > 0 ? '/business-names' : '/business-names?add=1'} arrow>
                 {nameList.length > 0 ? 'Manage' : 'Add a name'}
               </TextLink>
             }

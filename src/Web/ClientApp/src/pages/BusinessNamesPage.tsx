@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { Controller, useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useSearchParams } from 'react-router-dom'
 import { z } from 'zod'
 import { MoreHorizontal, Pencil, Plus, RefreshCw, Trash2 } from 'lucide-react'
 import {
@@ -9,6 +10,7 @@ import {
   deleteBusinessNameMutation,
   getAbnLookupStatusOptions,
   getAbnLookupStatusQueryKey,
+  getAbnRegisteredNamesOptions,
   getBusinessEntitiesOptions,
   getBusinessNamesOptions,
   getBusinessNamesQueryKey,
@@ -19,7 +21,7 @@ import {
   updateBusinessNameMutation,
   updateProfileMutation,
 } from '@/api/generated/@tanstack/react-query.gen'
-import type { BusinessNameDto } from '@/api/generated'
+import type { AbnRegisteredName, BusinessNameDto } from '@/api/generated'
 import { renewalStatus } from '@/lib/renewal'
 import { formatDate } from '@/lib/dates'
 import { formatAbn } from '@/lib/format'
@@ -166,6 +168,48 @@ function keyRequestNote(name: BusinessNameDto): string | null {
   }
 }
 
+const fromRegister = (r: AbnRegisteredName): BusinessNameForm => ({
+  name: r.name ?? '',
+  dateRegistered: r.dateRegistered ?? '',
+  renewalDate: r.renewalDate ?? '',
+  asicKey: '',
+})
+
+/** Names registered to the customer's ABN that aren't on file — one click fills the form. */
+function RegisteredNamePicker({
+  names,
+  selected,
+  onPick,
+}: {
+  names: AbnRegisteredName[]
+  selected: string
+  onPick: (name: AbnRegisteredName) => void
+}) {
+  return (
+    <div className="mb-4 flex flex-col gap-2">
+      <p className="text-sm text-ink-faint">
+        {names.length === 1
+          ? 'We found this name registered to your ABN and filled it in:'
+          : 'Registered to your ABN — pick one to fill in the details:'}
+      </p>
+      <div className="flex flex-wrap gap-2">
+        {names.map((n) => (
+          <Button
+            key={n.name}
+            type="button"
+            size="sm"
+            variant={n.name === selected ? 'primary' : 'secondary'}
+            aria-pressed={n.name === selected}
+            onClick={() => onPick(n)}
+          >
+            {n.name}
+          </Button>
+        ))}
+      </div>
+    </div>
+  )
+}
+
 function LookupProgress({ job }: { job: { status?: string; totalAbns?: number | string; abnsProcessed?: number | string } }) {
   const total = Number(job.totalAbns) || 0
   const done = Number(job.abnsProcessed) || 0
@@ -234,6 +278,15 @@ export function BusinessNamesPage() {
 
   const invalidate = () => queryClient.invalidateQueries({ queryKey: getBusinessNamesQueryKey() })
 
+  // Names registered to the ABN on file, fetched when the add dialog opens, so
+  // it arrives filled in rather than blank.
+  const registered = useQuery({
+    ...getAbnRegisteredNamesOptions(),
+    enabled: adding && abnsOnFile.length > 0,
+    staleTime: 5 * 60_000,
+  })
+  const suggestions = registered.data ?? []
+
   const addForm = useForm<BusinessNameForm>({
     resolver: zodResolver(businessNameSchema),
     defaultValues: EMPTY_FORM,
@@ -243,10 +296,26 @@ export function BusinessNamesPage() {
     defaultValues: EMPTY_FORM,
   })
 
+  // Fill from the first suggestion once they arrive, unless the customer has
+  // already started typing.
+  useEffect(() => {
+    if (adding && suggestions.length > 0 && !addForm.formState.isDirty && !addForm.getValues('name'))
+      addForm.reset(fromRegister(suggestions[0]))
+  }, [adding, suggestions, addForm])
+
+  // The Overview's "Add names" lands here with ?add=1: go straight to the form.
+  const [searchParams, setSearchParams] = useSearchParams()
+  useEffect(() => {
+    if (searchParams.get('add') !== '1') return
+    setAdding(true)
+    setSearchParams({}, { replace: true })
+  }, [searchParams, setSearchParams])
+
   const create = useMutation({
     ...createBusinessNameMutation(),
     onSuccess: async () => {
       await invalidate()
+      await queryClient.invalidateQueries({ queryKey: getAbnRegisteredNamesOptions().queryKey })
       addForm.reset(EMPTY_FORM)
       setAdding(false)
       toastSuccess('Business name added')
@@ -512,6 +581,13 @@ export function BusinessNamesPage() {
         }
       >
         <form onSubmit={addForm.handleSubmit((values) => create.mutate({ body: values }))}>
+          {suggestions.length > 0 ? (
+            <RegisteredNamePicker
+              names={suggestions}
+              selected={addForm.watch('name').trim()}
+              onPick={(n) => addForm.reset(fromRegister(n))}
+            />
+          ) : null}
           <BusinessNameFields
             form={addForm}
             onRequestKey={() => void addAndRequestKey()}

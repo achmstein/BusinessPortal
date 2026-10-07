@@ -1,7 +1,8 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Controller, useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useSearchParams } from 'react-router-dom'
 import { z } from 'zod'
 import { Plus, Trash2 } from 'lucide-react'
 import {
@@ -116,6 +117,26 @@ export function BusinessPage() {
 
   const form = useForm<EntityForm>({ resolver: zodResolver(schema), defaultValues: EMPTY })
 
+  // The add form starts from what the account already holds — the ABN and
+  // phone from sign-up or the purchase — unless a business already has that ABN.
+  function openAdd() {
+    const abn = (profile.data?.abn ?? '').replace(/\D/g, '')
+    const held = (entities.data ?? []).some((e) => (e.abn ?? '').replace(/\D/g, '') === abn)
+    form.reset({ ...EMPTY, abn: held ? '' : abn, phone: profile.data?.phone ?? '' })
+    setAdding(true)
+  }
+
+  // The Overview's "Add business" lands here with ?add=1: go straight to the
+  // form, once the account's details are in to fill it from.
+  const [searchParams, setSearchParams] = useSearchParams()
+  const addRequested = searchParams.get('add') === '1'
+  const ready = !profile.isPending && !entities.isPending
+  useEffect(() => {
+    if (!addRequested || !ready) return
+    openAdd()
+    setSearchParams({}, { replace: true })
+  }, [addRequested, ready])
+
   const soleTrader = isSoleTrader(form.watch('entityType'))
 
   function submit(values: EntityForm) {
@@ -161,7 +182,7 @@ export function BusinessPage() {
       title="Your businesses"
       description="The entities behind your business names. We use these when syncing with the ATO."
       actions={
-        <Button onClick={() => setAdding(true)}>
+        <Button onClick={openAdd}>
           <Plus aria-hidden className="size-4" />
           Add a business
         </Button>
@@ -186,7 +207,7 @@ export function BusinessPage() {
         <EmptyState
           title="No businesses yet"
           description="Add the business behind your business names, or connect the ATO and we’ll bring them across for you."
-          action={<Button onClick={() => setAdding(true)}>Add a business</Button>}
+          action={<Button onClick={openAdd}>Add a business</Button>}
         />
       ) : (
         <RecordList>
