@@ -89,7 +89,7 @@ interface SetupStep {
   key: string
   icon: ReactNode
   title: string
-  detail: string
+  detail?: string
   done: boolean
   action?: ReactNode
 }
@@ -115,7 +115,7 @@ function SetupChecklist({ steps }: { steps: SetupStep[] }) {
                 <span className="sr-only">{step.done ? 'Done: ' : `Step ${index + 1}: `}</span>
                 {step.title}
               </p>
-              <p className="text-sm text-ink-faint">{step.detail}</p>
+              {step.detail ? <p className="text-sm text-ink-faint">{step.detail}</p> : null}
             </div>
             {step.action ? <div className="shrink-0">{step.action}</div> : null}
           </List.Row>
@@ -336,7 +336,7 @@ export function DashboardPage() {
       detail:
         entityList.length > 0
           ? `${entityList[0].name}${entityList.length > 1 ? ` and ${entityList.length - 1} more` : ''} — check the details and add any others you run.`
-          : 'Its ABN lets us find every business name registered to it.',
+          : undefined,
       done: entityList.length > 0,
       action: (
         <Button asChild size="sm" variant={entityList.length > 0 ? 'secondary' : 'primary'}>
@@ -351,7 +351,7 @@ export function DashboardPage() {
       detail:
         nameList.length > 0
           ? `${nameList.length === 1 ? 'One name' : `${nameList.length} names`} on file — add any others you hold.`
-          : 'We’ll track each one’s renewal date and remind you before it lapses.',
+          : undefined,
       done: nameList.length > 0,
       action: (
         <Button asChild size="sm" variant={nameList.length > 0 || entityList.length === 0 ? 'secondary' : 'primary'}>
@@ -363,9 +363,7 @@ export function DashboardPage() {
       key: 'ato',
       icon: <Landmark className="size-4" />,
       title: atoConnected ? 'Linked to the ATO' : 'Link to the ATO',
-      detail: atoConnected
-        ? 'We can keep your business details in step with the ATO.'
-        : 'So we can keep your business details in step with the ATO.',
+      detail: atoConnected ? 'We can keep your business details in step with the ATO.' : undefined,
       done: atoConnected,
       action: atoConnected ? undefined : (
         <Button
