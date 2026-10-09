@@ -75,6 +75,13 @@ export type AdminReplyBody = {
     body: string;
 };
 
+export type AsicDocumentResponse = {
+    id: string;
+    kind: string;
+    title: string;
+    receivedAt: string;
+};
+
 export type AsicKeyRequestResponse = {
     status: string;
     requestedAt: null | string;
@@ -547,6 +554,43 @@ export type RequestAsicKeyResponses = {
 };
 
 export type RequestAsicKeyResponse = RequestAsicKeyResponses[keyof RequestAsicKeyResponses];
+
+export type GetBusinessNameDocumentsData = {
+    body?: never;
+    path: {
+        id: string;
+    };
+    query?: never;
+    url: '/api/business-names/{id}/documents';
+};
+
+export type GetBusinessNameDocumentsResponses = {
+    /**
+     * OK
+     */
+    200: Array<AsicDocumentResponse>;
+};
+
+export type GetBusinessNameDocumentsResponse = GetBusinessNameDocumentsResponses[keyof GetBusinessNameDocumentsResponses];
+
+export type DownloadBusinessNameDocumentData = {
+    body?: never;
+    path: {
+        id: string;
+        documentId: string;
+    };
+    query?: never;
+    url: '/api/business-names/{id}/documents/{documentId}';
+};
+
+export type DownloadBusinessNameDocumentResponses = {
+    /**
+     * OK
+     */
+    200: Blob | File;
+};
+
+export type DownloadBusinessNameDocumentResponse = DownloadBusinessNameDocumentResponses[keyof DownloadBusinessNameDocumentResponses];
 
 export type ApplyPendingAsicKeyData = {
     body?: never;

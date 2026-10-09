@@ -4,7 +4,7 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useSearchParams } from 'react-router-dom'
 import { z } from 'zod'
-import { MoreHorizontal, Pencil, Plus, RefreshCw, Trash2 } from 'lucide-react'
+import { Download, MoreHorizontal, Pencil, Plus, RefreshCw, Trash2 } from 'lucide-react'
 import {
   createBusinessNameMutation,
   deleteBusinessNameMutation,
@@ -12,6 +12,7 @@ import {
   getAbnLookupStatusQueryKey,
   getAbnRegisteredNamesOptions,
   getBusinessEntitiesOptions,
+  getBusinessNameDocumentsOptions,
   getBusinessNamesOptions,
   getBusinessNamesQueryKey,
   getProfileOptions,
@@ -210,6 +211,72 @@ function RegisteredNamePicker({
   )
 }
 
+/**
+ * ASIC's letters for one name — renewal confirmations, renewal notices, key letters —
+ * kept by Renewtron from the inbox ASIC writes to. Only offered once the name's key is
+ * on file, since every letter prints it. Fetched when opened, not for every row.
+ */
+function LettersDialog({ name, onClose }: { name: BusinessNameDto | null; onClose: () => void }) {
+  const letters = useQuery({
+    ...getBusinessNameDocumentsOptions({ path: { id: name?.id ?? '' } }),
+    enabled: Boolean(name?.id),
+  })
+
+  return (
+    <Dialog
+      open={name !== null}
+      onOpenChange={(open) => {
+        if (!open) onClose()
+      }}
+      title="ASIC letters"
+      description={name?.name ?? undefined}
+      footer={
+        <Button variant="ghost" onClick={onClose}>
+          Close
+        </Button>
+      }
+    >
+      {letters.isPending ? (
+        <RecordList aria-busy="true">
+          <RecordSkeleton />
+        </RecordList>
+      ) : letters.isError ? (
+        <ErrorState
+          description="We couldn’t load your letters just now."
+          action={
+            <Button variant="secondary" onClick={() => void letters.refetch()}>
+              Try again
+            </Button>
+          }
+        />
+      ) : (letters.data ?? []).length === 0 ? (
+        <p className="text-sm text-ink-faint">
+          No letters yet. When ASIC sends us a renewal confirmation, renewal notice or key letter for this
+          name, it will appear here.
+        </p>
+      ) : (
+        <RecordList>
+          {letters.data!.map((letter) => (
+            <Record key={letter.id} className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1">
+              <div className="min-w-0">
+                <p className="font-medium text-ink">{letter.title}</p>
+                <p className="text-sm text-ink-faint">Received {formatDate(letter.receivedAt)}</p>
+              </div>
+              <a
+                href={`/api/business-names/${name!.id}/documents/${letter.id}`}
+                className="inline-flex items-center gap-1.5 text-sm font-medium text-accent-700 hover:underline"
+              >
+                <Download aria-hidden className="size-4" />
+                Download PDF
+              </a>
+            </Record>
+          ))}
+        </RecordList>
+      )}
+    </Dialog>
+  )
+}
+
 function LookupProgress({ job }: { job: { status?: string; totalAbns?: number | string; abnsProcessed?: number | string } }) {
   const total = Number(job.totalAbns) || 0
   const done = Number(job.abnsProcessed) || 0
@@ -234,6 +301,7 @@ export function BusinessNamesPage() {
   const [removing, setRemoving] = useState<BusinessNameDto | null>(null)
   const [adding, setAdding] = useState(false)
   const [askingAbn, setAskingAbn] = useState(false)
+  const [viewingLetters, setViewingLetters] = useState<BusinessNameDto | null>(null)
 
   const names = useQuery(getBusinessNamesOptions())
   const profile = useQuery(getProfileOptions())
@@ -514,8 +582,15 @@ export function BusinessNamesPage() {
                 </div>
 
                 {name.asicKey ? (
-                  <p className="text-sm text-ink-faint" data-numeric>
-                    ASIC key {name.asicKey}
+                  <p className="flex flex-wrap items-center gap-x-2 text-sm text-ink-faint">
+                    <span data-numeric>ASIC key {name.asicKey}</span>
+                    <button
+                      type="button"
+                      className="font-medium text-accent-700 hover:underline"
+                      onClick={() => setViewingLetters(name)}
+                    >
+                      ASIC letters
+                    </button>
                   </p>
                 ) : keyRequestNote(name) ? (
                   <p className="flex flex-wrap items-center gap-x-2 text-sm text-ink-faint">
@@ -658,6 +733,9 @@ export function BusinessNamesPage() {
           />
         </form>
       </Dialog>
+
+      {/* ── ASIC letters ── */}
+      <LettersDialog name={viewingLetters} onClose={() => setViewingLetters(null)} />
 
       {/* ── Remove ── */}
       <ConfirmDialog

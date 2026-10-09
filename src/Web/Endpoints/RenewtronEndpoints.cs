@@ -10,10 +10,11 @@ namespace BusinessPortal.Web.Endpoints;
 
 public record CheckoutResponse(string Url);
 public record AsicKeyRequestResponse(string Status, DateTimeOffset? RequestedAt);
+public record AsicDocumentResponse(Guid Id, string Kind, string Title, DateTimeOffset ReceivedAt);
 
 /// <summary>The customer-facing side of the Renewtron integration: renewing through
-/// Renewtron's checkout (Stripe, which starts the ASIC renewal immediately), and
-/// asking Renewtron to retrieve an ASIC key.</summary>
+/// Renewtron's checkout (Stripe, which starts the ASIC renewal immediately),
+/// asking Renewtron to retrieve an ASIC key, and downloading ASIC's letters.</summary>
 public static class RenewtronEndpoints
 {
     public static IEndpointRouteBuilder MapRenewtronEndpoints(this IEndpointRouteBuilder app)
@@ -115,6 +116,74 @@ public static class RenewtronEndpoints
             .Produces<AsicKeyRequestResponse>()
             .Produces<ErrorResponse>(StatusCodes.Status400BadRequest);
 
+        // ASIC's letters for one of the customer's names — renewal confirmations, renewal
+        // notices, key letters — kept by Renewtron from the inbox ASIC writes to. Each
+        // letter prints the ASIC key, so they're only offered for a name whose key is on
+        // file, and only the letters carrying that same key.
+        app.MapGet("/api/business-names/{id:guid}/documents", async (
+                Guid id, ClaimsPrincipal principal, UserManager<ApplicationUser> users,
+                IApplicationDbContext context, RenewtronClient renewtron, CancellationToken ct) =>
+            {
+                var user = await users.GetUserAsync(principal);
+                if (user is null) return Results.Unauthorized();
+
+                var bn = await context.BusinessNames.AsNoTracking()
+                    .FirstOrDefaultAsync(b => b.Id == id && b.UserId == user.Id, ct);
+                if (bn is null) return Results.NotFound();
+                if (string.IsNullOrWhiteSpace(bn.AsicKey) || !renewtron.IsConfigured)
+                    return Results.Ok(Array.Empty<AsicDocumentResponse>());
+
+                try
+                {
+                    var documents = await renewtron.GetAsicDocumentsAsync(bn.AsicKey, ct);
+                    return Results.Ok(documents.Select(d => new AsicDocumentResponse(
+                        d.Id, d.Kind ?? "Other", DocumentTitle(d.Kind), new DateTimeOffset(DateTime.SpecifyKind(d.ReceivedAt, DateTimeKind.Utc)))));
+                }
+                catch (HttpRequestException)
+                {
+                    return Results.Problem("Your ASIC letters aren't available right now.", statusCode: StatusCodes.Status503ServiceUnavailable);
+                }
+            })
+            .RequireAuthorization()
+            .WithTags("Business Names")
+            .WithName("GetBusinessNameDocuments")
+            .Produces<AsicDocumentResponse[]>();
+
+        app.MapGet("/api/business-names/{id:guid}/documents/{documentId:guid}", async (
+                Guid id, Guid documentId, ClaimsPrincipal principal, UserManager<ApplicationUser> users,
+                IApplicationDbContext context, RenewtronClient renewtron, CancellationToken ct) =>
+            {
+                var user = await users.GetUserAsync(principal);
+                if (user is null) return Results.Unauthorized();
+
+                var bn = await context.BusinessNames.AsNoTracking()
+                    .FirstOrDefaultAsync(b => b.Id == id && b.UserId == user.Id, ct);
+                if (bn is null || string.IsNullOrWhiteSpace(bn.AsicKey) || !renewtron.IsConfigured)
+                    return Results.NotFound();
+
+                try
+                {
+                    // Renewtron checks the letter carries this key; anything else is a 404.
+                    var documents = await renewtron.GetAsicDocumentsAsync(bn.AsicKey, ct);
+                    var document = documents.FirstOrDefault(d => d.Id == documentId);
+                    if (document is null) return Results.NotFound();
+
+                    var pdf = await renewtron.GetAsicDocumentPdfAsync(documentId, bn.AsicKey, ct);
+                    if (pdf is null) return Results.NotFound();
+
+                    var fileName = $"{DocumentTitle(document.Kind)} - {SafeFileName(bn.Name)} - {document.ReceivedAt:yyyy-MM-dd}.pdf";
+                    return Results.File(pdf, "application/pdf", fileName);
+                }
+                catch (HttpRequestException)
+                {
+                    return Results.Problem("This letter isn't available right now.", statusCode: StatusCodes.Status503ServiceUnavailable);
+                }
+            })
+            .RequireAuthorization()
+            .WithTags("Business Names")
+            .WithName("DownloadBusinessNameDocument")
+            .Produces(StatusCodes.Status200OK, contentType: "application/pdf");
+
         // Staff: apply a key Renewtron retrieved for a name the client requested but
         // didn't renew through us, once they've checked the client owns it.
         app.MapPost("/api/admin/clients/{clientId}/business-names/{id:guid}/apply-asic-key", async (
@@ -137,6 +206,21 @@ public static class RenewtronEndpoints
             .Produces<ErrorResponse>(StatusCodes.Status400BadRequest);
 
         return app;
+    }
+
+    private static string DocumentTitle(string? kind) => kind switch
+    {
+        "RenewalConfirmation" => "Renewal confirmation",
+        "RenewalNotice" => "Renewal notice",
+        "KeyLetter" => "ASIC key letter",
+        _ => "ASIC letter",
+    };
+
+    private static string SafeFileName(string name)
+    {
+        var invalid = Path.GetInvalidFileNameChars();
+        var cleaned = new string(name.Trim().Select(c => invalid.Contains(c) ? ' ' : c).ToArray()).Trim();
+        return cleaned.Length == 0 ? "Business name" : cleaned;
     }
 
     /// <summary>Best ABN for a name: the one Renewtron renewed it under, else the

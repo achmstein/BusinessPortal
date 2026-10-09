@@ -94,6 +94,76 @@
         }
       }
     },
+    "/api/business-names/{id}/documents": {
+      "get": {
+        "tags": [
+          "Business Names"
+        ],
+        "operationId": "GetBusinessNameDocuments",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/AsicDocumentResponse"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/business-names/{id}/documents/{documentId}": {
+      "get": {
+        "tags": [
+          "Business Names"
+        ],
+        "operationId": "DownloadBusinessNameDocument",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "documentId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/pdf": {}
+            }
+          }
+        }
+      }
+    },
     "/api/admin/clients/{clientId}/business-names/{id}/apply-asic-key": {
       "post": {
         "tags": [
@@ -2304,6 +2374,31 @@
           },
           "body": {
             "type": "string"
+          }
+        }
+      },
+      "AsicDocumentResponse": {
+        "required": [
+          "id",
+          "kind",
+          "title",
+          "receivedAt"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "kind": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "receivedAt": {
+            "type": "string",
+            "format": "date-time"
           }
         }
       },

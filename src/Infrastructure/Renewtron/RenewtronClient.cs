@@ -101,13 +101,23 @@ public sealed class RenewtronAsicKey
     public DateTime ReceivedAt { get; set; }
 }
 
+/// <summary>One of ASIC's letters Renewtron kept from its inbox. <see cref="Kind"/> is
+/// "KeyLetter", "RenewalNotice", "RenewalConfirmation" or "Other".</summary>
+public sealed class RenewtronAsicDocument
+{
+    public Guid Id { get; set; }
+    public string? Kind { get; set; }
+    public string? BusinessName { get; set; }
+    public DateTime ReceivedAt { get; set; }
+}
+
 /// <summary>Raised when Renewtron rejects a request as invalid (400) — the
 /// message is Renewtron's and safe to show.</summary>
 public sealed class RenewtronValidationException(string message) : Exception(message);
 
 /// <summary>Typed client for Renewtron's partner API (/api/partner/*), authenticated
-/// with the scoped partner key in X-Api-Key — it can read renewals and raise ASIC
-/// key requests, nothing else. IOptionsMonitor so credentials saved from the admin
+/// with the scoped partner key in X-Api-Key — it can read renewals, raise ASIC
+/// key requests and fetch ASIC's letters for a known key, nothing else. IOptionsMonitor so credentials saved from the admin
 /// Settings UI apply without a restart.</summary>
 public class RenewtronClient(HttpClient http, IOptionsMonitor<RenewtronOptions> options)
 {
@@ -162,6 +172,28 @@ public class RenewtronClient(HttpClient http, IOptionsMonitor<RenewtronOptions> 
         using var response = await http.SendAsync(request, ct);
         await EnsureSuccessAsync(response, "ASIC keys", ct);
         return await response.Content.ReadFromJsonAsync<List<RenewtronAsicKey>>(Json, ct) ?? [];
+    }
+
+    /// <summary>ASIC's letters for the name this key belongs to. Every letter prints
+    /// the key, so the key is what Renewtron asks for before handing them over.</summary>
+    public async Task<List<RenewtronAsicDocument>> GetAsicDocumentsAsync(string asicKey, CancellationToken ct)
+    {
+        using var request = Build(HttpMethod.Post, "/api/partner/asic-documents/search");
+        request.Content = JsonContent.Create(new { asicKey }, options: Json);
+        using var response = await http.SendAsync(request, ct);
+        await EnsureSuccessAsync(response, "ASIC documents", ct);
+        return await response.Content.ReadFromJsonAsync<List<RenewtronAsicDocument>>(Json, ct) ?? [];
+    }
+
+    /// <summary>The PDF of one letter, or null when it isn't this key's.</summary>
+    public async Task<byte[]?> GetAsicDocumentPdfAsync(Guid id, string asicKey, CancellationToken ct)
+    {
+        using var request = Build(HttpMethod.Post, $"/api/partner/asic-documents/{id}/pdf");
+        request.Content = JsonContent.Create(new { asicKey }, options: Json);
+        using var response = await http.SendAsync(request, ct);
+        if (response.StatusCode == HttpStatusCode.NotFound) return null;
+        await EnsureSuccessAsync(response, "ASIC document", ct);
+        return await response.Content.ReadAsByteArrayAsync(ct);
     }
 
     private static async Task EnsureSuccessAsync(HttpResponseMessage response, string what, CancellationToken ct)
