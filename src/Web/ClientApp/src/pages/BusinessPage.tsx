@@ -180,7 +180,6 @@ export function BusinessPage() {
   return (
     <Page
       title="Your businesses"
-      description="The entities behind your business names. We use these when syncing with the ATO."
       actions={
         <Button onClick={openAdd}>
           <Plus aria-hidden className="size-4" />

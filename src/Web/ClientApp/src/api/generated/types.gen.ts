@@ -462,6 +462,7 @@ export type ThreadDto = {
     lastActivityAt?: string;
     unreadForClient?: number | string;
     unreadForAdmin?: number | string;
+    staffOnly?: boolean;
 };
 
 export type ThreadStartedResponse = {
@@ -1203,6 +1204,24 @@ export type MarkThreadReadResponses = {
 
 export type MarkThreadReadResponse = MarkThreadReadResponses[keyof MarkThreadReadResponses];
 
+export type DeleteThreadData = {
+    body?: never;
+    path: {
+        threadId: string;
+    };
+    query?: never;
+    url: '/api/messages/threads/{threadId}';
+};
+
+export type DeleteThreadResponses = {
+    /**
+     * No Content
+     */
+    204: void;
+};
+
+export type DeleteThreadResponse = DeleteThreadResponses[keyof DeleteThreadResponses];
+
 export type GetAsicRenewalsData = {
     body?: never;
     path?: never;
@@ -1449,6 +1468,25 @@ export type AdminMarkAllReadResponses = {
 };
 
 export type AdminMarkAllReadResponse = AdminMarkAllReadResponses[keyof AdminMarkAllReadResponses];
+
+export type AdminDeleteThreadData = {
+    body?: never;
+    path: {
+        clientId: string;
+        threadId: string;
+    };
+    query?: never;
+    url: '/api/admin/messages/{clientId}/threads/{threadId}';
+};
+
+export type AdminDeleteThreadResponses = {
+    /**
+     * No Content
+     */
+    204: void;
+};
+
+export type AdminDeleteThreadResponse = AdminDeleteThreadResponses[keyof AdminDeleteThreadResponses];
 
 export type GetRegistrySummaryData = {
     body?: never;

@@ -4,7 +4,8 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useSearchParams } from 'react-router-dom'
 import { z } from 'zod'
-import { Download, MoreHorizontal, Pencil, Plus, RefreshCw, Trash2 } from 'lucide-react'
+import { ChevronDown, Download, Pencil, Plus, RefreshCw, Trash2 } from 'lucide-react'
+import { buttonClasses } from '@/ui/Button'
 import {
   createBusinessNameMutation,
   deleteBusinessNameMutation,
@@ -14,6 +15,7 @@ import {
   getBusinessEntitiesOptions,
   getBusinessNameDocumentsOptions,
   getBusinessNamesOptions,
+  getCompletedRenewalsOptions,
   getBusinessNamesQueryKey,
   getProfileOptions,
   getProfileQueryKey,
@@ -81,11 +83,14 @@ function BusinessNameFields({
   form,
   onRequestKey,
   requestingKey,
+  keyRequested = false,
 }: {
   form: ReturnType<typeof useForm<BusinessNameForm>>
   /** In the add dialog this saves the name first, then requests. */
   onRequestKey: () => void
   requestingKey: boolean
+  /** A request has already gone to our team for this name. */
+  keyRequested?: boolean
 }) {
   const { control, register, formState, watch } = form
   const name = watch('name').trim()
@@ -139,11 +144,11 @@ function BusinessNameFields({
             type="button"
             variant="secondary"
             className="shrink-0"
-            disabled={name.length === 0}
+            disabled={name.length === 0 || keyRequested}
             loading={requestingKey}
             onClick={onRequestKey}
           >
-            Request ASIC key
+            {keyRequested ? 'ASIC KEY REQUESTED' : 'Request ASIC key'}
           </Button>
         </div>
       </Field>
@@ -153,11 +158,10 @@ function BusinessNameFields({
 
 /** Where a Renewtron key request stands, in words — null when none is open. */
 function keyRequestNote(name: BusinessNameDto): string | null {
-  const since = name.asicKeyRequestedAt ? ` on ${formatDate(name.asicKeyRequestedAt)}` : ''
   switch (name.asicKeyRequestStatus) {
     case 'Pending':
     case 'Manual':
-      return `ASIC key requested${since} — we’re asking ASIC for it.`
+      return 'ASIC KEY REQUESTED'
     case 'Submitted':
       return 'ASIC has our request — the key usually arrives within a few business days.'
     case 'KeyReceived':
@@ -306,6 +310,18 @@ export function BusinessNamesPage() {
   const names = useQuery(getBusinessNamesOptions())
   const profile = useQuery(getProfileOptions())
   const entities = useQuery(getBusinessEntitiesOptions())
+  const renewals = useQuery(getCompletedRenewalsOptions())
+
+  // Names already paid for and with ASIC — matched by id, or by name for
+  // renewals that arrived from Renewtron before the name was linked.
+  const underway = new Set(
+    (renewals.data ?? [])
+      .filter((r) => r.status !== 'Completed' && r.status !== 'Failed')
+      .flatMap((r) => [r.businessNameId ?? '', (r.businessName ?? '').trim().toLowerCase()])
+      .filter(Boolean),
+  )
+  const isUnderway = (name: { id?: string | null; name?: string | null }) =>
+    underway.has(name.id ?? '') || underway.has((name.name ?? '').trim().toLowerCase())
 
   // The ABNs the lookup will search: the one on "Your details" plus each business's.
   const abnsOnFile = [
@@ -452,7 +468,7 @@ export function BusinessNamesPage() {
     ...requestAsicKeyMutation(),
     onSuccess: async () => {
       await invalidate()
-      toastSuccess('ASIC key requested', 'We’ve asked ASIC for a copy — it’ll appear here when it arrives.')
+      toastSuccess('ASIC key requested', 'Our team will get it for you — it’ll appear here when it arrives.')
     },
     onError: (error) =>
       toastError('Couldn’t request the key', (error as { error?: string } | undefined)?.error ?? 'Try again in a moment.'),
@@ -479,12 +495,11 @@ export function BusinessNamesPage() {
   }
 
   const list = [...(names.data ?? [])].sort((a, b) => (a.name ?? '').localeCompare(b.name ?? ''))
-  const dueCount = list.filter((b) => renewalStatus(b.renewalDate).needsAction).length
+  const dueCount = list.filter((b) => renewalStatus(b.renewalDate).needsAction && !isUnderway(b)).length
 
   return (
     <Page
       title="Your business names"
-      description="Every name you hold with ASIC, and when each one next needs renewing."
       actions={
         <>
           <Button
@@ -558,14 +573,20 @@ export function BusinessNamesPage() {
                     {name.name}
                   </RecordTitle>
                   <div className="flex shrink-0 items-center gap-3">
-                    {status.needsAction ? (
+                    {isUnderway(name) ? (
+                      <Badge tone="due">Renewal in progress</Badge>
+                    ) : status.needsAction ? (
                       <Badge tone={status.tone}>{status.label}</Badge>
                     ) : (
                       <span className="text-sm text-ink-faint">{status.label}</span>
                     )}
                     <Menu.Root>
-                      <Menu.Trigger aria-label={`More options for ${name.name}`} className="p-1.5">
-                        <MoreHorizontal aria-hidden className="size-4" />
+                      <Menu.Trigger
+                        aria-label={`Manage ${name.name}`}
+                        className={buttonClasses('secondary', 'sm')}
+                      >
+                        Manage
+                        <ChevronDown aria-hidden className="size-4" />
                       </Menu.Trigger>
                       <Menu.Content>
                         <Menu.Item value="edit" onSelect={() => openEdit(name)}>
@@ -730,6 +751,9 @@ export function BusinessNamesPage() {
             form={editForm}
             onRequestKey={() => editing?.id && requestAsicKey(editing.id)}
             requestingKey={requestKey.isPending}
+            keyRequested={['Pending', 'Manual'].includes(
+              names.data?.find((n) => n.id === editing?.id)?.asicKeyRequestStatus ?? '',
+            )}
           />
         </form>
       </Dialog>

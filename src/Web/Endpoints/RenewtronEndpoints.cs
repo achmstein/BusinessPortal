@@ -1,5 +1,7 @@
 using System.Security.Claims;
 using BusinessPortal.Application.Common.Interfaces;
+using BusinessPortal.Domain.Entities;
+using BusinessPortal.Domain.Enums;
 using BusinessPortal.Infrastructure.Identity;
 using BusinessPortal.Infrastructure.Renewtron;
 using Microsoft.AspNetCore.Identity;
@@ -58,11 +60,11 @@ public static class RenewtronEndpoints
             .WithName("GetRenewalCheckout")
             .Produces<CheckoutResponse>();
 
-        // Ask Renewtron to have ASIC send a copy of the key. Renewtron submits ASIC's
-        // enquiry form and reads the key from ASIC's reply; the sync brings it back.
+        // Ask our team to get the ASIC key. Raised as a staff-only message in the
+        // admin inbox — it never appears in the client's own Messages section.
         app.MapPost("/api/business-names/{id:guid}/request-asic-key", async (
                 Guid id, ClaimsPrincipal principal, UserManager<ApplicationUser> users,
-                IApplicationDbContext context, RenewtronClient renewtron, IRenewtronSyncService sync, CancellationToken ct) =>
+                IApplicationDbContext context, CancellationToken ct) =>
             {
                 var user = await users.GetUserAsync(principal);
                 if (user is null) return Results.Unauthorized();
@@ -71,42 +73,37 @@ public static class RenewtronEndpoints
                 if (bn is null) return Results.NotFound();
                 if (!string.IsNullOrEmpty(bn.AsicKey))
                     return Results.BadRequest(new ErrorResponse("This business name already has an ASIC key."));
-                if (!renewtron.IsConfigured)
-                    return Results.Problem("ASIC key requests aren't available right now.", statusCode: StatusCodes.Status503ServiceUnavailable);
 
                 var p = user.Profile;
-                // ASIC's enquiry form needs a name and phone for the person asking.
-                if (string.IsNullOrWhiteSpace(p.FirstName) || string.IsNullOrWhiteSpace(p.LastName) || string.IsNullOrWhiteSpace(p.Phone))
-                    return Results.BadRequest(new ErrorResponse(
-                        "Add your full name and phone number in Your details first — ASIC needs them to send the key."));
-
-                RenewtronKeyRequestResult result;
-                try
+                var clientName = $"{p.FirstName} {p.LastName}".Trim();
+                var abn = await AbnForAsync(context, user, bn.Name, ct);
+                var details = string.Join("\n", new[]
                 {
-                    result = await renewtron.RequestAsicKeyAsync(new RenewtronKeyRequestBody(
-                        BusinessName: bn.Name,
-                        Abn: await AbnForAsync(context, user, bn.Name, ct),
-                        Email: user.Email ?? string.Empty,
-                        GivenNames: p.FirstName.Trim(),
-                        FamilyName: p.LastName.Trim(),
-                        Phone: p.Phone.Trim(),
-                        ExternalReference: bn.Id.ToString()), ct);
-                }
-                catch (RenewtronValidationException ex)
-                {
-                    return Results.BadRequest(new ErrorResponse(ex.Message));
-                }
+                    $"Business name: {bn.Name}",
+                    string.IsNullOrWhiteSpace(abn) ? null : $"ABN: {abn}",
+                    string.IsNullOrWhiteSpace(clientName) ? null : $"Client: {clientName}",
+                    $"Email: {user.Email}",
+                    string.IsNullOrWhiteSpace(p.Phone) ? null : $"Phone: {p.Phone.Trim()}",
+                }.Where(line => line is not null));
 
-                var keyAvailable = result.Status == "KeyAvailable";
-                bn.AsicKeyRequestId = result.Id;
+                var request = new Message
+                {
+                    UserId = user.Id,
+                    Direction = MessageDirection.Outbound, // client -> support
+                    Subject = $"ASIC key request — {bn.Name}",
+                    Body = $"The client has asked for the ASIC key for this business name.\n\n{details}",
+                    Read = true,
+                    AdminRead = false,
+                    StaffOnly = true,
+                };
+                request.ThreadId = request.Id;
+                context.Messages.Add(request);
+
+                // Clear any earlier Renewtron request so its sync doesn't overwrite this.
+                bn.AsicKeyRequestId = null;
                 bn.AsicKeyRequestedAt = DateTimeOffset.UtcNow;
-                bn.AsicKeyRequestStatus = keyAvailable ? "KeyReceived" : result.Status ?? "Pending";
+                bn.AsicKeyRequestStatus = "Manual";
                 await context.SaveChangesAsync(ct);
-
-                // Renewtron already had it: let the sync apply it under its ownership
-                // rule — directly if they renewed this name through us, else via staff.
-                if (keyAvailable)
-                    await sync.SyncAsync(ct);
 
                 return Results.Ok(new AsicKeyRequestResponse(bn.AsicKeyRequestStatus, bn.AsicKeyRequestedAt));
             })

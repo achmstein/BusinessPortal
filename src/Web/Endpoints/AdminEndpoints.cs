@@ -200,6 +200,18 @@ public static class AdminEndpoints
             return Results.NoContent();
         }).WithName("AdminMarkAllRead").Produces(StatusCodes.Status204NoContent);
 
+        // Delete one of a client's conversations — every message in the thread.
+        group.MapDelete("/messages/{clientId}/threads/{threadId:guid}", async (string clientId, Guid threadId, IApplicationDbContext context, CancellationToken ct) =>
+        {
+            var messages = await context.Messages
+                .Where(m => m.UserId == clientId && (m.ThreadId == threadId || m.Id == threadId))
+                .ToListAsync(ct);
+            if (messages.Count == 0) return Results.NotFound();
+            context.Messages.RemoveRange(messages);
+            await context.SaveChangesAsync(ct);
+            return Results.NoContent();
+        }).WithName("AdminDeleteThread").Produces(StatusCodes.Status204NoContent);
+
         // ── Cross-client registry ──
         //
         // This used to be a single unparameterised call returning every business
@@ -353,6 +365,9 @@ public static class AdminEndpoints
                 AdminRead = true, // admin wrote it
             };
             message.ThreadId = body.ThreadId is { } t && t != Guid.Empty ? t : message.Id;
+            // A reply inside an internal (staff-only) thread stays internal.
+            message.StaffOnly = await context.Messages.AnyAsync(
+                m => m.UserId == id && m.StaffOnly && (m.ThreadId == message.ThreadId || m.Id == message.ThreadId), ct);
             context.Messages.Add(message);
             await context.SaveChangesAsync(ct);
             return Results.Ok(new IdResponse(message.Id));

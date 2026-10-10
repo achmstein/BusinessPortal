@@ -20,7 +20,6 @@ import {
   Page,
   PageSkeleton,
   Panel,
-  PanelTitle,
   PasswordInput,
   Select,
 } from '@/ui'
@@ -114,7 +113,7 @@ export function ProfilePage() {
     onError: () => toastError('We couldn’t save your details', 'Try again in a moment.'),
   })
 
-  const header = { title: 'Your details', description: 'How we reach you, and what we need for the ATO.' }
+  const header = { title: 'Your details' }
 
   if (profile.isPending) {
     return (
@@ -148,15 +147,6 @@ export function ProfilePage() {
       >
 
         <Panel className="flex flex-col gap-4">
-          <div className="flex flex-col gap-1">
-            <PanelTitle as="h2">
-              How we reach you
-            </PanelTitle>
-            <p className="text-sm text-ink-faint">
-              We use these to contact you before a renewal falls due.
-            </p>
-          </div>
-
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <Field label="First name" required error={form.formState.errors.firstName?.message}>
               <Field.Input autoComplete="given-name" {...form.register('firstName')} />
@@ -170,20 +160,6 @@ export function ProfilePage() {
             <Field label="Email" hint="Message us if you need this changed — it’s your sign-in.">
               <Field.Input value={me.data?.email ?? ''} disabled readOnly />
             </Field>
-          </div>
-        </Panel>
-
-        <Panel className="flex flex-col gap-4">
-          <div className="flex flex-col gap-1">
-            <PanelTitle as="h2">
-              For the ATO
-            </PanelTitle>
-            <p className="text-sm text-ink-faint">
-              Only needed if we lodge or deal with the ATO on your behalf. You can leave these blank.
-            </p>
-          </div>
-
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <Field label="Date of birth" error={form.formState.errors.dob?.message}>
               {/* The picker's input is still typeable, which matters here: nobody
                   pages a calendar back forty years to find their own birthday. */}
@@ -211,18 +187,6 @@ export function ProfilePage() {
                 {...form.register('tfn')}
               />
             </Field>
-          </div>
-        </Panel>
-
-        <Panel className="flex flex-col gap-4">
-          <div className="flex flex-col gap-1">
-            <PanelTitle as="h2">
-              Postal address
-            </PanelTitle>
-            <p className="text-sm text-ink-faint">Where ASIC and the ATO send anything by post.</p>
-          </div>
-
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <Field label="Street address" className="sm:col-span-2" error={form.formState.errors.address?.message}>
               <Field.Input autoComplete="street-address" {...form.register('address')} />
             </Field>

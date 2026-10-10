@@ -6,6 +6,7 @@ import { z } from 'zod'
 import { Link, useParams } from 'react-router-dom'
 import { UserRound } from 'lucide-react'
 import {
+  adminDeleteThreadMutation,
   adminMarkAllReadMutation,
   adminReplyToClientMutation,
   getAdminClientThreadsOptions,
@@ -13,9 +14,12 @@ import {
   getAdminMessagesQueryKey,
   getAdminOverviewQueryKey,
 } from '@/api/generated/@tanstack/react-query.gen'
+import type { ThreadDto } from '@/api/generated'
 import { formatDateTime } from '@/lib/dates'
 import {
+  Badge,
   Button,
+  ConfirmDialog,
   Dialog,
   EmptyState,
   ErrorState,
@@ -96,6 +100,17 @@ export function AdminMessageThreadPage() {
   }
 
   const markAllRead = useMutation({ ...adminMarkAllReadMutation(), onSuccess: refresh })
+
+  const [deleting, setDeleting] = useState<ThreadDto | null>(null)
+  const remove = useMutation({
+    ...adminDeleteThreadMutation(),
+    onSuccess: async () => {
+      await refresh()
+      setDeleting(null)
+      toastSuccess('Conversation deleted')
+    },
+    onError: () => toastError('Couldn’t delete that conversation', 'Try again in a moment.'),
+  })
   const markAllReadMutate = markAllRead.mutate
 
   const unread = (conversation.data?.threads ?? []).reduce(
@@ -179,8 +194,16 @@ export function AdminMessageThreadPage() {
           {threads.map((thread) => (
             <Panel key={thread.threadId} className="flex flex-col gap-4">
               <div className="flex flex-wrap items-baseline justify-between gap-2">
-                <PanelTitle>{thread.subject}</PanelTitle>
-                <span className="text-xs text-ink-faint">{formatDateTime(thread.lastActivityAt)}</span>
+                <div className="flex min-w-0 items-center gap-2">
+                  <PanelTitle>{thread.subject}</PanelTitle>
+                  {thread.staffOnly ? <Badge tone="unknown">Staff only — client can’t see this</Badge> : null}
+                </div>
+                <div className="flex items-center gap-3">
+                  <span className="text-xs text-ink-faint">{formatDateTime(thread.lastActivityAt)}</span>
+                  <Button size="sm" variant="ghost" onClick={() => setDeleting(thread)}>
+                    Delete
+                  </Button>
+                </div>
               </div>
 
               <MessageThread
@@ -199,6 +222,21 @@ export function AdminMessageThreadPage() {
           ))}
         </div>
       )}
+
+      <ConfirmDialog
+        open={deleting !== null}
+        onOpenChange={(open) => {
+          if (!open) setDeleting(null)
+        }}
+        title="Delete this conversation?"
+        description={`“${deleting?.subject ?? ''}” and every message in it will be removed for you and ${name}. This can’t be undone.`}
+        confirmLabel="Delete"
+        loading={remove.isPending}
+        onConfirm={() =>
+          deleting?.threadId &&
+          remove.mutate({ path: { clientId: client.id, threadId: deleting.threadId } })
+        }
+      />
 
       <Dialog
         open={composing}

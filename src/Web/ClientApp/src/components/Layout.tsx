@@ -13,19 +13,19 @@ import { cn } from '@/lib/cn'
 //
 // A light top bar rather than a 288px dark sidebar. The content below is a
 // single-column record spine, and a fixed rail spent a fifth of a laptop screen
-// on seven links; dark chrome also reads as an operations tool rather than the
+// on six links; dark chrome also reads as an operations tool rather than the
 // customer's own records.
 //
 // On small screens the nav is a horizontally scrollable strip, not a drawer.
 // People reach this portal once or twice a year, usually from a renewal email —
-// they scan for a destination rather than recalling one, so all seven staying
+// they scan for a destination rather than recalling one, so all six staying
 // visible beats hiding them behind a hamburger. It also removes an entire class
 // of bug: the old drawer had no focus trap, no Escape handler and a click-only
 // backdrop, so opening it with a keyboard left you stranded.
 // ─────────────────────────────────────────────────────────────────────────────
 
-// In the order a new customer sets things up: their business, its business
-// names, then the ATO link. Renewals follows the names it renews.
+// In the order a new customer sets things up: their business, then its business
+// names. Renewals follows the names it renews.
 const NAV_ITEMS = [
   // `end` matters only on the root: without it NavLink treats "/" as a prefix
   // and Overview stays highlighted on every page in the portal.
@@ -33,7 +33,6 @@ const NAV_ITEMS = [
   { href: '/business', label: 'Business' },
   { href: '/business-names', label: 'Business names' },
   { href: '/asic-renewals', label: 'Renewals' },
-  { href: '/ato-portal', label: 'ATO' },
   { href: '/messages', label: 'Messages' },
   { href: '/profile', label: 'Your details' },
 ]

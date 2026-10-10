@@ -1060,6 +1060,30 @@
         }
       }
     },
+    "/api/messages/threads/{threadId}": {
+      "delete": {
+        "tags": [
+          "Messages"
+        ],
+        "operationId": "DeleteThread",
+        "parameters": [
+          {
+            "name": "threadId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          }
+        }
+      }
+    },
     "/api/asic-renewals": {
       "get": {
         "tags": [
@@ -1427,6 +1451,38 @@
             "required": true,
             "schema": {
               "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          }
+        }
+      }
+    },
+    "/api/admin/messages/{clientId}/threads/{threadId}": {
+      "delete": {
+        "tags": [
+          "Admin"
+        ],
+        "operationId": "AdminDeleteThread",
+        "parameters": [
+          {
+            "name": "clientId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "threadId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
             }
           }
         ],
@@ -3893,6 +3949,9 @@
               "string"
             ],
             "format": "int32"
+          },
+          "staffOnly": {
+            "type": "boolean"
           }
         }
       },

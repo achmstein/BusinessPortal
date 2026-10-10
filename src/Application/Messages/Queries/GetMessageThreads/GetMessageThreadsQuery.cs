@@ -16,7 +16,7 @@ public class GetMessageThreadsQueryHandler(IApplicationDbContext context, IUser 
 
         var messages = await context.Messages
             .AsNoTracking()
-            .Where(m => m.UserId == userId)
+            .Where(m => m.UserId == userId && !m.StaffOnly)
             .ToListAsync(cancellationToken);
 
         return ThreadDto.GroupIntoThreads(messages);
