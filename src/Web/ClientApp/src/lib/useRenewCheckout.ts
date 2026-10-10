@@ -3,8 +3,9 @@ import { getRenewalCheckout } from '@/api/generated'
 import { toastError } from '@/ui'
 
 /**
- * "Renew" goes straight to Renewtron's checkout in a new tab — the portal stays
- * open behind it, so the customer comes back to their records when they're done.
+ * "Renew" goes straight to Renewtron's checkout in a new tab — the term, price
+ * and payment are all chosen there, and the portal stays open behind it so the
+ * customer comes back to their records when they're done.
  *
  * The tab is opened inside the click, before the checkout address arrives:
  * a window opened after an await is a popup, and browsers block those.

@@ -23,9 +23,6 @@ const ProfilePage = lazy(() => import('./pages/ProfilePage').then(named('Profile
 const BusinessPage = lazy(() => import('./pages/BusinessPage').then(named('BusinessPage')))
 const BusinessNamesPage = lazy(() => import('./pages/BusinessNamesPage').then(named('BusinessNamesPage')))
 const AsicRenewalsPage = lazy(() => import('./pages/AsicRenewalsPage').then(named('AsicRenewalsPage')))
-const RenewBusinessNamePage = lazy(() =>
-  import('./pages/RenewBusinessNamePage').then(named('RenewBusinessNamePage')),
-)
 const CancelBusinessNamePage = lazy(() =>
   import('./pages/CancelBusinessNamePage').then(named('CancelBusinessNamePage')),
 )
@@ -83,7 +80,6 @@ export default function App() {
           <Route path="/business" element={<BusinessPage />} />
           <Route path="/business-names" element={<BusinessNamesPage />} />
           <Route path="/asic-renewals" element={<AsicRenewalsPage />} />
-          <Route path="/asic-renewals/:bnId/renew" element={<RenewBusinessNamePage />} />
           <Route path="/asic-renewals/:bnId/cancel" element={<CancelBusinessNamePage />} />
           <Route path="/ato-portal" element={<AtoPortalPage />} />
           <Route path="/ato-portal/link" element={<AtoLinkPage />} />
