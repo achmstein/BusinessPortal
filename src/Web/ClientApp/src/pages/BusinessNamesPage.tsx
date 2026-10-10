@@ -468,7 +468,7 @@ export function BusinessNamesPage() {
     ...requestAsicKeyMutation(),
     onSuccess: async () => {
       await invalidate()
-      toastSuccess('ASIC key requested', 'Our team will get it for you — it’ll appear here when it arrives.')
+      toastSuccess('ASIC key requested', 'We’ve asked ASIC for a copy — it’ll appear here when it arrives.')
     },
     onError: (error) =>
       toastError('Couldn’t request the key', (error as { error?: string } | undefined)?.error ?? 'Try again in a moment.'),
