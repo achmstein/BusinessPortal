@@ -62,7 +62,8 @@ public static class RenewtronEndpoints
         // enquiry form and reads the key from ASIC's reply; the sync brings it back.
         app.MapPost("/api/business-names/{id:guid}/request-asic-key", async (
                 Guid id, ClaimsPrincipal principal, UserManager<ApplicationUser> users,
-                IApplicationDbContext context, RenewtronClient renewtron, IRenewtronSyncService sync, CancellationToken ct) =>
+                IApplicationDbContext context, RenewtronClient renewtron, IRenewtronSyncService sync,
+                ILoggerFactory loggers, CancellationToken ct) =>
             {
                 var user = await users.GetUserAsync(principal);
                 if (user is null) return Results.Unauthorized();
@@ -71,8 +72,13 @@ public static class RenewtronEndpoints
                 if (bn is null) return Results.NotFound();
                 if (!string.IsNullOrEmpty(bn.AsicKey))
                     return Results.BadRequest(new ErrorResponse("This business name already has an ASIC key."));
+                var log = loggers.CreateLogger("RenewtronEndpoints");
                 if (!renewtron.IsConfigured)
-                    return Results.Problem("ASIC key requests aren't available right now.", statusCode: StatusCodes.Status503ServiceUnavailable);
+                {
+                    log.LogWarning("ASIC key request for {BusinessNameId} refused: Renewtron isn't configured", bn.Id);
+                    return Results.Json(new ErrorResponse("ASIC key requests aren't available right now — message us and we'll get it for you."),
+                        statusCode: StatusCodes.Status503ServiceUnavailable);
+                }
 
                 var p = user.Profile;
                 // ASIC's enquiry form needs a name and phone for the person asking.
@@ -95,6 +101,12 @@ public static class RenewtronEndpoints
                 catch (RenewtronValidationException ex)
                 {
                     return Results.BadRequest(new ErrorResponse(ex.Message));
+                }
+                catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or System.Text.Json.JsonException)
+                {
+                    log.LogError(ex, "ASIC key request for {BusinessNameId} failed at Renewtron", bn.Id);
+                    return Results.Json(new ErrorResponse("We couldn't reach our ASIC key service just now. Try again shortly, or message us."),
+                        statusCode: StatusCodes.Status502BadGateway);
                 }
 
                 var keyAvailable = result.Status == "KeyAvailable";

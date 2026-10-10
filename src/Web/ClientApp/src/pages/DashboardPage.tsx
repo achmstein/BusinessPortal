@@ -23,6 +23,7 @@ import {
   requestAsicKeyMutation,
 } from '@/api/generated/@tanstack/react-query.gen'
 import { renewalStatus } from '@/lib/renewal'
+import { useRenewCheckout } from '@/lib/useRenewCheckout'
 import { formatDate, formatRelativeTime } from '@/lib/dates'
 import { cn } from '@/lib/cn'
 import {
@@ -142,6 +143,7 @@ export function DashboardPage() {
   const completed = useQuery(getCompletedRenewalsOptions())
 
   const queryClient = useQueryClient()
+  const checkout = useRenewCheckout()
   const requestKey = useMutation({
     ...requestAsicKeyMutation(),
     onSuccess: async () => {
@@ -198,8 +200,13 @@ export function DashboardPage() {
         : `Due ${formatDate(item.dueDate)} — ${status.days} days left.`,
       action:
         item.kind === 'Business Name' ? (
-          <Button asChild size="sm" variant={overdue ? 'danger' : 'primary'}>
-            <Link to={`/asic-renewals/${item.sourceId}/renew`}>Renew now</Link>
+          <Button
+            size="sm"
+            variant={overdue ? 'danger' : 'primary'}
+            loading={checkout.pendingId === item.sourceId}
+            onClick={() => void checkout.renew(item.sourceId!)}
+          >
+            Renew now
           </Button>
         ) : (
           <Button asChild size="sm" variant="secondary">

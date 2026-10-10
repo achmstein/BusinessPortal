@@ -4,14 +4,16 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useSearchParams } from 'react-router-dom'
 import { z } from 'zod'
-import { Plus, Trash2 } from 'lucide-react'
+import { ChevronDown, Pencil, Plus, Trash2 } from 'lucide-react'
 import {
   createBusinessEntityMutation,
   deleteBusinessEntityMutation,
   getBusinessEntitiesOptions,
   getBusinessEntitiesQueryKey,
   getProfileOptions,
+  updateBusinessEntityMutation,
 } from '@/api/generated/@tanstack/react-query.gen'
+import { buttonClasses } from '@/ui/Button'
 import type { BusinessEntityDto, EntityType } from '@/api/generated'
 import { formatAbn, formatAcn, maskTfn } from '@/lib/format'
 import {
@@ -23,6 +25,7 @@ import {
   EmptyState,
   ErrorState,
   Field,
+  Menu,
   toastError,
   toastSuccess,
   Page,
@@ -32,7 +35,6 @@ import {
   RecordSkeleton,
   NumberInput,
   Select,
-  Tooltip,
 } from '@/ui'
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -113,6 +115,8 @@ export function BusinessPage() {
   const entities = useQuery(getBusinessEntitiesOptions())
   const profile = useQuery(getProfileOptions())
   const [adding, setAdding] = useState(false)
+  // The add dialog doubles as the edit dialog; this is the business being edited.
+  const [editing, setEditing] = useState<BusinessEntityDto | null>(null)
   const [removing, setRemoving] = useState<BusinessEntityDto | null>(null)
 
   const form = useForm<EntityForm>({ resolver: zodResolver(schema), defaultValues: EMPTY })
@@ -123,7 +127,29 @@ export function BusinessPage() {
     const abn = (profile.data?.abn ?? '').replace(/\D/g, '')
     const held = (entities.data ?? []).some((e) => (e.abn ?? '').replace(/\D/g, '') === abn)
     form.reset({ ...EMPTY, abn: held ? '' : abn, phone: profile.data?.phone ?? '' })
+    setEditing(null)
     setAdding(true)
+  }
+
+  function openEdit(entity: BusinessEntityDto) {
+    form.reset({
+      name: entity.name ?? '',
+      entityType: entity.entityType ?? 'Unspecified',
+      abn: entity.abn ?? '',
+      acn: entity.acn ?? '',
+      industry: entity.industry ?? '',
+      employees: Number(entity.employees ?? 0),
+      phone: entity.phone ?? '',
+      website: entity.website ?? '',
+    })
+    setEditing(entity)
+    setAdding(true)
+  }
+
+  function closeDialog() {
+    setAdding(false)
+    setEditing(null)
+    form.reset(EMPTY)
   }
 
   // The Overview's "Add business" lands here with ?add=1: go straight to the
@@ -141,14 +167,14 @@ export function BusinessPage() {
 
   function submit(values: EntityForm) {
     const ownName = [profile.data?.firstName, profile.data?.lastName].filter(Boolean).join(' ')
-    create.mutate({
-      body: {
-        ...values,
-        entityType: values.entityType as EntityType,
-        name: isSoleTrader(values.entityType) ? ownName || 'Sole trader' : values.name,
-        acn: isSoleTrader(values.entityType) ? '' : values.acn,
-      },
-    })
+    const body = {
+      ...values,
+      entityType: values.entityType as EntityType,
+      name: isSoleTrader(values.entityType) ? ownName || 'Sole trader' : values.name,
+      acn: isSoleTrader(values.entityType) ? '' : values.acn,
+    }
+    if (editing?.id) update.mutate({ path: { id: editing.id }, body: { ...body, id: editing.id } })
+    else create.mutate({ body })
   }
 
   const invalidate = () => queryClient.invalidateQueries({ queryKey: getBusinessEntitiesQueryKey() })
@@ -157,11 +183,20 @@ export function BusinessPage() {
     ...createBusinessEntityMutation(),
     onSuccess: async () => {
       await invalidate()
-      form.reset(EMPTY)
-      setAdding(false)
+      closeDialog()
       toastSuccess('Business added')
     },
     onError: () => toastError('Couldn’t add that business', 'Check the details and try again.'),
+  })
+
+  const update = useMutation({
+    ...updateBusinessEntityMutation(),
+    onSuccess: async () => {
+      await invalidate()
+      closeDialog()
+      toastSuccess('Business updated')
+    },
+    onError: () => toastError('Couldn’t save that business', 'Check the details and try again.'),
   })
 
   const remove = useMutation({
@@ -224,16 +259,25 @@ export function BusinessPage() {
                 </div>
                 <div className="flex shrink-0 items-center gap-2">
                   {entity.source === 'Ato' ? <Badge tone="ok">From the ATO</Badge> : null}
-                  <Tooltip label="Remove this business">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      aria-label={`Remove ${entity.name}`}
-                      onClick={() => setRemoving(entity)}
+                  <Menu.Root>
+                    <Menu.Trigger
+                      aria-label={`Manage ${entity.name}`}
+                      className={buttonClasses('secondary', 'sm')}
                     >
-                      <Trash2 aria-hidden className="size-3.5" />
-                    </Button>
-                  </Tooltip>
+                      Manage
+                      <ChevronDown aria-hidden className="size-4" />
+                    </Menu.Trigger>
+                    <Menu.Content>
+                      <Menu.Item value="edit" onSelect={() => openEdit(entity)}>
+                        <Pencil aria-hidden className="size-4" />
+                        Edit this business
+                      </Menu.Item>
+                      <Menu.Item value="remove" tone="danger" onSelect={() => setRemoving(entity)}>
+                        <Trash2 aria-hidden className="size-4" />
+                        Remove from the portal…
+                      </Menu.Item>
+                    </Menu.Content>
+                  </Menu.Root>
                 </div>
               </div>
 
@@ -283,10 +327,10 @@ export function BusinessPage() {
       <Dialog
         open={adding}
         onOpenChange={(open) => {
-          setAdding(open)
-          if (!open) form.reset(EMPTY)
+          if (open) setAdding(true)
+          else closeDialog()
         }}
-        title="Add a business"
+        title={editing ? 'Edit this business' : 'Add a business'}
         description={
           soleTrader
             ? 'Sole traders trade under their own name, so there’s no entity name or ACN.'
@@ -294,14 +338,14 @@ export function BusinessPage() {
         }
         footer={
           <>
-            <Button variant="ghost" onClick={() => setAdding(false)}>
+            <Button variant="ghost" onClick={closeDialog}>
               Cancel
             </Button>
             <Button
-              loading={create.isPending}
+              loading={create.isPending || update.isPending}
               onClick={form.handleSubmit(submit)}
             >
-              Add business
+              {editing ? 'Save changes' : 'Add business'}
             </Button>
           </>
         }

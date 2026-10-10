@@ -1,14 +1,14 @@
-import { useMutation, useQuery } from '@tanstack/react-query'
+import { useQuery } from '@tanstack/react-query'
 import { Navigate, useParams } from 'react-router-dom'
 import { CalendarCheck, CreditCard, ShieldCheck } from 'lucide-react'
 import {
   getBusinessNamesOptions,
   getCompletedRenewalsOptions,
 } from '@/api/generated/@tanstack/react-query.gen'
-import { getRenewalCheckout } from '@/api/generated'
 import { formatDate } from '@/lib/dates'
 import { extendedRenewalDate, renewalStatus } from '@/lib/renewal'
-import { Button, ErrorState, List, Page, PageSkeleton, Panel, PanelTitle, TextLink, toastError } from '@/ui'
+import { useRenewCheckout } from '@/lib/useRenewCheckout'
+import { Button, ErrorState, List, Page, PageSkeleton, Panel, PanelTitle, TextLink } from '@/ui'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Renewing hands off to Renewtron's checkout, which takes the card payment
@@ -29,13 +29,9 @@ export function RenewBusinessNamePage() {
   const names = useQuery(getBusinessNamesOptions())
   const renewals = useQuery(getCompletedRenewalsOptions())
 
-  const checkout = useMutation({
-    mutationFn: async () => (await getRenewalCheckout({ query: { businessNameId: bnId }, throwOnError: true })).data,
-    onSuccess: (data) => {
-      if (data?.url) window.location.assign(data.url)
-    },
-    onError: () => toastError('Online renewal isn’t available right now', 'Try again shortly, or message us.'),
-  })
+  // The Renew buttons go straight to checkout; this page remains for links that
+  // land on it directly.
+  const checkout = useRenewCheckout()
 
   const back = { to: '/asic-renewals', label: 'Back to renewals' }
 
@@ -140,7 +136,7 @@ export function RenewBusinessNamePage() {
             </List.Row>
           </List>
 
-          <Button className="self-start" loading={checkout.isPending} onClick={() => checkout.mutate()}>
+          <Button className="self-start" loading={checkout.pendingId !== null} onClick={() => void checkout.renew(name.id!)}>
             Continue to secure checkout
           </Button>
         </>

@@ -6,7 +6,7 @@
   },
   "servers": [
     {
-      "url": "http://localhost:5299/"
+      "url": "http://localhost:5257/"
     }
   ],
   "paths": {
@@ -156,10 +156,7 @@
         ],
         "responses": {
           "200": {
-            "description": "OK",
-            "content": {
-              "application/pdf": {}
-            }
+            "description": "OK"
           }
         }
       }
@@ -787,6 +784,38 @@
       }
     },
     "/api/business-entities/{id}": {
+      "put": {
+        "tags": [
+          "Business Entities"
+        ],
+        "operationId": "UpdateBusinessEntity",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateBusinessEntityCommand"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "No Content"
+          }
+        }
+      },
       "delete": {
         "tags": [
           "Business Entities"
@@ -2161,6 +2190,20 @@
           }
         }
       },
+      "AbnLookupSettings": {
+        "required": [
+          "apiToken"
+        ],
+        "type": "object",
+        "properties": {
+          "apiToken": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
       "AbnRegisteredName": {
         "type": "object",
         "properties": {
@@ -2184,20 +2227,6 @@
           },
           "renewalDate": {
             "type": "string"
-          }
-        }
-      },
-      "AbnLookupSettings": {
-        "required": [
-          "apiToken"
-        ],
-        "type": "object",
-        "properties": {
-          "apiToken": {
-            "type": [
-              "null",
-              "string"
-            ]
           }
         }
       },
@@ -4041,6 +4070,55 @@
           },
           "isMachineRemembered": {
             "type": "boolean"
+          }
+        }
+      },
+      "UpdateBusinessEntityCommand": {
+        "required": [
+          "id",
+          "name",
+          "entityType",
+          "abn",
+          "acn",
+          "industry",
+          "employees",
+          "phone",
+          "website"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string"
+          },
+          "entityType": {
+            "$ref": "#/components/schemas/EntityType"
+          },
+          "abn": {
+            "type": "string"
+          },
+          "acn": {
+            "type": "string"
+          },
+          "industry": {
+            "type": "string"
+          },
+          "employees": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "phone": {
+            "type": "string"
+          },
+          "website": {
+            "type": "string"
           }
         }
       },

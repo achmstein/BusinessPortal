@@ -1,5 +1,6 @@
 using BusinessPortal.Application.BusinessEntities.Commands.CreateBusinessEntity;
 using BusinessPortal.Application.BusinessEntities.Commands.DeleteBusinessEntity;
+using BusinessPortal.Application.BusinessEntities.Commands.UpdateBusinessEntity;
 using BusinessPortal.Application.BusinessEntities.Queries.GetBusinessEntities;
 using MediatR;
 
@@ -24,6 +25,14 @@ public static class BusinessEntitiesEndpoints
                 Results.Ok(new IdResponse(await sender.Send(command))))
             .WithName("CreateBusinessEntity")
             .Produces<IdResponse>();
+
+        group.MapPut("/{id:guid}", async (Guid id, UpdateBusinessEntityCommand command, ISender sender) =>
+            {
+                await sender.Send(command with { Id = id });
+                return Results.NoContent();
+            })
+            .WithName("UpdateBusinessEntity")
+            .Produces(StatusCodes.Status204NoContent);
 
         group.MapDelete("/{id:guid}", async (Guid id, ISender sender) =>
             {

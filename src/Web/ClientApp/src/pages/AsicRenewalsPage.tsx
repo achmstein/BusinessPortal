@@ -7,6 +7,7 @@ import {
   getCompletedRenewalsOptions,
 } from '@/api/generated/@tanstack/react-query.gen'
 import { renewalStatus } from '@/lib/renewal'
+import { useRenewCheckout } from '@/lib/useRenewCheckout'
 import { formatDate } from '@/lib/dates'
 import {
   Badge,
@@ -57,6 +58,7 @@ export function AsicRenewalsPage() {
       .filter(Boolean),
   )
 
+  const checkout = useRenewCheckout()
   const syncing = renewals.isRefetching || completed.isRefetching
 
   async function sync() {
@@ -145,10 +147,15 @@ export function AsicRenewalsPage() {
                       {isBusinessName ? (
                         <>
                           {underway.has(item.sourceId ?? '') || underway.has((item.name ?? '').trim().toLowerCase()) ? (
-                            <Badge tone="due">Renewal underway</Badge>
+                            <Badge tone="due">Renewal in progress</Badge>
                           ) : (
-                            <Button asChild size="sm" variant={status.needsAction ? 'primary' : 'secondary'}>
-                              <Link to={`/asic-renewals/${item.sourceId}/renew`}>Renew</Link>
+                            <Button
+                              size="sm"
+                              variant={status.needsAction ? 'primary' : 'secondary'}
+                              loading={checkout.pendingId === item.sourceId}
+                              onClick={() => void checkout.renew(item.sourceId!)}
+                            >
+                              Renew
                             </Button>
                           )}
 
