@@ -177,7 +177,6 @@ export function AtoLinkPage() {
   return (
     <Page
       title="Link your business to the ATO"
-      description="You approve the link in the myID app on your phone. We never see your password or two-factor codes."
       back={{ to: '/ato-portal', label: 'Back to ATO' }}
     >
 

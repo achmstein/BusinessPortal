@@ -25,7 +25,7 @@ public class ReplyToThreadCommandHandler(IApplicationDbContext context, IUser us
         // Root subject — messages whose ThreadId matches, or the legacy root itself.
         var root = await context.Messages
             .AsNoTracking()
-            .Where(m => m.UserId == userId && (m.ThreadId == request.ThreadId || m.Id == request.ThreadId))
+            .Where(m => m.UserId == userId && !m.StaffOnly && (m.ThreadId == request.ThreadId || m.Id == request.ThreadId))
             .OrderBy(m => m.Created)
             .FirstOrDefaultAsync(cancellationToken)
             ?? throw new NotFoundException("Thread", request.ThreadId);

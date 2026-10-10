@@ -13,6 +13,9 @@ public record ThreadDto
     public int UnreadForClient { get; init; }
     public int UnreadForAdmin { get; init; }
 
+    /// <summary>Internal to staff — the client never sees this conversation.</summary>
+    public bool StaffOnly { get; init; }
+
     /// <summary>Group a flat message list into threads: messages sorted oldest→newest
     /// within a thread, threads sorted by most-recent-activity first.</summary>
     public static IReadOnlyList<ThreadDto> GroupIntoThreads(IEnumerable<Message> all)
@@ -40,6 +43,7 @@ public record ThreadDto
                 LastActivityAt = last.Created,
                 UnreadForClient = messages.Count(m => m.Direction == MessageDirection.Inbound && !m.Read),
                 UnreadForAdmin = messages.Count(m => m.Direction == MessageDirection.Outbound && !m.AdminRead),
+                StaffOnly = root.StaffOnly,
             });
         }
 

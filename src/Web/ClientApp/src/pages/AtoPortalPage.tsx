@@ -83,11 +83,7 @@ export function AtoPortalPage() {
     onError: () => toastError('The sync didn’t finish', 'Try again, or message us if it keeps happening.'),
   })
 
-  const header = {
-    title: 'ATO connection',
-    description:
-      'Connecting lets us read your tax registrations and prefill information from the ATO on your behalf. It’s optional — your business names work either way.',
-  }
+  const header = { title: 'ATO connection' }
 
   if (status.isPending) {
     return (

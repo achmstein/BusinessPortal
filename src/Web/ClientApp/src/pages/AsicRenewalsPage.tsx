@@ -1,10 +1,10 @@
-import { useMutation, useQuery } from '@tanstack/react-query'
+import { useQuery } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
-import { MoreHorizontal } from 'lucide-react'
+import { ChevronDown } from 'lucide-react'
+import { buttonClasses } from '@/ui/Button'
 import {
   getAsicRenewalsOptions,
   getCompletedRenewalsOptions,
-  startThreadMutation,
 } from '@/api/generated/@tanstack/react-query.gen'
 import { renewalStatus } from '@/lib/renewal'
 import { formatDate } from '@/lib/dates'
@@ -39,8 +39,8 @@ import {
 //  · Cancel is no longer a peer of Renew. Cancelling an ASIC registration is
 //    irreversible and rare, and it sat one misclick from the primary action; it
 //    now lives in a per-row menu, described in full words.
-//  · "Request information from ASIC" opened a support conversation rather than
-//    contacting ASIC. The control now says what it does.
+//  · "Sync with ASIC" no longer opens a support conversation; it reloads the
+//    renewal lists from our records.
 //  · A duplicate "tracked names" list was really the Business names page.
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -57,12 +57,13 @@ export function AsicRenewalsPage() {
       .filter(Boolean),
   )
 
-  const ask = useMutation({
-    ...startThreadMutation(),
-    onSuccess: () =>
-      toastSuccess('Message sent', 'We’ll check your ASIC records and reply in Messages.'),
-    onError: () => toastError('Couldn’t send that message', 'Try again in a moment.'),
-  })
+  const syncing = renewals.isRefetching || completed.isRefetching
+
+  async function sync() {
+    const [r, c] = await Promise.all([renewals.refetch(), completed.refetch()])
+    if (r.isError || c.isError) toastError('Couldn’t sync just now', 'Try again in a moment.')
+    else toastSuccess('Renewal dates up to date')
+  }
 
   // Most urgent first — an overdue registration outranks one due in a month.
   const items = (renewals.data ?? [])
@@ -74,21 +75,9 @@ export function AsicRenewalsPage() {
   return (
     <Page
       title="Renewals"
-      description="Business names and companies with a renewal date coming up."
       actions={
-        <Button
-          variant="secondary"
-          loading={ask.isPending}
-          onClick={() =>
-            ask.mutate({
-              body: {
-                subject: 'Please check my ASIC renewal dates',
-                body: 'Could you check my upcoming ASIC business name and company review dates and update my records?',
-              },
-            })
-          }
-        >
-          Ask us to check with ASIC
+        <Button variant="secondary" loading={syncing} onClick={() => void sync()}>
+          Sync with ASIC
         </Button>
       }
     >
@@ -167,10 +156,11 @@ export function AsicRenewalsPage() {
                               menu rather than beside the primary action. */}
                           <Menu.Root>
                             <Menu.Trigger
-                              aria-label={`More options for ${item.name}`}
-                              className="p-1.5"
+                              aria-label={`Manage ${item.name}`}
+                              className={buttonClasses('secondary', 'sm')}
                             >
-                              <MoreHorizontal aria-hidden className="size-4" />
+                              Manage
+                              <ChevronDown aria-hidden className="size-4" />
                             </Menu.Trigger>
                             <Menu.Content>
                               <Menu.Item value="manage" asChild>

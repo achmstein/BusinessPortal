@@ -1,3 +1,4 @@
+using BusinessPortal.Application.Messages.Commands.DeleteThread;
 using BusinessPortal.Application.Messages.Commands.MarkThreadRead;
 using BusinessPortal.Application.Messages.Commands.ReplyToThread;
 using BusinessPortal.Application.Messages.Commands.StartThread;
@@ -40,6 +41,14 @@ public static class MessagesEndpoints
                 return Results.NoContent();
             })
             .WithName("MarkThreadRead")
+            .Produces(StatusCodes.Status204NoContent);
+
+        group.MapDelete("/threads/{threadId:guid}", async (Guid threadId, ISender sender) =>
+            {
+                await sender.Send(new DeleteThreadCommand(threadId));
+                return Results.NoContent();
+            })
+            .WithName("DeleteThread")
             .Produces(StatusCodes.Status204NoContent);
 
         return app;

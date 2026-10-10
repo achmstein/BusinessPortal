@@ -23,4 +23,8 @@ public class Message : BaseAuditableEntity
 
     /// <summary>Admin-side read state (for client-sent / outbound messages).</summary>
     public bool AdminRead { get; set; }
+
+    /// <summary>Visible to staff only — never shown in the client's Messages section
+    /// (e.g. an ASIC key request raised on the client's behalf).</summary>
+    public bool StaffOnly { get; set; }
 }

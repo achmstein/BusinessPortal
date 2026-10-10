@@ -9,13 +9,11 @@ import {
   CheckCircle2,
   FileText,
   KeyRound,
-  Landmark,
   MessageSquare,
   UserRound,
 } from 'lucide-react'
 import {
   getAsicRenewalsOptions,
-  getAtoStatusOptions,
   getBusinessEntitiesOptions,
   getBusinessNamesOptions,
   getCompletedRenewalsOptions,
@@ -54,7 +52,7 @@ import {
 // The side column is reference, not action: how many names are tracked, when
 // the next one falls due, and what has been renewed recently.
 //
-// Until the account is set up — a business, its business names, the ATO link —
+// Until the account is set up — a business and its business names —
 // a "Get set up" checklist leads the page instead, in the order those need
 // doing. Customers who came through a Renewtron sign-in link already have their
 // business and names added for them, so those steps arrive ticked and only ask
@@ -142,7 +140,6 @@ export function DashboardPage() {
   const profile = useQuery(getProfileOptions())
   const threads = useQuery(getMessageThreadsOptions())
   const completed = useQuery(getCompletedRenewalsOptions())
-  const ato = useQuery(getAtoStatusOptions())
 
   const queryClient = useQueryClient()
   const requestKey = useMutation({
@@ -318,7 +315,6 @@ export function DashboardPage() {
 
   // ── Setup checklist ──
   const entityList = entities.data ?? []
-  const atoConnected = Boolean(ato.data?.connected)
   const setupSteps: SetupStep[] = [
     {
       key: 'account',
@@ -348,25 +344,10 @@ export function DashboardPage() {
         </Button>
       ),
     },
-    {
-      key: 'ato',
-      icon: <Landmark className="size-4" />,
-      title: atoConnected ? 'Linked to the ATO' : 'Link to the ATO',
-      done: atoConnected,
-      action: atoConnected ? undefined : (
-        <Button
-          asChild
-          size="sm"
-          variant={entityList.length > 0 && nameList.length > 0 ? 'primary' : 'secondary'}
-        >
-          <Link to="/ato-portal">Link</Link>
-        </Button>
-      ),
-    },
   ]
-  // Only once all three answers are in: a checklist that flashes up while the
-  // ATO status loads, then vanishes, is worse than none.
-  const setupKnown = entities.isSuccess && names.isSuccess && ato.isSuccess
+  // Only once both answers are in: a checklist that flashes up while the data
+  // loads, then vanishes, is worse than none.
+  const setupKnown = entities.isSuccess && names.isSuccess
   const settingUp = setupKnown && setupSteps.some((step) => !step.done)
 
   // ── Side column facts ──
@@ -380,36 +361,26 @@ export function DashboardPage() {
   // ── The answer: the page title itself ──
   let tone: keyof typeof HEADLINE_TONES = 'calm'
   let title: string
-  let description: string | undefined
   if (failed) {
     title = 'We couldn’t load your records'
-    description = 'Try again in a moment.'
   } else if (overdueCount > 0) {
     tone = 'urgent'
     title = `${overdueCount === 1 ? 'One registration is' : `${overdueCount} registrations are`} overdue.`
-    description = 'Renewing restores it if you act quickly — it’s the first thing on your list below.'
   } else if (due.length > 0) {
     tone = 'action'
     title = `${due.length === 1 ? 'One registration needs' : `${due.length} registrations need`} renewing.`
-    description = 'Renewing early costs the same and takes a couple of minutes.'
   } else if (settingUp) {
     title = 'Let’s get your business set up.'
-    description = 'A few steps, in this order — anything we already hold for you is filled in.'
   } else if (tasks.length > 0) {
     title = 'Your registrations are in order.'
   } else {
     title = 'Nothing needs your attention.'
-    description =
-      nameList.length > 0
-        ? `We’re watching ${nameList.length === 1 ? 'your business name' : `all ${nameList.length} of your business names`} and will email you well before anything is due.`
-        : 'Add a business name and we’ll track its renewal date for you.'
   }
 
   return (
     <Page
       eyebrow="Overview"
       title={loading ? 'Checking your records…' : <span className={HEADLINE_TONES[tone]}>{title}</span>}
-      description={loading ? undefined : description}
     >
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_18rem]">
         {/* ── Main column: to do, then the register ── */}

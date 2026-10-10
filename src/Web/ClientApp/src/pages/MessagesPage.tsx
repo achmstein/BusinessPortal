@@ -4,6 +4,7 @@ import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import {
+  deleteThreadMutation,
   getMessageThreadsOptions,
   getMessageThreadsQueryKey,
   markThreadReadMutation,
@@ -17,6 +18,7 @@ import { cn } from '@/lib/cn'
 import {
   Accordion,
   Button,
+  ConfirmDialog,
   Dialog,
   EmptyState,
   MessageThread,
@@ -85,6 +87,17 @@ export function MessagesPage() {
 
   const markRead = useMutation({ ...markThreadReadMutation(), onSuccess: invalidate })
 
+  const [deleting, setDeleting] = useState<ThreadDto | null>(null)
+  const remove = useMutation({
+    ...deleteThreadMutation(),
+    onSuccess: async () => {
+      await invalidate()
+      setDeleting(null)
+      toastSuccess('Conversation deleted')
+    },
+    onError: () => toastError('Couldn’t delete that conversation', 'Try again in a moment.'),
+  })
+
   // Only the avatar on your own turns needs this; the label stays "You".
   const viewerName = `${user?.firstName ?? ''} ${user?.lastName ?? ''}`.trim() || (user?.email ?? '')
 
@@ -136,7 +149,6 @@ export function MessagesPage() {
   return (
     <Page
       title="Messages"
-      description="Your conversations with our support team."
       actions={<Button onClick={() => setComposing(true)}>New conversation</Button>}
     >
       {threads.isPending ? (
@@ -198,12 +210,30 @@ export function MessagesPage() {
                   {thread.threadId ? (
                     <ThreadReply threadId={thread.threadId} onSent={() => void invalidate()} />
                   ) : null}
+
+                  <div className="flex justify-end pt-3 pb-4">
+                    <Button size="sm" variant="ghost" onClick={() => setDeleting(thread)}>
+                      Delete conversation
+                    </Button>
+                  </div>
                 </Accordion.Content>
               </Accordion.Item>
             )
           })}
         </Accordion.Root>
       )}
+
+      <ConfirmDialog
+        open={deleting !== null}
+        onOpenChange={(open) => {
+          if (!open) setDeleting(null)
+        }}
+        title="Delete this conversation?"
+        description={`“${deleting?.subject ?? ''}” and every message in it will be removed for you and our team. This can’t be undone.`}
+        confirmLabel="Delete"
+        loading={remove.isPending}
+        onConfirm={() => deleting?.threadId && remove.mutate({ path: { threadId: deleting.threadId } })}
+      />
 
       <Dialog
         open={composing}
