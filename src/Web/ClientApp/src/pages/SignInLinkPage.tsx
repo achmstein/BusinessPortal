@@ -1,3 +1,4 @@
+import { useEffect, useRef } from 'react'
 import { useMutation } from '@tanstack/react-query'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { redeemSignInLink } from '@/api/generated'
@@ -12,6 +13,10 @@ import { Button } from '@/ui'
 // It asks for a click rather than signing in on load. Email security scanners
 // open every link in a message to check it; a page that redeemed the link on
 // arrival would spend its single use before the customer ever saw it.
+//
+// The exception is Renewtron's checkout, which sends the customer here itself the
+// moment they've paid (marked from=checkout). No scanner sees that link, so it
+// signs straight in — and retries briefly while the account is still being made.
 // ─────────────────────────────────────────────────────────────────────────────
 
 type Reason = 'expired' | 'used' | 'invalid' | 'not-ready' | 'existing-account'
@@ -42,8 +47,10 @@ const PROBLEMS: Record<Reason, { title: string; description: string }> = {
 export function SignInLinkPage() {
   const [params] = useSearchParams()
   const navigate = useNavigate()
-  const { refresh } = useAuth()
+  const { refresh, user, loading } = useAuth()
   const token = params.get('t') ?? ''
+  const fromCheckout = params.get('from') === 'checkout'
+  const autoTries = useRef(0)
 
   const redeem = useMutation({
     // The client throws on non-2xx (lib/apiClient.ts), handing us the error body.
@@ -61,8 +68,37 @@ export function SignInLinkPage() {
     },
   })
 
+  useEffect(() => {
+    if (!fromCheckout || !token || loading || redeem.isPending || redeem.isSuccess) return
+    // Renewed from inside the portal: they're signed in already, and the link (made for
+    // a brand-new account) has nothing to add — just take them back to their records.
+    if (user) {
+      navigate('/', { replace: true })
+      return
+    }
+    const notReady = redeem.isError && redeem.error === ('not-ready' as unknown)
+    if (redeem.isError && !notReady) return
+    if (autoTries.current >= 4) return
+    const timer = setTimeout(() => {
+      autoTries.current += 1
+      redeem.mutate()
+    }, autoTries.current === 0 ? 0 : 3000)
+    return () => clearTimeout(timer)
+  }, [fromCheckout, token, loading, user, redeem.isPending, redeem.isSuccess, redeem.isError, redeem.error])
+
   const reason: Reason | null = !token ? 'invalid' : redeem.isError ? ((redeem.error as unknown as Reason) ?? 'invalid') : null
   const problem = reason ? PROBLEMS[reason] : null
+
+  const autoRetrying = reason === 'not-ready' && autoTries.current < 4
+  if (fromCheckout && token && (redeem.isIdle || redeem.isPending || redeem.isSuccess || autoRetrying)) {
+    return (
+      <AuthShell title="Opening your Business Portal…" description="Signing you in — this only takes a moment.">
+        <Button size="lg" className="w-full" loading>
+          Continue to your portal
+        </Button>
+      </AuthShell>
+    )
+  }
 
   if (problem) {
     return (

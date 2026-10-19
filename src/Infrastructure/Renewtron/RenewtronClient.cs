@@ -71,7 +71,7 @@ public sealed class RenewtronSale
 
 public sealed record RenewtronKeyRequestBody(
     string BusinessName, string? Abn, string Email, string GivenNames, string FamilyName, string Phone,
-    string? ExternalReference);
+    string? ExternalReference, string? DateOfBirth = null, string? Address = null);
 
 /// <summary>POST /api/partner/asic-key-requests. <see cref="Status"/> is
 /// "KeyAvailable" (with <see cref="AsicKey"/>) when Renewtron already holds it.</summary>

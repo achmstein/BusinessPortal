@@ -13,6 +13,7 @@ public record BusinessEntityDto
     public int Employees { get; init; }
     public string Phone { get; init; } = string.Empty;
     public string Website { get; init; } = string.Empty;
+    public string TrusteeName { get; init; } = string.Empty;
     public string? LegalName { get; init; }
     public string? Tfn { get; init; }
     public string Source { get; init; } = string.Empty;
@@ -29,6 +30,7 @@ public record BusinessEntityDto
         Employees = e.Employees,
         Phone = e.Phone,
         Website = e.Website,
+        TrusteeName = e.TrusteeName,
         LegalName = e.LegalName,
         Tfn = e.Tfn,
         Source = e.Source.ToString(),

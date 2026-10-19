@@ -4,7 +4,7 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useSearchParams } from 'react-router-dom'
 import { z } from 'zod'
-import { ChevronDown, Download, Pencil, Plus, RefreshCw, Trash2 } from 'lucide-react'
+import { ChevronDown, Download, Pencil, Plus, RefreshCw, RotateCw, Trash2 } from 'lucide-react'
 import { buttonClasses } from '@/ui/Button'
 import {
   createBusinessNameMutation,
@@ -26,6 +26,7 @@ import {
 } from '@/api/generated/@tanstack/react-query.gen'
 import type { AbnRegisteredName, BusinessNameDto } from '@/api/generated'
 import { renewalStatus } from '@/lib/renewal'
+import { useRenewCheckout } from '@/lib/useRenewCheckout'
 import { formatDate } from '@/lib/dates'
 import { formatAbn } from '@/lib/format'
 import {
@@ -308,6 +309,7 @@ export function BusinessNamesPage() {
   const [viewingLetters, setViewingLetters] = useState<BusinessNameDto | null>(null)
 
   const names = useQuery(getBusinessNamesOptions())
+  const checkout = useRenewCheckout()
   const profile = useQuery(getProfileOptions())
   const entities = useQuery(getBusinessEntitiesOptions())
   const renewals = useQuery(getCompletedRenewalsOptions())
@@ -576,7 +578,16 @@ export function BusinessNamesPage() {
                     {isUnderway(name) ? (
                       <Badge tone="due">Renewal in progress</Badge>
                     ) : status.needsAction ? (
-                      <Badge tone={status.tone}>{status.label}</Badge>
+                      <>
+                        <Badge tone={status.tone}>{status.label}</Badge>
+                        <Button
+                          size="sm"
+                          loading={checkout.pendingId === name.id}
+                          onClick={() => void checkout.renew(name.id!)}
+                        >
+                          Renew
+                        </Button>
+                      </>
                     ) : (
                       <span className="text-sm text-ink-faint">{status.label}</span>
                     )}
@@ -589,6 +600,12 @@ export function BusinessNamesPage() {
                         <ChevronDown aria-hidden className="size-4" />
                       </Menu.Trigger>
                       <Menu.Content>
+                        {!isUnderway(name) && !status.needsAction ? (
+                          <Menu.Item value="renew" onSelect={() => void checkout.renew(name.id!)}>
+                            <RotateCw aria-hidden className="size-4" />
+                            Renew this business name
+                          </Menu.Item>
+                        ) : null}
                         <Menu.Item value="edit" onSelect={() => openEdit(name)}>
                           <Pencil aria-hidden className="size-4" />
                           Edit this business name

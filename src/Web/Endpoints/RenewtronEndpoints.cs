@@ -46,6 +46,8 @@ public static class RenewtronEndpoints
                     ["email"] = user.Email,
                     ["mobile"] = p.Phone,
                     ["dob"] = p.Dob,
+                    // The name being renewed: the checkout skips straight to the card for it.
+                    ["business"] = nameText,
                     ["source"] = "portal",
                 };
                 var qs = string.Join("&", query
@@ -81,10 +83,11 @@ public static class RenewtronEndpoints
                 }
 
                 var p = user.Profile;
-                // ASIC's enquiry form needs a name and phone for the person asking.
-                if (string.IsNullOrWhiteSpace(p.FirstName) || string.IsNullOrWhiteSpace(p.LastName) || string.IsNullOrWhiteSpace(p.Phone))
+                // ASIC's enquiry form needs a name, phone and date of birth for the person asking.
+                if (string.IsNullOrWhiteSpace(p.FirstName) || string.IsNullOrWhiteSpace(p.LastName)
+                    || string.IsNullOrWhiteSpace(p.Phone) || string.IsNullOrWhiteSpace(p.Dob))
                     return Results.BadRequest(new ErrorResponse(
-                        "Add your full name and phone number in Your details first — ASIC needs them to send the key."));
+                        "Add your full name, phone number and date of birth in Your details first — ASIC needs them to send the key."));
 
                 RenewtronKeyRequestResult result;
                 try
@@ -96,7 +99,10 @@ public static class RenewtronEndpoints
                         GivenNames: p.FirstName.Trim(),
                         FamilyName: p.LastName.Trim(),
                         Phone: p.Phone.Trim(),
-                        ExternalReference: bn.Id.ToString()), ct);
+                        ExternalReference: bn.Id.ToString(),
+                        // ASIC now asks for these before it will send a key.
+                        DateOfBirth: string.IsNullOrWhiteSpace(p.Dob) ? null : p.Dob.Trim(),
+                        Address: PostalAddress(p)), ct);
                 }
                 catch (RenewtronValidationException ex)
                 {
@@ -218,6 +224,15 @@ public static class RenewtronEndpoints
             .Produces<ErrorResponse>(StatusCodes.Status400BadRequest);
 
         return app;
+    }
+
+    /// <summary>"1 Smith St, Suburb NSW 2000" from whatever parts are filled in; null when none are.</summary>
+    private static string? PostalAddress(BusinessPortal.Domain.Entities.UserProfile p)
+    {
+        var locality = string.Join(" ", new[] { p.Suburb, p.State, p.Postcode }
+            .Select(s => s?.Trim()).Where(s => !string.IsNullOrEmpty(s)));
+        var text = string.Join(", ", new[] { p.Address?.Trim(), locality }.Where(s => !string.IsNullOrEmpty(s)));
+        return text.Length == 0 ? null : text;
     }
 
     private static string DocumentTitle(string? kind) => kind switch

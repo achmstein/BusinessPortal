@@ -12,7 +12,8 @@ public record CreateBusinessEntityCommand(
     string Industry,
     int Employees,
     string Phone,
-    string Website) : IRequest<Guid>;
+    string Website,
+    string? TrusteeName = null) : IRequest<Guid>;
 
 public class CreateBusinessEntityCommandValidator : AbstractValidator<CreateBusinessEntityCommand>
 {
@@ -22,6 +23,7 @@ public class CreateBusinessEntityCommandValidator : AbstractValidator<CreateBusi
         RuleFor(x => x.Abn).MaximumLength(20);
         RuleFor(x => x.Acn).MaximumLength(20);
         RuleFor(x => x.Employees).GreaterThanOrEqualTo(0);
+        RuleFor(x => x.TrusteeName).MaximumLength(200);
     }
 }
 
@@ -41,6 +43,7 @@ public class CreateBusinessEntityCommandHandler(IApplicationDbContext context, I
             Employees = request.Employees,
             Phone = request.Phone,
             Website = request.Website,
+            TrusteeName = request.EntityType == EntityType.Trust ? request.TrusteeName?.Trim() ?? string.Empty : string.Empty,
             Source = EntitySource.Manual,
         };
 

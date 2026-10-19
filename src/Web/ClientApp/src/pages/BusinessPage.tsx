@@ -70,6 +70,7 @@ const ENTITY_TYPE_LABELS: Record<string, string> = {
 // no ACN to collect — both fields are hidden and the name defaults to the
 // person's own.
 const isSoleTrader = (entityType: string) => entityType === 'SoleTrader'
+const isTrust = (entityType: string) => entityType === 'Trust'
 
 const schema = z.object({
   name: z.string().trim(),
@@ -91,6 +92,7 @@ const schema = z.object({
   employees: z.number().min(0, 'That can’t be negative.'),
   phone: z.string(),
   website: z.string(),
+  trusteeName: z.string().trim(),
 }).superRefine((values, ctx) => {
   if (!isSoleTrader(values.entityType) && values.name.length === 0) {
     ctx.addIssue({ code: 'custom', path: ['name'], message: 'Enter the business name.' })
@@ -108,6 +110,7 @@ const EMPTY: EntityForm = {
   employees: 0,
   phone: '',
   website: '',
+  trusteeName: '',
 }
 
 export function BusinessPage() {
@@ -141,6 +144,7 @@ export function BusinessPage() {
       employees: Number(entity.employees ?? 0),
       phone: entity.phone ?? '',
       website: entity.website ?? '',
+      trusteeName: entity.trusteeName ?? '',
     })
     setEditing(entity)
     setAdding(true)
@@ -164,6 +168,7 @@ export function BusinessPage() {
   }, [addRequested, ready])
 
   const soleTrader = isSoleTrader(form.watch('entityType'))
+  const trust = isTrust(form.watch('entityType'))
 
   function submit(values: EntityForm) {
     const ownName = [profile.data?.firstName, profile.data?.lastName].filter(Boolean).join(' ')
@@ -172,6 +177,7 @@ export function BusinessPage() {
       entityType: values.entityType as EntityType,
       name: isSoleTrader(values.entityType) ? ownName || 'Sole trader' : values.name,
       acn: isSoleTrader(values.entityType) ? '' : values.acn,
+      trusteeName: isTrust(values.entityType) ? values.trusteeName : '',
     }
     if (editing?.id) update.mutate({ path: { id: editing.id }, body: { ...body, id: editing.id } })
     else create.mutate({ body })
@@ -254,6 +260,7 @@ export function BusinessPage() {
                   </RecordTitle>
                   <p className="mt-0.5 text-sm text-ink-faint">
                     {ENTITY_TYPE_LABELS[entity.entityType ?? 'Unspecified'] ?? entity.entityType}
+                    {entity.trusteeName ? ` · Trustee ${entity.trusteeName}` : ''}
                     {entity.industry ? ` · ${entity.industry}` : ''}
                   </p>
                 </div>
@@ -370,7 +377,7 @@ export function BusinessPage() {
           </Field>
           {soleTrader ? null : (
             <Field
-              label="Business name"
+              label={trust ? 'Trust name' : 'Business name'}
               required
               className="sm:col-span-2"
               error={form.formState.errors.name?.message}
@@ -378,6 +385,11 @@ export function BusinessPage() {
               <Field.Input {...form.register('name')} />
             </Field>
           )}
+          {trust ? (
+            <Field label="Trustee name" className="sm:col-span-2" error={form.formState.errors.trusteeName?.message}>
+              <Field.Input {...form.register('trusteeName')} placeholder="Full name of the trustee" />
+            </Field>
+          ) : null}
           <Field label="Industry" error={form.formState.errors.industry?.message}>
             <Field.Input {...form.register('industry')} placeholder="e.g. Plumbing" />
           </Field>

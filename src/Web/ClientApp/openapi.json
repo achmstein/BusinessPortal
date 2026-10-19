@@ -2726,6 +2726,9 @@
           "website": {
             "type": "string"
           },
+          "trusteeName": {
+            "type": "string"
+          },
           "legalName": {
             "type": [
               "null",
@@ -2900,6 +2903,13 @@
           },
           "website": {
             "type": "string"
+          },
+          "trusteeName": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "default": null
           }
         }
       },
@@ -4119,6 +4129,13 @@
           },
           "website": {
             "type": "string"
+          },
+          "trusteeName": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "default": null
           }
         }
       },

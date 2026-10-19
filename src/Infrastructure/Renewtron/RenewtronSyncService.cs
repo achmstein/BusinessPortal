@@ -245,7 +245,6 @@ public class RenewtronSyncService(
             if (otherName.Length > 0 && !names.Any(b => string.Equals(b.Name.Trim(), otherName, StringComparison.OrdinalIgnoreCase)))
                 AddBusinessName(names, userId, otherName, other.RegistrationDate);
         }
-        await EnsureBusinessEntityAsync(userId, item.Abn, name, ct);
 
         if (status == "Completed" && item.RenewalYears > 0)
         {
@@ -276,20 +275,20 @@ public class RenewtronSyncService(
         return bn;
     }
 
-    /// <summary>Pre-fill the customer's Business page: one business for the ABN they
-    /// renewed under, named after the business name they renewed (they can rename it).
-    /// Returns true when it was added, i.e. the first time this customer's ABN is seen.</summary>
-    private async Task<bool> EnsureBusinessEntityAsync(string userId, string? abn, string name, CancellationToken ct)
+    /// <summary>True the first time this customer's ABN reaches the portal — no business
+    /// holds it and no earlier renewal came under it. The Business page itself is left
+    /// for the customer to fill in from the welcome dialog: a business name isn't the
+    /// name of the business that holds it.</summary>
+    private async Task<bool> IsNewAbnAsync(string userId, string? abn, Guid? currentSaleId, CancellationToken ct)
     {
         var clean = AbnUtil.NormaliseAbn(abn);
         if (clean.Length != 11) return false;
 
-        var held = await context.BusinessEntities.Where(e => e.UserId == userId).Select(e => e.Abn).ToListAsync(ct);
-        if (held.Any(a => AbnUtil.NormaliseAbn(a) == clean)) return false;
-        if (context.BusinessEntities.Local.Any(e => e.UserId == userId && AbnUtil.NormaliseAbn(e.Abn) == clean)) return false;
-
-        context.BusinessEntities.Add(new BusinessEntity { UserId = userId, Name = name, Abn = clean });
-        return true;
+        var entityAbns = await context.BusinessEntities.Where(e => e.UserId == userId).Select(e => e.Abn).ToListAsync(ct);
+        var renewalAbns = await context.BusinessNameRenewals
+            .Where(r => r.UserId == userId && r.Abn != "" && (currentSaleId == null || r.RenewtronSaleId != currentSaleId))
+            .Select(r => r.Abn).ToListAsync(ct);
+        return !entityAbns.Concat(renewalAbns).Any(a => AbnUtil.NormaliseAbn(a) == clean);
     }
 
     /// <summary>Renewtron's dd/MM/yyyy (or ISO) date as the portal's yyyy-MM-dd; empty when unparseable.</summary>
@@ -419,7 +418,7 @@ public class RenewtronSyncService(
 
         // A sale carries no list of the ABN's other names (only wizard renewals do),
         // so the first time we see this ABN, read them off the public register.
-        if (await EnsureBusinessEntityAsync(userId, sale.Abn, name, ct))
+        if (await IsNewAbnAsync(userId, sale.Abn, sale.Id, ct))
         {
             foreach (var r in await abnLookup.LookupBusinessNamesByAbnAsync(sale.Abn!, ct))
             {

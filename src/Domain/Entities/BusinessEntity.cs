@@ -17,6 +17,8 @@ public class BusinessEntity : BaseAuditableEntity
     public int Employees { get; set; }
     public string Phone { get; set; } = string.Empty;
     public string Website { get; set; } = string.Empty;
+    // Who acts for a trust; empty for every other type.
+    public string TrusteeName { get; set; } = string.Empty;
 
     // ─── Populated when synced from ATO ───
     public string? LegalName { get; set; }

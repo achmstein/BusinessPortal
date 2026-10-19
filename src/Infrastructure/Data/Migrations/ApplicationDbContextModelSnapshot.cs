@@ -209,6 +209,11 @@ namespace BusinessPortal.Infrastructure.Data.Migrations
                         .HasMaxLength(20)
                         .HasColumnType("character varying(20)");
 
+                    b.Property<string>("TrusteeName")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
                     b.Property<string>("UserId")
                         .IsRequired()
                         .HasColumnType("text");

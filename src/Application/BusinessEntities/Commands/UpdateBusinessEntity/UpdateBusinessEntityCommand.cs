@@ -15,7 +15,8 @@ public record UpdateBusinessEntityCommand(
     string Industry,
     int Employees,
     string Phone,
-    string Website) : IRequest;
+    string Website,
+    string? TrusteeName = null) : IRequest;
 
 public class UpdateBusinessEntityCommandValidator : AbstractValidator<UpdateBusinessEntityCommand>
 {
@@ -25,6 +26,7 @@ public class UpdateBusinessEntityCommandValidator : AbstractValidator<UpdateBusi
         RuleFor(x => x.Abn).MaximumLength(20);
         RuleFor(x => x.Acn).MaximumLength(20);
         RuleFor(x => x.Employees).GreaterThanOrEqualTo(0);
+        RuleFor(x => x.TrusteeName).MaximumLength(200);
     }
 }
 
@@ -48,6 +50,7 @@ public class UpdateBusinessEntityCommandHandler(IApplicationDbContext context, I
         entity.Employees = request.Employees;
         entity.Phone = request.Phone;
         entity.Website = request.Website;
+        entity.TrusteeName = request.EntityType == EntityType.Trust ? request.TrusteeName?.Trim() ?? string.Empty : string.Empty;
 
         await context.SaveChangesAsync(cancellationToken);
     }

@@ -146,6 +146,7 @@ export type BusinessEntityDto = {
     employees?: number | string;
     phone?: string;
     website?: string;
+    trusteeName?: string;
     legalName?: null | string;
     tfn?: null | string;
     source?: string;
@@ -192,6 +193,7 @@ export type CreateBusinessEntityCommand = {
     employees: number | string;
     phone: string;
     website: string;
+    trusteeName?: null | string;
 };
 
 export type CreateBusinessNameCommand = {
@@ -499,6 +501,7 @@ export type UpdateBusinessEntityCommand = {
     employees: number | string;
     phone: string;
     website: string;
+    trusteeName?: null | string;
 };
 
 export type UpdateBusinessNameCommand = {
