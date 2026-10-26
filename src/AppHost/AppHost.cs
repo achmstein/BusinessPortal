@@ -88,6 +88,13 @@ if (builder.ExecutionContext.IsPublishMode)
     var renewtronSyncFrom = builder.AddParameter("renewtron-sync-from");
     server.WithEnvironment("Renewtron__ApiKey", renewtronPartnerKey)
         .WithEnvironment("Renewtron__SyncFrom", renewtronSyncFrom);
+
+    // The first admin, created on first start if missing (never a default — see the
+    // initialiser). Changing these later doesn't change an existing admin's password.
+    var adminEmail = builder.AddParameter("seed-admin-email");
+    var adminPassword = builder.AddParameter("seed-admin-password", secret: true);
+    server.WithEnvironment("SeedAdmin__Email", adminEmail)
+        .WithEnvironment("SeedAdmin__Password", adminPassword);
 }
 
 if (builder.ExecutionContext.IsRunMode)

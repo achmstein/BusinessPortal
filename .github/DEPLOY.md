@@ -39,6 +39,7 @@ redeploys, take effect immediately (no restart), and are not passed through CI.
 | `SERVER_USER`                | `ubuntu`                         |
 | `BUSINESSPORTAL_REMOTE_DIR`  | `/home/ubuntu/business-portal`   |
 | `BUSINESSPORTAL_PUBLIC_HOST` | `myportal.idealbusiness.au`      |
+| `BUSINESSPORTAL_ADMIN_EMAIL` | `you@example.com.au`             |
 
 ### Secrets
 
@@ -46,6 +47,11 @@ redeploys, take effect immediately (no restart), and are not passed through CI.
 | -------------------------- | ----------------------------------------------- |
 | `DEPLOY_SSH_KEY`           | Private half of the deploy keypair              |
 | `POSTGRES_PASSWORD`        | Postgres password (stable across deploys)       |
+| `BUSINESSPORTAL_ADMIN_PASSWORD` | The first admin's password                 |
+
+The admin is created on first start only if both the email and password are set, and
+only if no user with that email exists — there is no default login. Changing these
+later doesn't change an existing admin's password; do that from the app.
 
 Formerly-required `ONTRAPORT_WEBHOOK_SECRET` / `ONTRAPORT_RENEWAL_SECRET` are gone —
 enter them in Admin → Settings instead.

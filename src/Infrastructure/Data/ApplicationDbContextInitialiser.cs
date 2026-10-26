@@ -53,14 +53,21 @@ public class ApplicationDbContextInitialiser(
     }
 
     /// <summary>Seed the Admin role + admin account from <c>SeedAdmin:Email/Password</c>
-    /// config. Idempotent — safe to run every startup.</summary>
+    /// config. There is no fallback: locally it comes from appsettings.Development.json,
+    /// in production from deploy secrets, and without one no admin is created — a known
+    /// default would be a public login. Idempotent — safe to run every startup.</summary>
     private async Task TrySeedAsync()
     {
         if (!await roleManager.RoleExistsAsync(Roles.Admin))
             await roleManager.CreateAsync(new IdentityRole(Roles.Admin));
 
-        var email = configuration["SeedAdmin:Email"] ?? "admin@businessportal.local";
-        var password = configuration["SeedAdmin:Password"] ?? "Admin!23456";
+        var email = configuration["SeedAdmin:Email"];
+        var password = configuration["SeedAdmin:Password"];
+        if (string.IsNullOrWhiteSpace(email) || string.IsNullOrWhiteSpace(password))
+        {
+            logger.LogWarning("No admin seeded: set SeedAdmin:Email and SeedAdmin:Password.");
+            return;
+        }
 
         var admin = await userManager.FindByEmailAsync(email);
         if (admin is null)

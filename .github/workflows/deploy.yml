@@ -92,6 +92,8 @@ jobs:
           SIGN_IN_LINK_SIGNING_KEY=${{ secrets.SIGN_IN_LINK_SIGNING_KEY }}
           RENEWTRON_PARTNER_API_KEY=${{ secrets.RENEWTRON_PARTNER_API_KEY }}
           RENEWTRON_SYNC_FROM=${{ vars.RENEWTRON_SYNC_FROM }}
+          SEED_ADMIN_EMAIL=${{ vars.BUSINESSPORTAL_ADMIN_EMAIL }}
+          SEED_ADMIN_PASSWORD=${{ secrets.BUSINESSPORTAL_ADMIN_PASSWORD }}
           EOF
 
       - uses: actions/upload-artifact@v4
